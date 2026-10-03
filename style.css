@@ -212,6 +212,7 @@ body { flex-direction: row; }
 .sidenav .rules li::before {
   content: "🐾"; position: absolute; left: 0; top: .37rem;
   font-size: .85rem;
+  filter: brightness(0) invert(1);
 }
 .sidenav .tabs { flex-direction: column; justify-content: flex-start; margin: 0; flex-wrap: nowrap; }
 .sidenav .tab { text-align: left; border-radius: 12px; background: #231f38; }
