@@ -194,15 +194,6 @@ function buildBoard() {
       const el = document.createElement("div");
       el.className = "cell";
       el.style.background = PALETTE[regions[r][c] % PALETTE.length];
-      // Borda grossa apenas onde o vizinho pertence a outra região
-      const thick = (dr, dc) => {
-        const a = r + dr, b = c + dc;
-        return a < 0 || b < 0 || a >= N || b >= N || regions[a][b] !== regions[r][c];
-      };
-      el.style.borderTopWidth = thick(-1, 0) ? "3px" : "1px";
-      el.style.borderBottomWidth = thick(1, 0) ? "3px" : "1px";
-      el.style.borderLeftWidth = thick(0, -1) ? "3px" : "1px";
-      el.style.borderRightWidth = thick(0, 1) ? "3px" : "1px";
 
       el.dataset.r = r; el.dataset.c = c;
       let timer = null;
