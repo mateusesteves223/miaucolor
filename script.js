@@ -263,9 +263,21 @@ const endDrag = () => { drag = null; dragStart = null; };
 window.addEventListener("pointerup", endDrag);
 window.addEventListener("pointercancel", endDrag);
 
+/* Modo dev: ✕ na linha, coluna e vizinhança (inclusive diagonais) do gato */
+function autoCross(r, c) {
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const near = Math.abs(i - r) <= 1 && Math.abs(j - c) <= 1;
+    if ((i === r || j === c || near) && marks[i][j] === 0) {
+      marks[i][j] = 1;
+      updateCell(i, j);
+    }
+  }
+}
+
 function tryCat(r, c) {
   if (solution[r] === c) {
     marks[r][c] = 2;
+    if (devMode && autoXEl.checked) autoCross(r, c);
     updateCell(r, c);
     updateStatus();
     if (marks.flat().filter(m => m === 2).length === N) win();
@@ -358,10 +370,13 @@ function showSolution() {
 }
 
 const devEl = document.getElementById("dev");
+const autoXEl = document.getElementById("auto-x");
+const autoXWrap = document.getElementById("auto-x-wrap");
 const findCatBtn = document.getElementById("find-cat");
 devEl.addEventListener("change", () => {
   devMode = devEl.checked;
   findCatBtn.hidden = !devMode;
+  autoXWrap.hidden = !devMode;
 });
 findCatBtn.addEventListener("click", () => {
   if (over) return;
