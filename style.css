@@ -281,3 +281,5 @@ body.compact .stage { flex: 1 1 0; width: 100%; }
 body.compact .doc { padding: 1rem; }
 body.compact .doc nav ul { columns: 1; }.menu-drop .controls select, .menu-drop .controls button { background: #231f38; border: 1px solid #443f66; }
 .menu-drop .controls button:hover { background: #3a3560; }
+
+#board { touch-action: none; user-select: none; -webkit-user-select: none; }

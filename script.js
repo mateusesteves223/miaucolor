@@ -204,6 +204,7 @@ function buildBoard() {
       el.style.borderLeftWidth = thick(0, -1) ? "3px" : "1px";
       el.style.borderRightWidth = thick(0, 1) ? "3px" : "1px";
 
+      el.dataset.r = r; el.dataset.c = c;
       let timer = null;
       el.addEventListener("click", () => {
         if (over || marks[r][c] === 2) return;
@@ -223,6 +224,52 @@ function buildBoard() {
     }
   }
 }
+
+/* Clique e arraste: o primeiro quadrado define se o gesto pinta ✕ ou apaga ✕ */
+let drag = null;     // { mode: 1 | 0 } enquanto o ponteiro está pressionado
+let dragStart = null;
+let dragged = false;
+
+function cellAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const cell = el && el.closest ? el.closest(".cell") : null;
+  return cell && boardEl.contains(cell) ? cell : null;
+}
+
+function dragApply(cell) {
+  const r = +cell.dataset.r, c = +cell.dataset.c;
+  const m = marks[r][c];
+  if (m === 2 || m === drag.mode) return;
+  marks[r][c] = drag.mode;
+  updateCell(r, c);
+}
+
+boardEl.addEventListener("pointerdown", e => {
+  dragged = false;
+  if (over || e.button !== 0) return;
+  const cell = cellAt(e.clientX, e.clientY);
+  if (!cell) return;
+  const m = marks[+cell.dataset.r][+cell.dataset.c];
+  if (m === 2) return;
+  dragStart = cell;
+  drag = { mode: m === 1 ? 0 : 1 };
+});
+
+boardEl.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const cell = cellAt(e.clientX, e.clientY);
+  if (!cell) return;
+  if (!dragged) {
+    if (cell === dragStart) return;
+    dragged = true;
+    dragApply(dragStart);
+  }
+  dragApply(cell);
+});
+
+const endDrag = () => { drag = null; dragStart = null; };
+window.addEventListener("pointerup", endDrag);
+window.addEventListener("pointercancel", endDrag);
 
 function tryCat(r, c) {
   if (solution[r] === c) {

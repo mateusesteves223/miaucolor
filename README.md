@@ -1,4 +1,4 @@
-# Miaudoku
+﻿# Miaudoku
 
 Um puzzle de lógica com gatos, regiões coloridas e níveis gerados proceduralmente.
 
@@ -13,6 +13,7 @@ O objetivo é encontrar e posicionar um gato em cada:
 Além disso, gatos não podem se encostar, nem mesmo na diagonal.
 
 - **Clique** em uma célula para alternar uma marcação ✕.
+- **Clicar e arrastar** para marcar (ou apagar) vários ✕ de uma vez; o primeiro quadrado define se o gesto marca ou apaga.
 - **Duplo clique** para tentar colocar um gato.
 - Acertar fixa o gato naquela célula. Errar custa uma vida; o jogo começa com três.
 - Ao perder, é possível tentar novamente o mesmo nível.
