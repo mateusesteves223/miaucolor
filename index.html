@@ -48,11 +48,14 @@
       <div id="status"></div>
       <p class="hint">Clique: marca ✕<br>Arrastar: marca/apaga vários ✕<br>Duplo clique: coloca 🐱</p>
       <div class="reveal-wrap"><button id="reveal" class="link-btn">Revelar solução</button>
-        <div class="dev-wrap">
-          <label class="dev-toggle"><input type="checkbox" id="dev"> Modo Dev</label>
-          <label class="dev-toggle" id="auto-x-wrap" hidden><input type="checkbox" id="auto-x" checked> Auto ✕ ao achar gato</label>
-          <label class="dev-toggle" id="auto-color-wrap" hidden><input type="checkbox" id="auto-color" checked> Auto ✕ na cor do gato</label>
-          <button id="find-cat" class="link-btn" hidden>🔎 Achar um gato</button>
+        <div class="dev-card">
+          <label class="dev-head"><span>🛠️ Modo Dev</span><input type="checkbox" id="dev" class="switch" aria-label="Modo Dev"></label>
+          <div class="dev-body">
+            <p class="dev-note" id="dev-note" hidden>♾️ Vidas infinitas</p>
+            <label class="dev-opt" id="auto-x-wrap" hidden><span>✕ ao redor do gato</span><input type="checkbox" id="auto-x" class="switch" checked></label>
+            <label class="dev-opt" id="auto-color-wrap" hidden><span>✕ na cor do gato</span><input type="checkbox" id="auto-color" class="switch" checked></label>
+            <button id="find-cat" class="dev-btn" hidden>🔎 Achar um gato</button>
+          </div>
         </div>
       </div>
       </aside>

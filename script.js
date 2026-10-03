@@ -391,6 +391,7 @@ devEl.addEventListener("change", () => {
   devMode = devEl.checked;
   findCatBtn.hidden = !devMode;
   autoXWrap.hidden = !devMode;
+  document.getElementById("dev-note").hidden = !devMode;
   autoColorWrap.hidden = !devMode;
 });
 findCatBtn.addEventListener("click", () => {
