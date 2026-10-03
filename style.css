@@ -101,7 +101,7 @@ main { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
   width: 100%;
   height: .18em;
   border-radius: 999px;
-  background: #d4d2dc;
+  background: #f4f2f7;
 }
 .sym.x::before { transform: translateY(-50%) rotate(45deg); }
 .sym.x::after { transform: translateY(-50%) rotate(-45deg); }
