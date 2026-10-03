@@ -330,4 +330,37 @@ document.querySelectorAll(".tab").forEach(btn =>
       p.classList.toggle("active", p.id === btn.dataset.target));
   }));
 
+/* Menu compacto: em telas pequenas, abas, controles e regras vão para um menu suspenso */
+const compactMq = matchMedia("(max-width: 700px), (max-height: 520px)");
+const menuBtn = document.getElementById("menu-btn");
+const menuDrop = document.getElementById("menu-drop");
+const menuItems = [".tabs", ".controls", ".rules", ".hint", ".reveal-wrap"].map(sel => {
+  const el = document.querySelector(sel);
+  const home = document.createComment(sel);   // marca o lugar original
+  el.before(home);
+  return { el, home };
+});
+
+function setMenu(open) {
+  menuDrop.classList.toggle("open", open);
+  menuBtn.setAttribute("aria-expanded", open);
+}
+
+function applyLayout() {
+  document.body.classList.toggle("compact", compactMq.matches);
+  for (const { el, home } of menuItems) {
+    if (compactMq.matches) menuDrop.appendChild(el);
+    else home.after(el);
+  }
+  setMenu(false);
+}
+
+menuBtn.addEventListener("click", () => setMenu(!menuDrop.classList.contains("open")));
+menuDrop.addEventListener("click", e => { if (e.target.closest("button")) setMenu(false); });
+document.addEventListener("click", e => {
+  if (!menuDrop.contains(e.target) && !menuBtn.contains(e.target)) setMenu(false);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") setMenu(false); });
+compactMq.addEventListener("change", applyLayout);
+applyLayout();
 newGame();
