@@ -10,7 +10,7 @@
 
 const PALETTE = [
   "#b9d3e4", "#a577e0", "#ffbb77", "#fccd3c", "#b6dc78",
-  "#4a85c9", "#2ec4b3", "#fbbcd8", "#c98048", "#f48a89",
+  "#4a85c9", "#2ec4b3", "#fbbcd8", "#c98048", "#ea7070",
     "#8ed6f5", "#e0689a",
   ];
 const SYMBOLS = ["", "✕", "🐱"];
