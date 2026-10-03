@@ -47,7 +47,12 @@
       <div id="lives" class="lives" aria-label="Vidas"></div>
       <div id="status"></div>
       <p class="hint">Clique: marca ✕<br>Arrastar: marca/apaga vários ✕<br>Duplo clique: coloca 🐱</p>
-      <div class="reveal-wrap"><button id="reveal" class="link-btn">Revelar solução</button></div>
+      <div class="reveal-wrap"><button id="reveal" class="link-btn">Revelar solução</button>
+        <div class="dev-wrap">
+          <label class="dev-toggle"><input type="checkbox" id="dev"> Modo Dev</label>
+          <button id="find-cat" class="link-btn" hidden>🔎 Achar um gato</button>
+        </div>
+      </div>
       </aside>
       <div class="stage"><div id="board" aria-label="Tabuleiro"></div></div>
       <div id="modal" class="modal" role="dialog" aria-modal="true"></div>

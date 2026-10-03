@@ -153,6 +153,7 @@ let lives = MAX_LIVES;
 let lost = false;               // perdeu: só pode repetir o mesmo nível
 let over = false;                 // fim de jogo (vitória, derrota ou revelação)
 let cells = [];
+let devMode = false;
 
 const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
@@ -164,7 +165,7 @@ function updateCell(r, c) {
   const m = marks[r][c];
   el.dataset.mark = m;
   el.classList.toggle("has-cat", m === 2);
-  el.innerHTML = m === 1 ? '<span class="sym x" aria-hidden="true"></span>'
+  el.innerHTML = m === 1 || m === 3 ? '<span class="sym x' + (m === 3 ? ' wrong' : '') + '" aria-hidden="true"></span>'
                : m === 2 ? '<span class="sym cat">🐱</span>' : "";
 }
 
@@ -198,7 +199,7 @@ function buildBoard() {
       el.dataset.r = r; el.dataset.c = c;
       let timer = null;
       el.addEventListener("click", () => {
-        if (over || marks[r][c] === 2) return;
+        if (dragged || over || marks[r][c] >= 2) return;
         clearTimeout(timer);
         timer = setTimeout(() => {
           marks[r][c] = marks[r][c] === 1 ? 0 : 1;
@@ -207,7 +208,7 @@ function buildBoard() {
       });
       el.addEventListener("dblclick", () => {
         clearTimeout(timer);
-        if (over || marks[r][c] === 2) return;
+        if (dragged || over || marks[r][c] >= 2) return;
         tryCat(r, c);
       });
       cells[r][c] = el;
@@ -230,7 +231,7 @@ function cellAt(x, y) {
 function dragApply(cell) {
   const r = +cell.dataset.r, c = +cell.dataset.c;
   const m = marks[r][c];
-  if (m === 2 || m === drag.mode) return;
+  if (m >= 2 || m === drag.mode) return;
   marks[r][c] = drag.mode;
   updateCell(r, c);
 }
@@ -241,7 +242,7 @@ boardEl.addEventListener("pointerdown", e => {
   const cell = cellAt(e.clientX, e.clientY);
   if (!cell) return;
   const m = marks[+cell.dataset.r][+cell.dataset.c];
-  if (m === 2) return;
+  if (m >= 2) return;
   dragStart = cell;
   drag = { mode: m === 1 ? 0 : 1 };
 });
@@ -270,11 +271,12 @@ function tryCat(r, c) {
     if (marks.flat().filter(m => m === 2).length === N) win();
     return;
   }
-  lives--;
-  marks[r][c] = 0;
+  marks[r][c] = 3;                 // erro: ✕ vinho fixo
   updateCell(r, c);
-  renderLives();
   shake(cells[r][c]);
+  if (devMode) return;             // modo dev: vidas infinitas
+  lives--;
+  renderLives();
   if (lives <= 0) gameOver();
 }
 
@@ -354,6 +356,20 @@ function showSolution() {
   updateStatus();
   statusEl.textContent = "Solução revelada";
 }
+
+const devEl = document.getElementById("dev");
+const findCatBtn = document.getElementById("find-cat");
+devEl.addEventListener("change", () => {
+  devMode = devEl.checked;
+  findCatBtn.hidden = !devMode;
+});
+findCatBtn.addEventListener("click", () => {
+  if (over) return;
+  const left = solution.map((c, r) => [r, c]).filter(([r, c]) => marks[r][c] !== 2);
+  if (!left.length) return;
+  const [r, c] = left[Math.floor(Math.random() * left.length)];
+  tryCat(r, c);
+});
 
 document.getElementById("new").addEventListener("click", newGame);
 document.getElementById("clear").addEventListener("click", clearBoard);
