@@ -407,6 +407,124 @@ document.getElementById("clear").addEventListener("click", clearBoard);
 document.getElementById("reveal").addEventListener("click", showSolution);
 document.getElementById("size").addEventListener("change", newGame);
 
+
+/* =====================================================================
+ * 6) RESOLVE NÍVEL: o usuário pinta um mapa existente e o backtracking
+ * (uma coluna, uma região e nenhum gato encostado por linha) mostra os gatos.
+ * ===================================================================== */
+const sBoard = document.getElementById("sboard");
+const sSizeEl = document.getElementById("s-size");
+const sStatus = document.getElementById("s-status");
+const sSolveBtn = document.getElementById("s-solve");
+const paletteEl = document.getElementById("palette");
+let sN = 7, sGrid = [], sCells = [], sColor = 0, sPaint = false;
+sSizeEl.value = sN;
+
+function findSolutions(n, reg, limit = 2) {
+  const cols = Array(n).fill(-1), usedCols = new Set(), usedRegs = new Set();
+  let count = 0, first = null;
+  (function go(row) {
+    if (count >= limit) return;
+    if (row === n) { if (!count) first = cols.slice(); count++; return; }
+    for (let c = 0; c < n; c++) {
+      const g = reg[row][c];
+      if (usedCols.has(c) || usedRegs.has(g)) continue;
+      if (row > 0 && Math.abs(cols[row - 1] - c) <= 1) continue;
+      cols[row] = c; usedCols.add(c); usedRegs.add(g);
+      go(row + 1);
+      usedCols.delete(c); usedRegs.delete(g); cols[row] = -1;
+    }
+  })(0);
+  return { count, first };
+}
+
+function buildPalette() {
+  paletteEl.innerHTML = "";
+  for (let i = 0; i < sN; i++) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "swatch" + (i === sColor ? " active" : "");
+    b.style.background = PALETTE[i]; b.setAttribute("aria-label", "Cor " + (i + 1));
+    b.addEventListener("click", () => {
+      sColor = i;
+      paletteEl.querySelectorAll(".swatch").forEach((s, k) => s.classList.toggle("active", k === i));
+    });
+    paletteEl.appendChild(b);
+  }
+}
+
+function paintCell(r, c) {
+  if (sGrid[r][c] === sColor) return;
+  clearCats();
+  sGrid[r][c] = sColor;
+  sCells[r][c].style.background = PALETTE[sColor];
+  updateSolverStatus();
+}
+
+function clearCats() {
+  sBoard.querySelectorAll(".sym").forEach(e => e.remove());
+  sBoard.querySelectorAll(".has-cat").forEach(e => e.classList.remove("has-cat"));
+}
+
+function updateSolverStatus() {
+  const total = sN * sN;
+  let painted = 0;
+  const used = new Set();
+  for (const row of sGrid) for (const v of row) if (v >= 0) { painted++; used.add(v); }
+  sSolveBtn.hidden = !(painted === total && used.size === sN);
+  sStatus.className = "s-status";
+  if (painted < total) sStatus.textContent = `Pintadas ${painted}/${total}`;
+  else if (used.size !== sN) { sStatus.textContent = `Use exatamente ${sN} cores (usadas: ${used.size})`; sStatus.classList.add("bad"); }
+  else { sStatus.textContent = "Quadro completo!"; sStatus.classList.add("ok"); }
+}
+
+function buildSolverBoard() {
+  sN = +sSizeEl.value;
+  sColor = Math.min(sColor, sN - 1);
+  sBoard.style.setProperty("--size", sN);
+  sBoard.innerHTML = "";
+  sGrid = matrix(sN, -1);
+  sCells = matrix(sN, null);
+  for (let r = 0; r < sN; r++) for (let c = 0; c < sN; c++) {
+    const el = document.createElement("div");
+    el.className = "cell"; el.dataset.r = r; el.dataset.c = c;
+    sCells[r][c] = el; sBoard.appendChild(el);
+  }
+  buildPalette();
+  updateSolverStatus();
+}
+
+function solveDrawn() {
+  const { count, first } = findSolutions(sN, sGrid);
+  clearCats();
+  if (!count) {
+    sStatus.className = "s-status bad";
+    sStatus.textContent = "Este quadro não tem solução. Confira as cores.";
+    return;
+  }
+  first.forEach((c, r) => {
+    sCells[r][c].classList.add("has-cat");
+    sCells[r][c].insertAdjacentHTML("beforeend", '<span class="sym cat">🐱</span>');
+  });
+  sStatus.className = "s-status ok";
+  sStatus.textContent = count > 1 ? "Há mais de uma solução; mostrando a primeira." : "Solução única encontrada!";
+}
+
+function solverCellAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  return el && el.closest ? el.closest("#sboard .cell") : null;
+}
+function solverPaintAt(x, y) {
+  const el = solverCellAt(x, y);
+  if (el) paintCell(+el.dataset.r, +el.dataset.c);
+}
+sBoard.addEventListener("pointerdown", e => { sPaint = true; solverPaintAt(e.clientX, e.clientY); });
+sBoard.addEventListener("pointermove", e => { if (sPaint) solverPaintAt(e.clientX, e.clientY); });
+window.addEventListener("pointerup", () => { sPaint = false; });
+window.addEventListener("pointercancel", () => { sPaint = false; });
+sSizeEl.addEventListener("change", buildSolverBoard);
+document.getElementById("s-clear").addEventListener("click", buildSolverBoard);
+sSolveBtn.addEventListener("click", solveDrawn);
+buildSolverBoard();
 /* Abas */
 document.querySelectorAll(".tab").forEach(btn =>
   btn.addEventListener("click", () => {

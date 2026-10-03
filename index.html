@@ -22,6 +22,7 @@
 
   <div class="tabs" role="tablist">
     <button class="tab active" data-target="game">O Jogo</button>
+    <button class="tab" data-target="solver">Resolve Nível</button>
     <button class="tab" data-target="help">Guia Help</button>
     <button class="tab" data-target="wiki">Documentação Algorítmica</button>
   </div>
@@ -61,6 +62,27 @@
       </aside>
       <div class="stage"><div id="board" aria-label="Tabuleiro"></div></div>
       <div id="modal" class="modal" role="dialog" aria-modal="true"></div>
+    </section>
+
+    <!-- ===== ABA: RESOLVE NÍVEL ===== -->
+    <section id="solver" class="panel">
+      <aside class="sidebar">
+        <div class="controls">
+          <label>Tamanho:
+            <select id="s-size">
+              <option>5</option><option>6</option><option>7</option>
+              <option>8</option><option>9</option><option>10</option>
+            </select>
+          </label>
+          <button id="s-clear">Limpar</button>
+        </div>
+        <div class="palette-title">Paleta</div>
+        <div id="palette" class="palette" role="radiogroup" aria-label="Paleta de cores"></div>
+        <div id="s-status" class="s-status"></div>
+        <button id="s-solve" class="solve-btn" hidden>🐱 Resolver nível</button>
+        <p class="hint">Clique ou arraste para pintar o quadro com as cores do seu nível.</p>
+      </aside>
+      <div class="stage"><div id="sboard" aria-label="Quadro para pintar"></div></div>
     </section>
 
     <!-- ===== ABA 2: GUIA HELP ===== -->
