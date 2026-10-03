@@ -61,7 +61,7 @@ main { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
   padding: var(--gap);
   box-sizing: border-box;
   background: #14121f;
-  border-radius: 10px;
+  border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0,0,0,.45);
   container-type: inline-size;
@@ -75,7 +75,7 @@ main { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
   overflow: hidden;
   box-sizing: border-box;
   cursor: pointer; user-select: none;
-  border-radius: calc(100cqw / var(--size) * .1);
+  border-radius: calc(100cqw / var(--size) * .045);
   color: #222;
   line-height: 1;
   transition: filter .15s, transform .15s;
