@@ -329,7 +329,7 @@ function showModal(emoji, title, text, label, action) {
 function win() {
   lockBoard();
   statusEl.textContent = "🎉 Todos os gatos estão em paz!";
-  setTimeout(() => showModal("🏆", "Parabéns!", "Você resolveu o Miaudoku!", "Jogar novamente", newGame), 500);
+  setTimeout(() => showModal("🏆", "Parabéns!", "Você resolveu o MiauColor!", "Jogar novamente", newGame), 500);
 }
 
 function gameOver() {
