@@ -3,14 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Meowdoku</title>
+  <title>MiauColor</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <nav class="sidenav">
   <header>
-    <h1>🐱 Meowdoku</h1>
-    <p>Um gato por linha, coluna e região — e nenhum encostado em outro.</p>
+    <h1>🐱 MiauColor</h1>
+    <ul class="rules">
+      <li>Um gato por cor</li>
+      <li>Um gato por linha e coluna</li>
+      <li>Os gatos não podem se encostar</li>
+    </ul>
   </header>
 
   <div class="tabs" role="tablist">
@@ -47,8 +51,87 @@
     <!-- ===== ABA 2: GUIA HELP ===== -->
     <section id="help" class="panel">
       <article class="doc">
-        <h2>Guia Help</h2>
-        <p>🚧 Em breve: dicas e estratégias para o jogador serão adicionadas aqui.</p>
+        <h2>Guia de estratégias</h2>
+        <p class="guide-intro">Use as regras para eliminar possibilidades. Marque ✕ quando tiver certeza de que uma célula não pode receber gato; guarde seus palpites para quando a lógica não avançar.</p>
+
+        <div class="strategy-grid">
+          <section class="strategy-card">
+            <span class="strategy-number">01 · DEDUÇÃO</span>
+            <h3>Procure uma cor com poucas opções</h3>
+            <p>Uma região precisa receber exatamente um gato. Se só restar uma célula possível naquela cor, ela é obrigatória. Se restarem duas, mantenha as duas possibilidades até outra regra eliminar uma.</p>
+            <figure class="example">
+              <figcaption>Exemplo: a região azul só pode usar uma destas casas.</figcaption>
+              <div class="mini-board two-options" role="img" aria-label="Duas células candidatas na região azul">
+                <span class="candidate blue"></span><span></span><span class="candidate blue"></span><span></span>
+              </div>
+              <div class="legend"><span><i class="legend-dot blue"></i> Região azul: 2 candidatas</span></div>
+            </figure>
+          </section>
+
+          <section class="strategy-card">
+            <span class="strategy-number">02 · BLOQUEIO</span>
+            <h3>Cor presa em uma linha ou coluna</h3>
+            <p>Se todas as posições possíveis de uma cor estão na mesma linha, essa linha já terá seu gato naquela região. Elimine com ✕ as outras cores nas demais casas da linha. A mesma lógica vale para uma coluna.</p>
+            <figure class="example">
+              <figcaption>A região azul só cabe na linha destacada; as outras casas da linha ficam bloqueadas.</figcaption>
+              <div class="mini-board four-cells" role="img" aria-label="Candidatas da região azul e casas bloqueadas na mesma linha">
+                <span class="candidate blue"></span><span class="candidate blue"></span><span class="eliminated">✕</span><span class="eliminated">✕</span>
+              </div>
+              <div class="legend"><span><i class="legend-dot blue"></i> Candidatas azuis</span><span><i class="legend-cross">✕</i> Outras cores eliminadas</span></div>
+            </figure>
+          </section>
+
+          <section class="strategy-card">
+            <span class="strategy-number">03 · PARES</span>
+            <h3>Duas cores reservam duas linhas</h3>
+            <p>Se duas cores só podem aparecer em duas mesmas linhas, elas ocuparão essas duas linhas — uma em cada. Nenhuma outra cor pode ficar nelas. Marque ✕ nas demais candidatas dessas linhas.</p>
+            <figure class="example">
+              <figcaption>As regiões azul e dourada estão restritas às linhas A e B.</figcaption>
+              <div class="pair-demo" role="img" aria-label="Duas linhas reservadas às regiões azul e dourada; candidatas de outras cores eliminadas">
+                <span class="row-label">A</span><span class="candidate blue">A</span><span class="candidate gold">B</span><span class="eliminated">✕</span><span class="eliminated">✕</span>
+                <span class="row-label">B</span><span class="candidate blue">A</span><span class="candidate gold">B</span><span class="eliminated">✕</span><span class="eliminated">✕</span>
+              </div>
+              <div class="legend"><span><i class="legend-dot blue"></i> Azul</span><span><i class="legend-dot gold"></i> Dourada</span><span><i class="legend-cross">✕</i> Outras cores</span></div>
+            </figure>
+          </section>
+
+          <section class="strategy-card">
+            <span class="strategy-number">04 · INTERSEÇÃO</span>
+            <h3>Região alinhada com uma linha</h3>
+            <p>O raciocínio também funciona ao contrário: se, dentro de uma região, as candidatas estão todas na mesma linha ou coluna, essa linha ou coluna não pode receber outro gato daquela região fora dela.</p>
+            <figure class="example">
+              <figcaption>As duas candidatas da região verde estão na linha; a candidata fora dela é impossível.</figcaption>
+              <div class="mini-board four-cells" role="img" aria-label="Duas candidatas verdes na mesma linha e uma candidata eliminada fora da região">
+                <span class="candidate green"></span><span class="candidate green"></span><span></span><span class="eliminated">✕</span>
+              </div>
+              <div class="legend"><span><i class="legend-dot green"></i> Região verde alinhada</span><span><i class="legend-cross">✕</i> Eliminada pela interseção</span></div>
+            </figure>
+          </section>
+
+          <section class="strategy-card">
+            <span class="strategy-number">05 · VIZINHANÇA</span>
+            <h3>Use o espaço ao redor de um gato</h3>
+            <p>Depois de confirmar um gato, elimine as casas da mesma linha, coluna e cor. Também elimine as casas vizinhas, inclusive diagonais. Assim os gatos não se encostam.</p>
+            <figure class="example">
+              <figcaption>Um gato bloqueia as casas ao redor (incluindo diagonais).</figcaption>
+              <div class="mini-board neighborhood" role="img" aria-label="Gato no centro e casas vizinhas bloqueadas">
+                <span class="blocked">×</span><span class="blocked">×</span><span class="blocked">×</span>
+                <span class="blocked">×</span><span class="cat-cell">🐱</span><span class="blocked">×</span>
+                <span class="blocked">×</span><span class="blocked">×</span><span class="blocked">×</span>
+              </div>
+              <div class="legend"><span><i class="legend-cross">×</i> Casas que não podem receber outro gato</span></div>
+            </figure>
+          </section>
+
+          <section class="strategy-card probability-card">
+            <span class="strategy-number">06 · ESCOLHA</span>
+            <h3>Se travar, priorize a região mais limitada</h3>
+            <p>Conte as candidatas que ainda restam para cada cor. Tente deduzir primeiro a cor com menos opções: cada exclusão afeta linhas, colunas, regiões e vizinhanças. Isso é uma heurística, não uma garantia de que uma casa isolada seja mais provável.</p>
+            <div class="guide-note"><strong>Importante:</strong> não escolha só pela aparência ou por “chance”. As candidatas não têm necessariamente probabilidades iguais; prefira uma dedução que respeite todas as regras.</div>
+          </section>
+        </div>
+
+        <div class="guide-note guide-summary"><strong>Ordem prática:</strong> confira as regras de cada gato confirmado → procure cores com uma única opção → procure linhas ou colunas com uma única opção → aplique bloqueios, pares e interseções → só então avalie uma tentativa.</div>
       </article>
     </section>
 
@@ -56,7 +139,7 @@
     <section id="wiki" class="panel">
       <article class="doc">
         <h2>Documentação Algorítmica</h2>
-        <p>Este artigo explica, passo a passo, como o Meowdoku gera tabuleiros infinitos e válidos. O código correspondente está em <code>script.js</code>.</p>
+        <p>Este artigo explica, passo a passo, como o Miaudoku gera tabuleiros infinitos e válidos. O código correspondente está em <code>script.js</code>.</p>
 
         <nav>
           <strong>Sumário</strong>
@@ -137,7 +220,7 @@
         </table>
 
         <h4>5.3 Modelando uma matriz 2D como um grafo</h4>
-        <p>O tabuleiro do Meowdoku é um <strong>grafo-grade (grid graph)</strong>:</p>
+        <p>O tabuleiro do Miaudoku é um <strong>grafo-grade (grid graph)</strong>:</p>
         <ul>
           <li>cada <strong>célula</strong> <code>(r, c)</code> é um <strong>vértice</strong>;</li>
           <li>há uma <strong>aresta</strong> entre células <strong>vizinhas</strong>: cima, baixo, esquerda, direita (conectividade-4). Com as diagonais, seria conectividade-8.</li>

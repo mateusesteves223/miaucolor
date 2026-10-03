@@ -164,7 +164,7 @@ function updateCell(r, c) {
   const m = marks[r][c];
   el.dataset.mark = m;
   el.classList.toggle("has-cat", m === 2);
-  el.innerHTML = m === 1 ? '<span class="sym x">✕</span>'
+  el.innerHTML = m === 1 ? '<span class="sym x" aria-hidden="true"></span>'
                : m === 2 ? '<span class="sym cat">🐱</span>' : "";
 }
 
@@ -264,7 +264,7 @@ function showModal(emoji, title, text, label, action) {
 function win() {
   lockBoard();
   statusEl.textContent = "🎉 Todos os gatos estão em paz!";
-  setTimeout(() => showModal("🏆", "Parabéns!", "Você resolveu o Meowdoku!", "Jogar novamente", newGame), 500);
+  setTimeout(() => showModal("🏆", "Parabéns!", "Você resolveu o Miaudoku!", "Jogar novamente", newGame), 500);
 }
 
 function gameOver() {
