@@ -1,0 +1,202 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meowdoku</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="sidenav">
+  <header>
+    <h1>🐱 Meowdoku</h1>
+    <p>Um gato por linha, coluna e região — e nenhum encostado em outro.</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-target="game">O Jogo</button>
+    <button class="tab" data-target="help">Guia Help</button>
+    <button class="tab" data-target="wiki">Documentação Algorítmica</button>
+  </div>
+
+  </nav>
+
+  <main>
+    <!-- ===== ABA 1: JOGO ===== -->
+    <section id="game" class="panel active">
+      <aside class="sidebar">
+      <div class="controls">
+        <label>Tamanho:
+          <select id="size">
+            <option>5</option><option>6</option><option selected>7</option>
+            <option>8</option><option>9</option><option>10</option>
+          </select>
+        </label>
+        <button id="new">Novo jogo</button>
+        <button id="clear">Limpar</button>
+      </div>
+      <div id="lives" class="lives" aria-label="Vidas"></div>
+      <div id="status"></div>
+      <p class="hint">Clique: marca ✕<br>Duplo clique: coloca 🐱</p>
+      <div class="reveal-wrap"><button id="reveal" class="link-btn">Revelar solução</button></div>
+      </aside>
+      <div class="stage"><div id="board" aria-label="Tabuleiro"></div></div>
+      <div id="modal" class="modal" role="dialog" aria-modal="true"></div>
+    </section>
+
+    <!-- ===== ABA 2: GUIA HELP ===== -->
+    <section id="help" class="panel">
+      <article class="doc">
+        <h2>Guia Help</h2>
+        <p>🚧 Em breve: dicas e estratégias para o jogador serão adicionadas aqui.</p>
+      </article>
+    </section>
+
+    <!-- ===== ABA 3: WIKI ===== -->
+    <section id="wiki" class="panel">
+      <article class="doc">
+        <h2>Documentação Algorítmica</h2>
+        <p>Este artigo explica, passo a passo, como o Meowdoku gera tabuleiros infinitos e válidos. O código correspondente está em <code>script.js</code>.</p>
+
+        <nav>
+          <strong>Sumário</strong>
+          <ul>
+            <li><a href="#w-problema">1. O problema</a></li>
+            <li><a href="#w-backtracking">2. Backtracking</a></li>
+            <li><a href="#w-regioes">3. Geração das regiões</a></li>
+            <li><a href="#w-unicidade">4. Solução única</a></li>
+            <li><a href="#w-grafos">5. Grafos</a></li>
+            <li><a href="#w-estudo">6. Como estudar grafos</a></li>
+          </ul>
+        </nav>
+
+        <h3 id="w-problema">1. O problema</h3>
+        <p>Dado um tabuleiro <em>N × N</em> dividido em <em>N</em> regiões coloridas conexas, devemos colocar exatamente <em>N</em> gatos tais que:</p>
+        <ul>
+          <li>há exatamente um gato em cada <strong>linha</strong>;</li>
+          <li>há exatamente um gato em cada <strong>coluna</strong>;</li>
+          <li>há exatamente um gato em cada <strong>região</strong>;</li>
+          <li>dois gatos <strong>nunca se tocam</strong>, nem na diagonal (vizinhança de 8 direções).</li>
+        </ul>
+        <p>Isso é uma instância do <strong>Problema da Cobertura Exata (Exact Cover)</strong>: temos um conjunto de "restrições" (linha 0, linha 1, ..., coluna 0, ..., região 0, ...) e cada posição candidata <code>(r, c)</code> cobre três restrições ao mesmo tempo (sua linha, sua coluna e sua região). Queremos escolher posições de modo que <em>cada restrição seja coberta exatamente uma vez</em>. A restrição de não-adjacência é uma regra extra de exclusão entre candidatas.</p>
+        <p>O algoritmo clássico para Cobertura Exata é o <strong>Algoritmo X de Knuth</strong>, implementado com <em>Dancing Links</em> (listas duplamente encadeadas circulares que permitem remover e restaurar colunas em O(1)). Para tabuleiros tão pequenos (N ≤ 10), um backtracking direto, especializado, é mais simples e mais que suficiente.</p>
+
+        <h3 id="w-backtracking">2. Backtracking: posicionando os gatos</h3>
+        <h4>A ideia</h4>
+        <p>Backtracking é uma busca em profundidade sobre o <em>espaço de decisões</em>. Construímos a solução aos poucos; se uma escolha parcial leva a um beco sem saída, <strong>desfazemos</strong> a última decisão e tentamos outra.</p>
+        <h4>Como foi montado</h4>
+        <p>Em vez de testar todas as <em>N²</em> células, usamos a restrição "um gato por linha" para <em>embutir</em> a regra na estrutura: a recursão decide <strong>a coluna do gato de cada linha</strong>, uma linha por nível. O estado é só um vetor <code>cols[row]</code>. Assim, "uma por linha" é garantido por construção, e só verificamos:</p>
+        <ol>
+          <li><strong>Coluna livre:</strong> um <code>Set</code> (<code>usedCols</code>) com as colunas já usadas — teste O(1).</li>
+          <li><strong>Sem toque:</strong> como a linha anterior é a única que pode ser vizinha, basta <code>|cols[row-1] − c| &gt; 1</code>. Isso cobre diagonais e a vertical (a vertical já é barrada pela coluna).</li>
+        </ol>
+<pre><code>solve(row):
+  se row == N: retorne verdadeiro            // caso base
+  para cada coluna c (em ordem aleatória):
+      se c usada ou encosta na linha anterior: continue
+      cols[row] = c; marque c                // ESCOLHE
+      se solve(row + 1): retorne verdadeiro  // EXPLORA
+      desmarque c; cols[row] = -1            // DESFAZ (backtrack)
+  retorne falso                              // beco sem saída</code></pre>
+        <p><strong>Aleatoriedade:</strong> embaralhamos a ordem das colunas (Fisher-Yates) a cada nível, assim cada chamada produz uma configuração diferente — origem dos "níveis infinitos".</p>
+        <p><strong>Complexidade:</strong> no pior caso é O(N!) (o número de permutações), porém a poda pela regra de adjacência corta a árvore drasticamente; para N ≤ 10 é instantâneo.</p>
+        <div class="note">Nota: o resultado é uma permutação de colunas. Para N=1 há solução; para N=2 e N=3 não existe nenhuma (por isso o menor tamanho oferecido é 5).</div>
+
+        <h3 id="w-regioes">3. Como as regiões coloridas são criadas</h3>
+        <p>Desenhar regiões primeiro e depois procurar gatos seria difícil: quase nenhum mapa teria solução. Fazemos o <strong>processo inverso</strong>: com os gatos já posicionados, cada gato vira a <em>semente</em> de uma região, que então cresce até cobrir o tabuleiro. A solução existe por construção — cada região contém exatamente o gato que a originou.</p>
+        <h4>O algoritmo (crescimento multi-fonte, estilo Flood Fill / BFS randomizada)</h4>
+        <ol>
+          <li>Crie uma matriz <code>regions</code> preenchida com <code>-1</code> ("livre").</li>
+          <li>Para cada gato na linha <em>r</em>, marque <code>regions[r][col] = r</code> e coloque a célula na <em>fronteira</em> da região <em>r</em>.</li>
+          <li>Enquanto restarem células livres: sorteie uma região; sorteie uma célula da fronteira dela; olhe os 4 vizinhos ortogonais; se algum estiver livre, sorteie um e anexe-o à região (e à fronteira). Se nenhum estiver livre, remova a célula da fronteira.</li>
+        </ol>
+        <p>Um Flood Fill comum pinta <em>uma</em> área a partir de um ponto. Aqui rodamos N preenchimentos <strong>em paralelo e competindo</strong> pelas mesmas células; a escolha aleatória de região e vizinho dá formas orgânicas e irregulares. Como só anexamos células <em>adjacentes</em> a algo já na região, cada região é garantidamente <strong>conexa</strong>. O laço termina porque cada iteração ou pinta uma célula nova ou reduz a fronteira.</p>
+        <p>As cores vêm de uma paleta indexada pelo id da região; as bordas grossas são desenhadas onde o vizinho tem id diferente.</p>
+
+        <h3 id="w-unicidade">4. Garantindo solução única</h3>
+        <p>Um mapa gerado dessa forma pode ter <em>mais de uma</em> solução válida, o que frustra o jogador. Por isso, depois de gerar as regiões, rodamos <code>countSolutions</code>: o mesmo backtracking, agora com a restrição extra de região (<code>usedRegs</code>), que <strong>para ao encontrar 2 soluções</strong>. Se o total for 1, o nível é aceito; senão, geramos outro (até 300 tentativas). Esse é o padrão "gerar e testar".</p>
+
+        <h3 id="w-grafos">5. Grafos</h3>
+        <h4>5.1 O que é um grafo?</h4>
+        <p>Um <strong>grafo</strong> <em>G = (V, E)</em> é formado por um conjunto de <strong>vértices</strong> (ou nós) <em>V</em> e um conjunto de <strong>arestas</strong> <em>E</em>, cada uma ligando dois vértices. Pense em cidades (vértices) e estradas (arestas), pessoas e amizades, páginas web e links.</p>
+        <ul>
+          <li><strong>Não-direcionado</strong>: a aresta vale nos dois sentidos (amizade). <strong>Direcionado</strong>: tem sentido (seguir alguém).</li>
+          <li><strong>Ponderado</strong>: as arestas têm custo (distância). <strong>Não-ponderado</strong>: todas valem o mesmo.</li>
+          <li><strong>Grau</strong> de um vértice: número de arestas incidentes.</li>
+          <li><strong>Caminho</strong>: sequência de vértices ligados por arestas. <strong>Ciclo</strong>: caminho que volta ao início.</li>
+          <li><strong>Conexo</strong>: existe caminho entre quaisquer dois vértices. <strong>Componente conexa</strong>: pedaço máximo conexo.</li>
+          <li><strong>Árvore</strong>: grafo conexo sem ciclos. <strong>DAG</strong>: grafo direcionado acíclico.</li>
+        </ul>
+
+        <h4>5.2 Como representar um grafo no computador</h4>
+        <table>
+          <tr><th>Representação</th><th>Memória</th><th>Aresta (u,v)?</th><th>Vizinhos de u</th><th>Quando usar</th></tr>
+          <tr><td>Matriz de adjacência</td><td>O(V²)</td><td>O(1)</td><td>O(V)</td><td>Grafos densos</td></tr>
+          <tr><td>Lista de adjacência</td><td>O(V+E)</td><td>O(grau)</td><td>O(grau)</td><td>Grafos esparsos (o mais comum)</td></tr>
+          <tr><td>Lista de arestas</td><td>O(E)</td><td>O(E)</td><td>O(E)</td><td>Kruskal, ordenar arestas</td></tr>
+        </table>
+
+        <h4>5.3 Modelando uma matriz 2D como um grafo</h4>
+        <p>O tabuleiro do Meowdoku é um <strong>grafo-grade (grid graph)</strong>:</p>
+        <ul>
+          <li>cada <strong>célula</strong> <code>(r, c)</code> é um <strong>vértice</strong>;</li>
+          <li>há uma <strong>aresta</strong> entre células <strong>vizinhas</strong>: cima, baixo, esquerda, direita (conectividade-4). Com as diagonais, seria conectividade-8.</li>
+        </ul>
+        <p>Note que <strong>não construímos a lista de adjacência</strong>. Ela é <em>implícita</em>: os vizinhos de <code>(r, c)</code> são calculados na hora somando os deslocamentos <code>[[1,0],[-1,0],[0,1],[0,-1]]</code> e descartando o que sai dos limites. Isso economiza memória e é o truque padrão em problemas de grade.</p>
+        <p>Exemplo 3×3 — os vértices e as arestas do centro:</p>
+<pre><code>(0,0)─(0,1)─(0,2)
+  │     │     │
+(1,0)─(1,1)─(1,2)      vizinhos de (1,1): (0,1), (2,1), (1,0), (1,2)
+  │     │     │
+(2,0)─(2,1)─(2,2)      grau: cantos = 2, bordas = 3, centro = 4</code></pre>
+        <p>Uma <strong>região colorida</strong> do jogo é exatamente uma <strong>componente conexa</strong> de um subgrafo: o conjunto de células com o mesmo id, ligadas por vizinhança.</p>
+
+        <h4>5.4 DFS e BFS: percorrendo o grafo</h4>
+        <p>Ambos visitam todos os vértices alcançáveis a partir de uma origem, usando um conjunto <code>visitado</code> para não repetir. Diferem na estrutura que guarda os "próximos":</p>
+        <table>
+          <tr><th></th><th>BFS (largura)</th><th>DFS (profundidade)</th></tr>
+          <tr><td>Estrutura</td><td>Fila (FIFO)</td><td>Pilha (LIFO) ou recursão</td></tr>
+          <tr><td>Ordem</td><td>Por "camadas" de distância</td><td>Vai fundo e depois retrocede</td></tr>
+          <tr><td>Complexidade</td><td colspan="2">O(V + E) ambos</td></tr>
+          <tr><td>Bom para</td><td>Menor caminho sem pesos, distância</td><td>Componentes, ciclos, ordenação topológica, backtracking</td></tr>
+        </table>
+<pre><code>BFS(origem):
+  fila = [origem]; visitado = {origem}
+  enquanto fila não vazia:
+      u = fila.remove_primeiro()
+      para cada vizinho v de u:
+          se v não visitado: marque v; fila.adicione(v)</code></pre>
+        <h4>5.5 Como isso cria as regiões do jogo</h4>
+        <p>Nosso crescimento de regiões é uma <strong>BFS/DFS multi-fonte</strong>: em vez de uma origem, temos N (os gatos). Cada região possui sua própria <em>fronteira</em> (o equivalente da fila/pilha). Se sempre retirássemos o primeiro elemento da fronteira, teríamos BFS pura: regiões em forma de "losangos" crescendo por camadas. Se sempre retirássemos o último, tenderíamos a DFS: regiões compridas e tortuosas. <strong>Sortear</strong> o elemento da fronteira (nosso caso) mistura os dois comportamentos e produz formas orgânicas.</p>
+        <p>E o <strong>backtracking</strong> da seção 2? Ele também é uma DFS — não sobre a grade, mas sobre o <em>grafo de estados</em> da busca (cada vértice é uma configuração parcial; as arestas são "colocar um gato na próxima linha"). Retroceder é voltar na DFS. Grafos aparecem em todo lugar, mesmo quando não estão desenhados.</p>
+
+        <h4>5.6 Aplicações além do jogo</h4>
+        <ul>
+          <li>Mapas e GPS (Dijkstra, A*), redes sociais (recomendação, comunidades).</li>
+          <li>Compiladores e builds (ordenação topológica de dependências).</li>
+          <li>Redes de computadores, roteamento e fluxo máximo.</li>
+          <li>Editores de imagem ("balde de tinta" é um Flood Fill), IA de jogos.</li>
+        </ul>
+
+        <h3 id="w-estudo">6. Guia para iniciantes: como começar a estudar Teoria dos Grafos</h3>
+        <ol>
+          <li><strong>Pré-requisitos:</strong> arrays/listas, laços, funções, recursão, e noções de conjuntos, mapas (dicionários), pilha e fila.</li>
+          <li><strong>Vocabulário:</strong> vértice, aresta, grau, caminho, ciclo, conexo, árvore, direcionado, ponderado.</li>
+          <li><strong>Representações:</strong> implemente uma lista de adjacência e uma matriz de adjacência à mão, em sua linguagem favorita.</li>
+          <li><strong>BFS e DFS:</strong> o alicerce de tudo. Pratique em grades: contar ilhas, labirinto (menor caminho com BFS), flood fill, componentes conexas.</li>
+          <li><strong>Aplicações diretas:</strong> detecção de ciclo, ordenação topológica, verificação de grafo bipartido (2-coloração).</li>
+          <li><strong>Caminhos mínimos:</strong> BFS (sem pesos) → Dijkstra (pesos não-negativos, com fila de prioridade) → Bellman-Ford → Floyd-Warshall.</li>
+          <li><strong>Árvores geradoras mínimas:</strong> Kruskal (com Union-Find/DSU) e Prim.</li>
+          <li><strong>Tópicos avançados:</strong> componentes fortemente conexas (Tarjan/Kosaraju), fluxo máximo (Ford-Fulkerson/Dinic), emparelhamento, LCA.</li>
+          <li><strong>Prática constante:</strong> resolva 2–3 problemas por semana em LeetCode, Codeforces, AtCoder, CSES ou URI/beecrowd, sempre começando pelos tags "graph", "bfs" e "dfs".</li>
+          <li><strong>Material:</strong> <em>Introduction to Algorithms</em> (CLRS, cap. 20-22), <em>Algorithms</em> (Sedgewick &amp; Wayne), <em>Competitive Programmer's Handbook</em> (gratuito), visualizações em visualgo.net.</li>
+        </ol>
+        <div class="note">Dica de ouro: antes de codar um problema, pergunte-se "quem são os vértices? quem são as arestas?". Modelar corretamente costuma ser 80% da solução.</div>
+        <p><strong>Exercício sugerido:</strong> altere <code>growRegions</code> para sempre tirar a <em>primeira</em> célula da fronteira (BFS pura) e depois a <em>última</em> (DFS-like), e observe como o formato das regiões muda.</p>
+      </article>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
