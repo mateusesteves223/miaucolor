@@ -274,10 +274,22 @@ function autoCross(r, c) {
   }
 }
 
+/* Modo dev: ✕ no restante da região (cor) do gato */
+function autoCrossRegion(r, c) {
+  const id = regions[r][c];
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    if (regions[i][j] === id && marks[i][j] === 0) {
+      marks[i][j] = 1;
+      updateCell(i, j);
+    }
+  }
+}
+
 function tryCat(r, c) {
   if (solution[r] === c) {
     marks[r][c] = 2;
     if (devMode && autoXEl.checked) autoCross(r, c);
+    if (devMode && autoColorEl.checked) autoCrossRegion(r, c);
     updateCell(r, c);
     updateStatus();
     if (marks.flat().filter(m => m === 2).length === N) win();
@@ -372,11 +384,14 @@ function showSolution() {
 const devEl = document.getElementById("dev");
 const autoXEl = document.getElementById("auto-x");
 const autoXWrap = document.getElementById("auto-x-wrap");
+const autoColorEl = document.getElementById("auto-color");
+const autoColorWrap = document.getElementById("auto-color-wrap");
 const findCatBtn = document.getElementById("find-cat");
 devEl.addEventListener("change", () => {
   devMode = devEl.checked;
   findCatBtn.hidden = !devMode;
   autoXWrap.hidden = !devMode;
+  autoColorWrap.hidden = !devMode;
 });
 findCatBtn.addEventListener("click", () => {
   if (over) return;
