@@ -217,8 +217,8 @@ body { flex-direction: row; }
 .sidenav .tab { text-align: left; border-radius: 12px; background: #231f38; }
 .sidenav .tab.active { background: var(--accent); }
 main { padding: 1rem; min-width: 0; }
-#game.active { align-items: flex-start; }
-.sidebar { flex: 0 0 204px; align-self: flex-start; padding: .9rem; background: #231f38; max-height: 100%; }
+#game.active { align-items: center; }
+.sidebar { flex: 0 0 204px; align-self: center; padding: .9rem; background: #231f38; max-height: 100%; }
 .sidebar .reveal-wrap { margin-top: .4rem; }
 .stage { align-self: stretch; }
 
