@@ -11,7 +11,8 @@
 const PALETTE = [
   "#b9d3e4", "#a577e0", "#ffbb77", "#fccd3c", "#b6dc78",
   "#4a85c9", "#2ec4b3", "#fbbcd8", "#c98048", "#f48a89",
-];
+    "#8ed6f5",
+  ];
 const SYMBOLS = ["", "✕", "🐱"];
 
 let N = 7;
@@ -440,7 +441,7 @@ function findSolutions(n, reg, limit = 2) {
 
 function buildPalette() {
   paletteEl.innerHTML = "";
-  for (let i = 0; i < sN; i++) {
+  for (let i = 0; i < PALETTE.length; i++) {
     const b = document.createElement("button");
     b.type = "button"; b.className = "swatch" + (i === sColor ? " active" : "");
     b.style.background = PALETTE[i]; b.setAttribute("aria-label", "Cor " + (i + 1));
@@ -479,7 +480,7 @@ function updateSolverStatus() {
 
 function buildSolverBoard() {
   sN = +sSizeEl.value;
-  sColor = Math.min(sColor, sN - 1);
+  
   sBoard.style.setProperty("--size", sN);
   sBoard.innerHTML = "";
   sGrid = matrix(sN, -1);
