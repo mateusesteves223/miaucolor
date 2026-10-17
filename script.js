@@ -77,6 +77,7 @@ const livesEl = document.getElementById("lives");
 const modalEl = document.getElementById("modal");
 const timerEl = document.getElementById("timer");
 const levelInfoEl = document.getElementById("level-info");
+const levelValueEl = document.getElementById("level-value");
 
 /* ---------- Cronômetro (pausa ao encerrar a partida ou ocultar a aba) ---------- */
 let elapsedMs = 0;
@@ -132,9 +133,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function renderLevelInfo() {
-  levelInfoEl.textContent = campaignId && currentLevel
-    ? `Nível ${campaignId} · ${currentLevel.diff} · ${N}×${N}`
-    : `Treino livre · ${N}×${N}`;
+  levelValueEl.textContent = campaignId ? String(campaignId) : "—";
 }
 
 /* Salva a partida em andamento (só campanha) para retomar após fechar o app */
@@ -233,6 +232,7 @@ function dragApply(cell) {
   if (m >= 2 || m === game.drag.mode) return;
   marks[r][c] = game.drag.mode;
   renderCell(r, c);
+  Sound.click();
 }
 
 boardEl.addEventListener("pointerdown", e => {
@@ -275,7 +275,7 @@ boardEl.addEventListener("pointerup", e => {
   game.lastTap = { cell, t: now, prev: marks[r][c] };
   marks[r][c] = marks[r][c] === 1 ? 0 : 1;
   renderCell(r, c);
-  Sound.tap();
+  Sound.click();
   persist();
 });
 
@@ -615,9 +615,14 @@ function buildPalette() {
     const b = document.createElement("button");
     b.type = "button"; b.className = "swatch" + (i === sColor ? " active" : "");
     b.style.background = PALETTE[i]; b.setAttribute("aria-label", "Cor " + (i + 1));
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-checked", String(i === sColor));
     b.addEventListener("click", () => {
       sColor = i;
-      paletteEl.querySelectorAll(".swatch").forEach((s, k) => s.classList.toggle("active", k === i));
+      paletteEl.querySelectorAll(".swatch").forEach((swatch, k) => {
+        swatch.classList.toggle("active", k === i);
+        swatch.setAttribute("aria-checked", String(k === i));
+      });
     });
     paletteEl.appendChild(b);
   }

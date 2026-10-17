@@ -40,6 +40,14 @@
   <main>
     <!-- ===== ABA 1: JOGO ===== -->
     <section id="game" class="panel active">
+      <div class="game-side">
+      <div class="game-hud">
+        <div id="level-info" class="level-info" aria-live="polite" aria-atomic="true">
+          <span class="level-info-label">NÍVEL ATUAL</span>
+          <span id="level-value" class="level-info-value"></span>
+        </div>
+        <div class="powerup-space" aria-hidden="true"></div>
+      </div>
       <aside class="sidebar">
       <div class="controls">
         <label>Tamanho:
@@ -53,7 +61,6 @@
         <button id="sound-btn" type="button" aria-pressed="true">🔊 Som</button>
         <button id="haptics-btn" type="button" aria-pressed="true">📳 Vibração</button>
       </div>
-      <div id="level-info" class="level-info"></div>
       <div id="lives" class="lives" aria-label="Vidas"></div>
       <div id="status"></div>
       <div id="timer" class="timer" aria-label="Tempo">⏱ 00:00</div>
@@ -70,6 +77,7 @@
         </div>
       </div>
       </aside>
+      </div>
       <div class="stage"><div id="board" aria-label="Tabuleiro"></div></div>
       <div id="modal" class="modal" role="dialog" aria-modal="true"></div>
     </section>
@@ -97,6 +105,7 @@
         </div>
         <div class="palette-title">Paleta</div>
         <div id="palette" class="palette" role="radiogroup" aria-label="Paleta de cores"></div>
+        <p class="palette-hint">Toque em uma cor para selecioná-la; deslize para ver as demais.</p>
         <div id="s-status" class="s-status"></div>
         <button id="s-solve" class="solve-btn" hidden>🐱 Resolver nível</button>
         <p class="hint">Clique ou arraste para pintar o quadro com as cores do seu nível.</p>

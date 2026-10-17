@@ -8,6 +8,8 @@ const Sound = (() => {
   const defaults = { sound: true, haptics: true };
   let settings = load();
   let ctx = null;
+  let lastClickAt = 0;
+  let clickStreak = 0;
 
   function load() {
     try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY)) }; } catch { return { ...defaults }; }
@@ -57,6 +59,13 @@ const Sound = (() => {
   }
 
   const vibrate = pattern => { if (settings.haptics && navigator.vibrate) navigator.vibrate(pattern); };
+  function playClick() {
+    const now = performance.now();
+    clickStreak = now - lastClickAt < 280 ? Math.min(clickStreak + 1, 8) : 0;
+    lastClickAt = now;
+    const freq = 520 * Math.pow(2, clickStreak / 24);
+    tone({ freq, to: freq * 0.73, dur: 0.055, type: "triangle", gain: 0.065 });
+  }
 
   return {
     unlock: ensure,
@@ -65,7 +74,8 @@ const Sound = (() => {
     setSound(on) { settings.sound = on; save(); },
     setHaptics(on) { settings.haptics = on; save(); if (on) vibrate(15); },
 
-    tap() { tone({ freq: 520, to: 380, dur: 0.05, type: "triangle", gain: 0.07 }); },
+    click: playClick,
+    tap: playClick,
     cat() {                                         // "miau": sobe e desce
       tone({ freq: 520, to: 900, dur: 0.12, type: "sawtooth", gain: 0.05 });
       tone({ freq: 900, to: 460, dur: 0.18, type: "sawtooth", gain: 0.05, delay: 0.11 });
@@ -76,11 +86,18 @@ const Sound = (() => {
       vibrate([30, 40, 30]);
     },
     win() {
-      [523, 659, 784, 1047].forEach((f, i) => tone({ freq: f, dur: 0.2, type: "triangle", gain: 0.09, delay: i * 0.1 }));
+      [523, 659, 784, 1047, 1319].forEach((f, i) => {
+        tone({ freq: f, to: f * 1.015, dur: 0.22, type: "triangle", gain: 0.085, delay: i * 0.13 });
+      });
+      tone({ freq: 1047, to: 1319, dur: 0.32, type: "sine", gain: 0.045, delay: 0.52 });
       vibrate([20, 30, 20, 30, 70]);
     },
     lose() {
-      [392, 330, 262].forEach((f, i) => tone({ freq: f, to: f * 0.96, dur: 0.22, type: "triangle", gain: 0.09, delay: i * 0.16 }));
+      [196, 147, 110].forEach((f, i) => {
+        const delay = i * 0.2;
+        tone({ freq: f, to: f * 0.72, dur: 0.3, type: "triangle", gain: 0.085, delay });
+        tone({ freq: f * 1.035, to: f * 0.74, dur: 0.3, type: "sawtooth", gain: 0.025, delay: delay + 0.025 });
+      });
       vibrate(120);
     },
   };

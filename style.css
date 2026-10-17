@@ -193,6 +193,9 @@ header p { font-size: .9rem; line-height: 1.3; }
 main { flex: 1; min-height: 0; width: 100%; max-width: none; overflow-y: auto; padding: 0 1rem 1rem; }
 .doc { max-width: 900px; margin: 0 auto; }
 #game.active, #solver.active { display: flex; gap: 1.5rem; height: 100%; }
+/* Coluna lateral (HUD + painel): o tabuleiro continua ocupando toda a altura à direita */
+.game-side { flex: 0 0 204px; display: flex; flex-direction: column; gap: .6rem; min-width: 0; min-height: 0; align-self: center; max-height: 100%; }
+.game-side .sidebar { flex: 0 1 auto; width: 100%; align-self: stretch; min-height: 0; }
 .sidebar {
   flex: 0 0 220px; display: flex; flex-direction: column; gap: .8rem;
   background: var(--panel); border-radius: 16px; padding: 1.2rem; align-self: stretch; overflow-y: auto;
@@ -285,6 +288,10 @@ body.compact .menu-drop.open {
 
 body.compact main { padding: .6rem; }
 body.compact #game.active, body.compact #solver.active { flex-direction: column; align-items: stretch; gap: .5rem; }
+body.compact .game-side { flex: 0 0 auto; align-self: stretch; max-height: none; gap: .5rem; }
+body.compact .game-hud { min-height: 52px; }
+body.compact .level-info { padding: .35rem 1rem .35rem .9rem; }
+body.compact .level-info-value { font-size: 1.6rem; }
 body.compact .sidebar {
   flex: 0 0 auto; align-self: stretch; flex-direction: row; align-items: center; justify-content: space-between;
   max-height: none; padding: .35rem .8rem; border-radius: 12px; overflow: visible;
@@ -325,6 +332,7 @@ body.compact .doc nav ul { columns: 1; }.menu-drop .controls select, .menu-drop 
 .swatch { aspect-ratio: 1; border: 2px solid transparent; border-radius: 8px; cursor: pointer; padding: 0; transition: transform .12s, border-color .12s; }
 .swatch:hover { transform: scale(1.08); }
 .swatch.active { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
+.palette-hint { display: none; }
 .s-status { color: var(--muted); font-size: .85rem; text-align: center; line-height: 1.4; }
 .s-status.ok { color: #9be39b; }
 .s-status.bad { color: #ff9aa8; }
@@ -334,10 +342,24 @@ body.compact .doc nav ul { columns: 1; }.menu-drop .controls select, .menu-drop 
 #sboard .sym.cat { animation: pop .3s ease-out; }
 
 /* ---------- Campanha: info do nível, cronômetro, mapa e modal ---------- */
-.level-info { color: var(--accent); font-weight: 700; font-size: .85rem; text-align: center; }
+.game-hud {
+  display: flex; align-items: stretch; flex: 0 0 auto; width: 100%; min-height: 64px; overflow: hidden;
+  border-radius: 14px; background: linear-gradient(135deg, #ffb17f 0%, #ff8d5c 100%); color: #27170f;
+  box-shadow: 0 4px 14px rgba(255, 143, 92, .25), inset 0 1px 0 rgba(255, 255, 255, .35);
+}
+.level-info {
+  position: relative; display: flex; flex: 0 0 auto; flex-direction: column; justify-content: center; gap: .05rem;
+  padding: .45rem 1.1rem .45rem .95rem; text-align: left;
+}
+.level-info::after {                              /* traço vertical que fecha o bloco do nível */
+  content: ""; position: absolute; right: 0; top: 18%; bottom: 18%; width: 2px; border-radius: 2px;
+  background: rgba(39, 23, 15, .35);
+}
+.level-info-label { font-size: .62rem; font-weight: 800; letter-spacing: .14em; line-height: 1.2; opacity: .8; }
+.level-info-value { font-size: 1.9rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.powerup-space { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: .4rem; padding: 0 .6rem; }
 .timer { color: var(--muted); font-variant-numeric: tabular-nums; text-align: center; font-size: .95rem; }
 body.compact .sidebar { flex-wrap: wrap; gap: .1rem .8rem; }
-body.compact .sidebar .level-info { flex: 1 0 100%; text-align: left; font-size: .8rem; }
 body.compact .sidebar .timer { font-size: .85rem; }
 
 .modal-actions { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; }
@@ -377,4 +399,20 @@ body {
   touch-action: manipulation;                    /* sem zoom por duplo toque fora do tabuleiro */
   -webkit-tap-highlight-color: transparent;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+@media (max-width: 700px) {
+  #palette {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 44px; grid-template-columns: none;
+    gap: .55rem; width: 100%; min-width: 0; padding: .35rem .2rem .65rem;
+    overflow-x: auto; overscroll-behavior-x: contain; touch-action: pan-x;
+    scrollbar-width: thin; scrollbar-color: #77708f transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+  #palette .swatch { width: 44px; height: 44px; min-width: 44px; aspect-ratio: auto; }
+  #palette .swatch.active {
+    border: 3px solid #fff; outline: 2px solid var(--accent); outline-offset: 1px;
+    box-shadow: 0 0 0 3px rgba(255, 159, 107, .35);
+  }
+  .palette-hint { display: block; margin: -.35rem 0 0; color: var(--muted); font-size: .75rem; line-height: 1.35; }
 }
