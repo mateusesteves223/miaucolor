@@ -68,6 +68,9 @@ Interação (campanha e treino):
 | `levels.js` | `MiauLevels`: registro/carregamento de packs (`<script>` dinâmico), `get(id)`, `loadAll()`, `isInfinite/needsGeneration`, `setMeta`. |
 | `levels/` | `pack-01..05.js/.json` (20 níveis cada), `manifest.js/.json`. **Gerados** por `tools/gen_levels.py`. |
 | `audio.js` | `Sound`: sons sintetizados (Web Audio, sem arquivos) + `navigator.vibrate`; chaves persistidas em `miaucolor:settings:v1`; áudio só após 1º gesto. |
+| `sw.js` | Service worker: pré-cache do app shell + packs (`PRECACHE` é uma **lista fixa** — atualize se mudar a lista de arquivos/packs) e stale-while-revalidate. **Incremente `CACHE`** ao publicar mudanças que precisem invalidar. Só registra em http(s). |
+| `manifest.webmanifest`, `icons/` | PWA: nome, cores, ícones 192/512 (any+maskable) e `apple-touch-icon`. Ícones gerados por `tools/gen_icons.py` (Python puro). |
+| `tests.html` | Testes automatizados no navegador (sem Node), com `localStorage` em memória. Abra o arquivo; título da aba vira `OK — N passaram…`; `window.__testResults`. ~20 s (2 testes geram 10×10). |
 | `progress.js` | `Progress`: estrelas, melhor tempo, nível desbloqueado, partida em andamento. |
 | `tools/gen_levels.py` | Gerador offline (Python), classifica dificuldade, escreve packs e valida (`--verify`). |
 | `README.md` | Doc de usuário/dev (atualizado). |
@@ -192,8 +195,8 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. Prioridade: **P0** bloqueia v
 | A6 | CSS: consolidar overrides, remover hack `100vmax`, `@media (hover:hover)`, `touch-action: manipulation`, `-webkit-tap-highlight-color`, `viewport-fit=cover` + `env(safe-area-inset-*)` | 🟡 | ✅ hack 100vmax→`::after`, hover só com mouse, touch-action, tap-highlight, safe-area, viewport-fit; ⬜ consolidar os blocos de override |
 | A7 | Estrutura p/ centenas de fases (packs, manifest, loader sob demanda) | ✅ | |
 | A8 | Níveis infinitos determinísticos + cache + prefetch | ✅ | |
-| A9 | Testes automatizados (paridade solver, unicidade, determinismo, regressão de UI) | ⬜ P0 | sem Node: criar `tests.html` rodando no navegador e/ou testes Python em `tools/` |
-| A10 | Service worker pré-cacheando `levels/*` | ⬜ P0 | junto do PWA (D1) |
+| A9 | Testes automatizados (paridade solver, unicidade, determinismo, regressão de UI) | 🟡 | ✅ `tests.html` (13 testes: motor, 100 níveis, infinito, progresso); ⬜ testes de UI/fluxo (estrelas, retomada, modal) |
+| A10 | Service worker pré-cacheando `levels/*` | ✅ | `sw.js`; verificado offline em http://localhost |
 
 ### B. Game loop e retenção
 | ID | Item | Status | Notas |
@@ -231,11 +234,11 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. Prioridade: **P0** bloqueia v
 ### D. Escopo v1.0 / distribuição
 | ID | Item | Status | Notas |
 |---|---|---|---|
-| D1 | PWA: `manifest.webmanifest`, ícones 192/512, `theme-color`, service worker | ⬜ P0 | exige https/localhost |
+| D1 | PWA: `manifest.webmanifest`, ícones 192/512, `theme-color`, service worker | ✅ | verificado: SW ativo, 19 arquivos em cache, recarga e vitória **offline**; ⚠️ instalação em aparelho real não testada |
 | D2 | Reclassificar dificuldade dos 100 níveis dos packs pelo mesmo score do 10×10 | ⬜ P1 | hoje 55% "Expert"; avaliar por tamanho |
 | D3 | Testar em iOS e Android reais (duplo toque, safe-area, performance do 10×10) | ⬜ P0 | |
 | D4 | Mais packs/curadoria (campanha curada além de 100) | ⬜ P2 | infinito já cobre |
-| D5 | Hospedagem estática (GitHub Pages/Netlify/…) | ⬜ P0 | |
+| D5 | Hospedagem estática (GitHub Pages/Netlify/…) | ⬜ P0 | **ação do dono**: repo `mateusesteves223/miaucolor` → Settings → Pages → Deploy from branch `main` / root. O app usa caminhos relativos (funciona em subpasta). |
 | D6 | Empacotar com Capacitor (Android/iOS) | ⬜ P2 | |
 | D7 | Anúncios recompensados, IAP, remover anúncios | ⬜ P2 | |
 | D8 | Login/nuvem, ranking, compartilhar nível por código | ⬜ P2 | exige backend (só aqui) |
@@ -243,20 +246,23 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. Prioridade: **P0** bloqueia v
 
 ## 10. Próximas ações sugeridas (ordem recomendada)
 
-(Itens 1–3 da versão anterior — CSS mobile, áudio/háptica, marca/`?dev` — **concluídos**, ver §9 e §13.)
+(Concluídos: CSS mobile, áudio/háptica, marca/`?dev`, `tests.html`, PWA/service worker — ver §9 e §13.)
 
-1. **A9** `tests.html` (sem Node) cobrindo: paridade `gradeLevel` com packs, unicidade dos 100 níveis,
-   determinismo `generateInfinite`, fluxo de estrelas/desbloqueio (com `localStorage` isolado).
-2. **D1 + A10 + D5** PWA + hospedagem estática. *Aceite:* instalável e funcional offline (inclui `levels/*`).
-3. **D2** reclassificação dos packs; **B12** slots por nível; **B10** custo de "Revelar solução".
-4. **C8** acessibilidade (roles/aria, teclado, foco/Esc no modal) e **C7** modo daltônico.
+1. **D5** publicar (ação do dono: GitHub Pages) e validar a instalação do PWA em aparelhos reais (**D3**).
+2. **D2** reclassificação dos packs; **B12** slots por nível; **B10** custo de "Revelar solução".
+3. **C8** acessibilidade (roles/aria, teclado, foco/Esc no modal) e **C7** modo daltônico.
+4. **A9 (resto)** testes de fluxo de UI; **A3/A5** unificar solvers e modularizar `script.js`.
 5. **C4** animações de vitória/erro; **C11** tutorial; **C12** tela de configurações.
 6. **D3** teste em aparelhos reais (duplo toque, safe-area, timbre/volume dos sons, desempenho do 10×10) e ajuste de
    `DOUBLE_TAP_MS`/tamanho de célula.
 
 ## 11. Como verificar o projeto (receitas)
 
-- **Rodar:** abrir `index.html` (ou `python -m http.server` na pasta e `http://localhost:8000`).
+- **Rodar:** abrir `index.html` (ou `python -m http.server 8765 --bind 127.0.0.1` na pasta e `http://127.0.0.1:8765`;
+  o service worker só registra em http/https).
+- **Testes:** abrir `tests.html` (esperado: título `OK — 13 passaram, 0 falharam`, ~20 s).
+- **Regerar ícones:** `python tools\gen_icons.py`. **Ao mudar arquivos do app ou os packs**, atualize `PRECACHE` e
+  incremente `CACHE` em `sw.js`.
 - **Revalidar packs:** `python tools\gen_levels.py --verify` (esperado: `inválidos: 0`).
 - **Regenerar packs (≈8 min):** `python tools\gen_levels.py` (sobrescreve `levels/pack-*` e `manifest.*`).
 - **Smoke no navegador** (console da página): 
@@ -291,4 +297,7 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. Prioridade: **P0** bloqueia v
     `prefers-reduced-motion`, hover só com mouse, `touch-action`, tap-highlight, safe-area, `viewport-fit=cover`.
   - ✅ Marca única MiauColor + ferramentas de dev atrás de `?dev` (commit `dd39627`).
   - ✅ Sons e vibração com chaves persistentes (`audio.js`), verificados por contagem de osciladores/vibrações.
-  - Pendente (foco imediato): A9 (testes), D1/A10/D5 (PWA + hospedagem), D2, B12, B10, C8, C7, D3.
+  - ✅ `tests.html` (A9 parcial): 13 testes passando (paridade solver com os 100 níveis, unicidade, determinismo,
+    progresso com `localStorage` em memória). Commit `c8c1fe9`.
+  - ✅ PWA (D1/A10): `manifest.webmanifest`, ícones gerados em Python puro, `sw.js` (offline verificado).
+  - Pendente (foco imediato): D5 (publicar — ação do dono) + D3 (aparelhos reais), D2, B12, B10, C8, C7, A3/A5.

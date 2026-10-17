@@ -726,6 +726,11 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => { if (e.key === "Escape") setMenu(false); });
 compactMq.addEventListener("change", applyLayout);
 applyLayout();
+/* PWA: registra o service worker (só em http/https; em file:// o navegador não permite) */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+
 /* Abre direto na campanha (partida em andamento ou último nível liberado); sem packs, cai no treino livre */
 (async () => {
   if (MiauLevels.total && await playLevel(Progress.current())) return;
