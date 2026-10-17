@@ -22,6 +22,7 @@
 
   <div class="tabs" role="tablist">
     <button class="tab active" data-target="game">Jogar</button>
+    <button class="tab" data-target="levels">Níveis</button>
     <button class="tab" data-target="solver">Resolve Nível</button>
     <button class="tab" data-target="help">Guia Help</button>
     <button class="tab" data-target="wiki">Documentação Algorítmica</button>
@@ -45,8 +46,10 @@
         <button id="new">Novo jogo</button>
         <button id="clear">Limpar</button>
       </div>
+      <div id="level-info" class="level-info"></div>
       <div id="lives" class="lives" aria-label="Vidas"></div>
       <div id="status"></div>
+      <div id="timer" class="timer" aria-label="Tempo">⏱ 00:00</div>
       <p class="hint">Clique: marca ✕<br>Duplo clique: coloca 🐱</p>
       <div class="reveal-wrap"><button id="reveal" class="link-btn">Revelar solução</button>
         <div class="dev-card">
@@ -65,6 +68,15 @@
     </section>
 
     <!-- ===== ABA: RESOLVE NÍVEL ===== -->
+    <!-- ===== MAPA DE NÍVEIS ===== -->
+    <section id="levels" class="panel">
+      <div class="levels-head">
+        <h2>Níveis</h2>
+        <span id="levels-total" class="levels-total"></span>
+      </div>
+      <div id="level-map"></div>
+    </section>
+
     <section id="solver" class="panel">
       <aside class="sidebar">
         <div class="controls">
@@ -317,6 +329,11 @@
     </section>
   </main>
 
+  <script src="engine.js"></script>
+  <script src="infinite.js"></script>
+  <script src="levels.js"></script>
+  <script src="levels/manifest.js"></script>
+  <script src="progress.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

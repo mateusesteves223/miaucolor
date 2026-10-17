@@ -21,145 +21,77 @@ let regions = [];
 let marks = [];
 let solved = false;
 
-/* ---------- Utilidades ---------- */
+/* ---------- Motor (engine.js): geração, solver e dificuldade ---------- */
+const E = createEngine();
+const { matrix } = E;
 
-function shuffle(arr) {                       // Fisher-Yates
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-const matrix = (n, fill) => Array.from({ length: n }, () => Array(n).fill(fill));
-
-/* =====================================================================
- * 1) GERAÇÃO DOS GATOS — BACKTRACKING
- * Linha por linha, testamos colunas em ordem aleatória. Como há um gato
- * por linha por construção, só checamos:
- *   - coluna ainda livre            (conjunto `usedCols`)
- *   - não encosta no gato da linha anterior (|c - colAnterior| > 1),
- *     o que cobre as diagonais (mesma linha/coluna já estão excluídas).
- * Se nenhuma coluna serve, retornamos false e o chamador DESFAZ sua
- * escolha e tenta a próxima (retrocesso).
- * ===================================================================== */
-function placeCats(n) {
-  const cols = Array(n).fill(-1);
-  const usedCols = new Set();
-
-  function solve(row) {
-    if (row === n) return true;                          // caso base: tudo posicionado
-    for (const c of shuffle([...Array(n).keys()])) {
-      if (usedCols.has(c)) continue;
-      if (row > 0 && Math.abs(cols[row - 1] - c) <= 1) continue;
-      cols[row] = c; usedCols.add(c);                    // escolhe
-      if (solve(row + 1)) return true;                   // explora
-      usedCols.delete(c); cols[row] = -1;                // desfaz (backtrack)
-    }
-    return false;
-  }
-  return solve(0) ? cols : null;
-}
-
-/* =====================================================================
- * 2) GERAÇÃO DAS REGIÕES — BUSCA EM GRAFO (crescimento multi-fonte)
- * Cada gato é a semente de uma região. A cada passo sorteamos uma região
- * e uma célula livre vizinha (4-direções) de alguma célula dela. É uma
- * BFS/Flood Fill com fila randomizada: como só anexamos células
- * adjacentes, cada região é conexa e o tabuleiro é totalmente coberto.
- * ===================================================================== */
-const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-
-function growRegions(n, cols) {
-  const reg = matrix(n, -1);
-  const frontier = [];                        // fronteira de cada região: [r, c] já pintados
-  for (let r = 0; r < n; r++) {
-    reg[r][cols[r]] = r;                      // semente da região r = gato da linha r
-    frontier[r] = [[r, cols[r]]];
-  }
-  let free = n * n - n;
-
-  while (free > 0) {
-    const ids = frontier.map((f, i) => (f.length ? i : -1)).filter(i => i >= 0);
-    const id = ids[Math.floor(Math.random() * ids.length)];
-    const f = frontier[id];
-    const k = Math.floor(Math.random() * f.length);
-    const [r, c] = f[k];
-
-    const open = DIRS.map(([dr, dc]) => [r + dr, c + dc])
-      .filter(([a, b]) => a >= 0 && b >= 0 && a < n && b < n && reg[a][b] === -1);
-
-    if (!open.length) {                       // célula sem vizinhos livres: sai da fronteira
-      f.splice(k, 1);
-      continue;
-    }
-    const [nr, nc] = open[Math.floor(Math.random() * open.length)];
-    reg[nr][nc] = id;
-    f.push([nr, nc]);
-    free--;
-  }
-  return reg;
-}
-
-/* =====================================================================
- * 3) CONTAGEM DE SOLUÇÕES (garante fase com solução única)
- * Mesmo backtracking, agora com a restrição extra "uma região por gato",
- * parando ao achar 2 soluções. Se o mapa de regiões admite mais de uma,
- * descartamos e geramos outro.
- * ===================================================================== */
-function countSolutions(n, reg, limit = 2) {
-  const cols = Array(n).fill(-1);
-  const usedCols = new Set();
-  const usedRegs = new Set();
-  let count = 0;
-
-  (function go(row) {
-    if (count >= limit) return;
-    if (row === n) { count++; return; }
-    for (let c = 0; c < n; c++) {
-      const g = reg[row][c];
-      if (usedCols.has(c) || usedRegs.has(g)) continue;
-      if (row > 0 && Math.abs(cols[row - 1] - c) <= 1) continue;
-      cols[row] = c; usedCols.add(c); usedRegs.add(g);
-      go(row + 1);
-      usedCols.delete(c); usedRegs.delete(g); cols[row] = -1;
-    }
-  })(0);
-  return count;
-}
-
+/* Gera um nível aleatório com solução ÚNICA (treino livre) */
 function generateLevel(n) {
-  let cols, reg;
-  for (let attempt = 0; attempt < 300; attempt++) {
-    cols = placeCats(n);
-    reg = growRegions(n, cols);
-    if (countSolutions(n, reg) === 1) break;   // se esgotar, usa a última tentativa
-  }
+  const { cols, reg } = E.generateUnique(n, Math.random);
   solution = cols;
   regions = reg;
 }
 
-
 /* =====================================================================
  * 4) MECÂNICAS DO JOGO
- * click    -> alterna ✕ (aguarda ~250ms para distinguir de dblclick)
- * dblclick -> tenta colocar gato; confere com `solution` (gabarito)
+ * toque    -> alterna ✕ imediatamente (sem atraso)
+ * 2 toques -> (mesma célula, em até DOUBLE_TAP_MS) desfaz o ✕ do 1º toque e
+ *             tenta colocar gato; confere com `solution` (gabarito)
  *   certo  -> gato fixo | errado -> -1 vida + animação de erro
- * O tabuleiro é construído uma vez por jogo e as células são atualizadas
- * individualmente (não recriamos o DOM a cada clique).
+ * O duplo toque é detectado em pointerup (o evento dblclick é pouco confiável
+ * em telas de toque). O tabuleiro é construído uma vez por jogo e as células
+ * são atualizadas individualmente (não recriamos o DOM a cada clique).
  * ===================================================================== */
 const MAX_LIVES = 3;
-const CLICK_DELAY = 250;
+const DOUBLE_TAP_MS = 300;
 let lives = MAX_LIVES;
 let lost = false;               // perdeu: só pode repetir o mesmo nível
 let over = false;                 // fim de jogo (vitória, derrota ou revelação)
 let cells = [];
 let devMode = false;
+let cheated = false;            // modo dev usado na partida: não conta para estrelas/progresso
+let campaignId = null;          // id do nível da campanha (null = treino livre)
+let currentLevel = null;
 
 const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
 const livesEl = document.getElementById("lives");
 const modalEl = document.getElementById("modal");
+const timerEl = document.getElementById("timer");
+const levelInfoEl = document.getElementById("level-info");
+
+/* ---------- Cronômetro (pausa ao encerrar a partida ou ocultar a aba) ---------- */
+let elapsedMs = 0;
+let tickStart = null;
+
+const timerElapsed = () => elapsedMs + (tickStart !== null ? performance.now() - tickStart : 0);
+function timerStart() { if (tickStart === null) tickStart = performance.now(); }
+function timerPause() {
+  if (tickStart !== null) { elapsedMs += performance.now() - tickStart; tickStart = null; }
+}
+function timerReset(ms = 0) { tickStart = null; elapsedMs = ms; renderTimer(); }
+
+function formatTime(secs) {
+  return String(Math.floor(secs / 60)).padStart(2, "0") + ":" + String(secs % 60).padStart(2, "0");
+}
+function renderTimer() { timerEl.textContent = "⏱ " + formatTime(Math.floor(timerElapsed() / 1000)); }
+setInterval(renderTimer, 500);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { timerPause(); persist(); }
+  else if (!over) timerStart();
+});
+
+function renderLevelInfo() {
+  levelInfoEl.textContent = campaignId && currentLevel
+    ? `Nível ${campaignId} · ${currentLevel.diff} · ${N}×${N}`
+    : `Treino livre · ${N}×${N}`;
+}
+
+/* Salva a partida em andamento (só campanha) para retomar após fechar o app */
+function persist() {
+  if (!campaignId || over || cheated) return;
+  Progress.saveProgress({ id: campaignId, marks, lives, elapsed: Math.round(timerElapsed()) });
+}
 
 function updateCell(r, c) {
   const el = cells[r][c];
@@ -198,20 +130,6 @@ function buildBoard() {
       el.style.background = PALETTE[regions[r][c] % PALETTE.length];
 
       el.dataset.r = r; el.dataset.c = c;
-      let timer = null;
-      el.addEventListener("click", () => {
-        if (dragged || over || marks[r][c] >= 2) return;
-        clearTimeout(timer);
-        timer = setTimeout(() => {
-          marks[r][c] = marks[r][c] === 1 ? 0 : 1;
-          updateCell(r, c);
-        }, CLICK_DELAY);
-      });
-      el.addEventListener("dblclick", () => {
-        clearTimeout(timer);
-        if (dragged || over || marks[r][c] >= 2) return;
-        tryCat(r, c);
-      });
       cells[r][c] = el;
       boardEl.appendChild(el);
     }
@@ -260,7 +178,29 @@ boardEl.addEventListener("pointermove", e => {
   dragApply(cell);
 });
 
-const endDrag = () => { drag = null; dragStart = null; };
+/* Toque simples alterna ✕ na hora; segundo toque na mesma célula confirma o gato */
+let lastTap = { cell: null, t: 0, prev: 0 };
+
+boardEl.addEventListener("pointerup", e => {
+  const cell = dragStart;                       // célula do pointerdown (null se inválido)
+  if (!cell || dragged || over) return;
+  const r = +cell.dataset.r, c = +cell.dataset.c;
+  if (marks[r][c] >= 2) return;
+  const now = performance.now();
+  if (lastTap.cell === cell && now - lastTap.t <= DOUBLE_TAP_MS) {
+    marks[r][c] = lastTap.prev;                 // desfaz o ✕ do primeiro toque
+    updateCell(r, c);
+    lastTap = { cell: null, t: 0, prev: 0 };
+    tryCat(r, c);
+    return;
+  }
+  lastTap = { cell, t: now, prev: marks[r][c] };
+  marks[r][c] = marks[r][c] === 1 ? 0 : 1;
+  updateCell(r, c);
+  persist();
+});
+
+const endDrag = () => { if (dragged) persist(); drag = null; dragStart = null; };
 window.addEventListener("pointerup", endDrag);
 window.addEventListener("pointercancel", endDrag);
 
@@ -293,6 +233,7 @@ function tryCat(r, c) {
     if (devMode && autoColorEl.checked) autoCrossRegion(r, c);
     updateCell(r, c);
     updateStatus();
+    persist();
     if (marks.flat().filter(m => m === 2).length === N) win();
     return;
   }
@@ -303,6 +244,7 @@ function tryCat(r, c) {
   lives--;
   renderLives();
   if (lives <= 0) gameOver();
+  else persist();
 }
 
 function shake(el) {
@@ -315,38 +257,77 @@ function shake(el) {
   }
 }
 
-function lockBoard() { over = true; boardEl.classList.add("locked"); }
+function lockBoard() {
+  over = true;
+  boardEl.classList.add("locked");
+  timerPause();
+  renderTimer();
+  Progress.clearProgress();
+}
 
-function showModal(emoji, title, text, label, action) {
+/* extra (opcional): [rótulo, ação] de um botão secundário */
+function showModal(emoji, title, text, label, action, extra) {
   modalEl.innerHTML =
     `<div class="modal-card"><div class="modal-emoji">${emoji}</div>
      <h2>${title}</h2><p>${text}</p>
-     <button id="modal-btn">${label}</button></div>`;
+     <div class="modal-actions">
+       <button id="modal-btn">${label}</button>
+       ${extra ? `<button id="modal-btn2" class="secondary">${extra[0]}</button>` : ""}
+     </div></div>`;
   modalEl.classList.add("open");
   document.getElementById("modal-btn").addEventListener("click", action);
+  if (extra) document.getElementById("modal-btn2").addEventListener("click", extra[1]);
 }
+
+function showLevels() {
+  modalEl.classList.remove("open");
+  document.querySelector('.tab[data-target="levels"]').click();
+}
+
+/* 3 estrelas sem erros, 2 com um erro, 1 com dois ou mais */
+const starsFor = errors => Math.max(1, 3 - errors);
+const starText = n => "★".repeat(n) + "☆".repeat(3 - n);
 
 function win() {
   lockBoard();
   statusEl.textContent = "🎉 Todos os gatos estão em paz!";
-  setTimeout(() => showModal("🏆", "Parabéns!", "Você resolveu o MiauColor!", "Jogar novamente", newGame), 500);
+  if (!campaignId || cheated) {
+    setTimeout(() => showModal("🏆", "Parabéns!", "Você resolveu o MiauColor!", "Jogar novamente", newGame), 500);
+    return;
+  }
+  const id = campaignId;
+  const secs = Math.round(timerElapsed() / 1000);
+  const stars = starsFor(MAX_LIVES - lives);
+  const prevBest = Progress.best(id);
+  Progress.complete(id, stars, secs, Infinity);     // a campanha não tem fim
+  prefetchInfinite(id);
+  const record = prevBest && secs < prevBest ? " 🏅 Novo recorde!" : "";
+  const text = `<span class="modal-stars">${starText(stars)}</span><br>Tempo: ${formatTime(secs)}${record}`;
+  setTimeout(() => showModal("🏆", "Nível concluído!", text, "Próximo nível",
+    () => playLevel(id + 1).then(ok => { if (!ok && !generating) showLevels(); }),
+    ["Níveis", showLevels]), 500);
 }
 
 function gameOver() {
-  lost = true;
+  if (!campaignId) lost = true;      // trava "mesmo nível" só no treino livre
   lockBoard();
   statusEl.textContent = "💀 Game over";
-  setTimeout(() => showModal("😿", "Fim de jogo", "Suas vidas acabaram. Tente novamente o mesmo nível!", "Tentar o mesmo nível", retryLevel), 700);
+  setTimeout(() => showModal("😿", "Fim de jogo", "Suas vidas acabaram. Tente novamente o mesmo nível!",
+    "Tentar o mesmo nível", retryLevel, campaignId ? ["Níveis", showLevels] : null), 700);
 }
 
 function resetBoard() {
   marks = matrix(N, 0);
   lives = MAX_LIVES;
   over = false;
+  cheated = devMode;
   modalEl.classList.remove("open");
   buildBoard();
   renderLives();
   updateStatus();
+  renderLevelInfo();
+  timerReset();
+  timerStart();
 }
 
 function retryLevel() {
@@ -354,16 +335,94 @@ function retryLevel() {
   resetBoard();
 }
 
-function newGame() {
+/* Gera em Web Worker (tamanhos grandes levam segundos e travariam a página). */
+const ASYNC_FROM = 9;
+function generateLevelAsync(n) {
+  return new Promise(resolve => {
+    const fallback = () => { generateLevel(n); resolve(); };   // sem Worker: thread principal
+    try {
+      const worker = spawnEngineWorker("onmessage = e => postMessage(E.generateUnique(e.data, Math.random));");
+      worker.onmessage = e => { solution = e.data.cols; regions = e.data.reg; worker.terminate(); resolve(); };
+      worker.onerror = () => { worker.terminate(); fallback(); };
+      worker.postMessage(n);
+    } catch {
+      fallback();
+    }
+  });
+}
+
+let generating = false;
+async function newGame() {
+  if (generating) return;
   const sizeEl = document.getElementById("size");
   if (lost) {                       // após derrota, o nível não muda
     sizeEl.value = N;
     retryLevel();
     return;
   }
-  N = parseInt(sizeEl.value, 10);
-  generateLevel(N);
+  const n = parseInt(sizeEl.value, 10);
+  campaignId = null;                // sair da campanha: a partida salva continua guardada
+  currentLevel = null;
+  if (n >= ASYNC_FROM) {
+    generating = true;
+    over = true;
+    boardEl.classList.add("locked");
+    statusEl.textContent = "⏳ Gerando nível…";
+    await generateLevelAsync(n);
+    generating = false;
+  } else {
+    generateLevel(n);
+  }
+  N = n;
+  sizeEl.value = n;
   resetBoard();
+}
+
+/* Perto do fim dos packs (e depois dele) gera os próximos níveis infinitos em segundo plano */
+function prefetchInfinite(id) {
+  const total = MiauLevels.total;
+  if (total && id >= total - 10) InfiniteLevels.prefetchAhead(Math.max(id, Progress.unlocked, total));
+}
+
+/* Carrega um nível da campanha (packs ou infinito), retomando a partida salva se houver */
+async function playLevel(id, resume = true) {
+  if (generating) return false;
+  const slow = MiauLevels.needsGeneration(id);     // nível infinito ainda não salvo
+  if (slow) {
+    generating = true;
+    over = true;
+    modalEl.classList.remove("open");
+    boardEl.classList.add("locked");
+    timerPause();
+    statusEl.textContent = "⏳ Gerando nível…";
+  }
+  const lv = await MiauLevels.get(id);
+  if (slow) generating = false;
+  if (!lv) {
+    if (slow) statusEl.textContent = "Não foi possível gerar o nível";
+    return false;
+  }
+  campaignId = id;
+  currentLevel = lv;
+  N = lv.n;
+  solution = lv.solution;
+  regions = lv.regions;
+  lost = false;
+  document.getElementById("size").value = N;
+  resetBoard();
+  prefetchInfinite(id);
+
+  const saved = resume && !cheated && Progress.getProgress(id);
+  if (saved && saved.marks.length === N) {
+    marks = saved.marks;
+    lives = saved.lives;
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) updateCell(r, c);
+    renderLives();
+    updateStatus();
+    timerReset(saved.elapsed);
+    timerStart();
+  }
+  return true;
 }
 
 function clearBoard() {
@@ -371,6 +430,7 @@ function clearBoard() {
   marks = matrix(N, 0);          // gatos já fixados também voltam ao vazio, vidas são mantidas
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) updateCell(r, c);
   updateStatus();
+  persist();
 }
 
 function showSolution() {
@@ -390,6 +450,7 @@ const autoColorWrap = document.getElementById("auto-color-wrap");
 const findCatBtn = document.getElementById("find-cat");
 devEl.addEventListener("change", () => {
   devMode = devEl.checked;
+  if (devMode) cheated = true;      // trapaça: a partida não gera estrelas nem progresso
   findCatBtn.hidden = !devMode;
   autoXWrap.hidden = !devMode;
   document.getElementById("dev-note").hidden = !devMode;
@@ -532,7 +593,75 @@ document.querySelectorAll(".tab").forEach(btn =>
     document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b === btn));
     document.querySelectorAll(".panel").forEach(p =>
       p.classList.toggle("active", p.id === btn.dataset.target));
+    if (btn.dataset.target === "levels") renderLevelMap();
+    if (btn.dataset.target === "game") { if (!over) timerStart(); }
+    else { timerPause(); persist(); }            // o tempo só corre na aba do jogo
   }));
+
+/* ---------- Mapa de níveis ---------- */
+const levelMapEl = document.getElementById("level-map");
+const levelsTotalEl = document.getElementById("levels-total");
+
+const INFINITE_SHOWN = 60;                      // últimos níveis infinitos listados no mapa
+
+function levelButton(id, diff) {
+  const locked = id > Progress.unlocked;
+  const stars = Progress.stars(id);
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "lv-btn" + (locked ? " locked" : "") + (stars ? " done" : "") +
+    (id === Progress.unlocked && !stars ? " current" : "");
+  b.disabled = locked;
+  b.setAttribute("aria-label", `Nível ${id}` + (diff ? `, ${diff}` : "") + (locked ? ", bloqueado" : `, ${stars} de 3 estrelas`));
+  b.innerHTML = `<span class="lv-num">${locked ? "🔒" : id}</span>` +
+    `<span class="lv-stars">${locked ? "" : starText(stars)}</span>` +
+    (diff && !locked ? `<span class="lv-diff">${diff}</span>` : "");
+  b.addEventListener("click", () => startCampaign(id));
+  return b;
+}
+
+function levelGroup(title, hint) {
+  const h = document.createElement("h3");
+  h.className = "level-group";
+  h.textContent = title;
+  if (hint) { const s = document.createElement("small"); s.textContent = hint; h.append(" ", s); }
+  const grid = document.createElement("div");
+  grid.className = "level-grid";
+  levelMapEl.append(h, grid);
+  return grid;
+}
+
+async function renderLevelMap() {
+  const all = await MiauLevels.loadAll();
+  levelsTotalEl.textContent = `★ ${Progress.totalStars()}`;
+  levelMapEl.innerHTML = "";
+  let section = null;
+  let lastN = 0;
+  for (const lv of all) {
+    if (lv.n !== lastN) {                        // um bloco por tamanho de tabuleiro
+      lastN = lv.n;
+      section = levelGroup(`${lv.n}×${lv.n}`);
+    }
+    section.appendChild(levelButton(lv.id, lv.diff));
+  }
+
+  const total = MiauLevels.total;
+  if (Progress.unlocked > total) {               // campanha infinita: 10×10 com dificuldade variável
+    const last = Progress.unlocked;
+    const first = Math.max(total + 1, last - INFINITE_SHOWN + 1);
+    section = levelGroup("∞ Infinito · 10×10",
+      first > total + 1 ? `(últimos ${INFINITE_SHOWN} de ${last - total})` : "dificuldade variável");
+    for (let id = first; id <= last; id++) {
+      const info = InfiniteLevels.info(id);
+      section.appendChild(levelButton(id, info && info.diff));
+    }
+  }
+}
+
+async function startCampaign(id) {
+  document.querySelector('.tab[data-target="game"]').click();
+  if (!(await playLevel(id))) newGame();
+}
 
 /* Menu compacto: em telas pequenas, abas, controles e regras vão para um menu suspenso */
 const compactMq = matchMedia("(max-width: 700px), (max-height: 520px)");
@@ -567,4 +696,8 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => { if (e.key === "Escape") setMenu(false); });
 compactMq.addEventListener("change", applyLayout);
 applyLayout();
-newGame();
+/* Abre direto na campanha (partida em andamento ou último nível liberado); sem packs, cai no treino livre */
+(async () => {
+  if (MiauLevels.total && await playLevel(Progress.current())) return;
+  newGame();
+})();
