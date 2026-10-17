@@ -169,8 +169,8 @@ progresso), `campaignId` (null = treino livre), `currentLevel`, `cells[][]` (DOM
   jogador; deve ser substituído pelo tutorial C11).
 - `Instructions` (nota original do dono) ainda cita "Meowdoku" — mantido de propósito.
 - Células são `div` sem `role`/`tabindex`/`aria-*`; modal sem foco/Esc; cores parecidas na `PALETTE`
-  (`#b9d3e4`/`#8ed6f5`, `#de5959`/`#e0689a`, `#fccd3c`/`#ffbb77`); a borda entre regiões (C6) ajuda mas não
-  substitui um modo daltônico.
+  (`#b9d3e4`/`#8ed6f5`, `#de5959`/`#e0689a`, `#fccd3c`/`#ffbb77`); o dono rejeitou a borda grossa entre regiões (C6),
+  então o modo daltônico (C7) é o caminho.
 - O CSS ainda tem blocos de override empilhados (layout tela cheia → menu lateral → responsivo/compact).
 - Os sons são sintetizados (timbres simples): **nunca ouvidos por um humano durante os testes** (só verificado por
   contagem de osciladores/vibrações). Vale ajustar timbre/volume em aparelho real.
@@ -222,7 +222,7 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. Prioridade: **P0** bloqueia v
 | C3 | Háptica (`navigator.vibrate`) + chave | ✅ | botão "📳 Vibração" persistente |
 | C4 | Animações: gato pula, coração quebra, confete/estrelas na vitória | ⬜ P1 | |
 | C5 | Remover flash de tela cheia; `prefers-reduced-motion` | ✅ | `body.flash` removido; erro = realce `::after` |
-| C6 | Bordas grossas entre regiões | ✅ | classes `bt/br/bb/bl` + `box-shadow` inset (`--bw` 3–7 px) |
+| C6 | Bordas grossas entre regiões | ⬜ | **implementado e revertido a pedido do dono** (não gostou do visual; commit `bde0cdd` tinha a versão com bordas). Não reintroduzir sem pedir; para daltonismo usar o modo C7 (ícones/números) |
 | C7 | Modo daltônico (ícones/números por região) + paleta com distância perceptual | ⬜ P1 | |
 | C8 | Acessibilidade: `role/tabindex/aria`, teclado, foco/Esc no modal | ⬜ P1 | |
 | C9 | Unificar nome/marca (MiauColor) e README/comentários | ✅ | `Instructions` mantido (nota do dono) |
@@ -293,7 +293,7 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. Prioridade: **P0** bloqueia v
 - **Sessão 2 (retomada a partir do commit `66cc01c` do GitHub):**
   - Contexto: alterações locais não commitadas de outro agente foram guardadas em `git stash` (não aplicadas;
     `git stash list`) a pedido do dono ("reverter para o GitHub"). Não dê `stash pop` sem falar com o dono.
-  - ✅ CSS mobile (commit `bde0cdd`): bordas entre regiões, realce via `::after`, sem flash de tela,
+  - ✅ CSS mobile (commit `bde0cdd`): realce via `::after`, sem flash de tela,
     `prefers-reduced-motion`, hover só com mouse, `touch-action`, tap-highlight, safe-area, `viewport-fit=cover`.
   - ✅ Marca única MiauColor + ferramentas de dev atrás de `?dev` (commit `dd39627`).
   - ✅ Sons e vibração com chaves persistentes (`audio.js`), verificados por contagem de osciladores/vibrações.

@@ -68,8 +68,6 @@ main { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
 }
 #board.locked .cell { cursor: default; }
 .cell {
-  --bc: rgba(18, 15, 30, .9);                                  /* cor da borda entre regiões */
-  --bw: clamp(3px, calc(100cqw / var(--size) * .075), 7px);    /* espessura proporcional à célula */
   position: relative;
   display: flex; align-items: center; justify-content: center;
   aspect-ratio: 1 / 1;
@@ -81,17 +79,7 @@ main { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
   color: #222;
   line-height: 1;
   transition: filter .15s, transform .15s;
-  /* borda grossa só nos lados onde a célula vizinha é de outra região (classes bt/br/bb/bl) */
-  box-shadow:
-    inset 0 var(--bt, 0px) 0 0 var(--bc),
-    inset calc(-1 * var(--br, 0px)) 0 0 0 var(--bc),
-    inset 0 calc(-1 * var(--bb, 0px)) 0 0 var(--bc),
-    inset var(--bl, 0px) 0 0 0 var(--bc);
 }
-.cell.bt { --bt: var(--bw); }
-.cell.br { --br: var(--bw); }
-.cell.bb { --bb: var(--bw); }
-.cell.bl { --bl: var(--bw); }
 /* camada de realce (gato fixo / erro) sem animar box-shadow */
 .cell::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; }
 .cell.has-cat::after { background: rgba(255,255,255,.18); opacity: 1; }
