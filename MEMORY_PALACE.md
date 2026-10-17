@@ -67,6 +67,7 @@ Interação (campanha e treino):
 | `infinite.js` | `InfiniteLevels`: cache em localStorage, geração em Worker, prefetch dos próximos níveis. |
 | `levels.js` | `MiauLevels`: registro/carregamento de packs (`<script>` dinâmico), `get(id)`, `loadAll()`, `isInfinite/needsGeneration`, `setMeta`. |
 | `levels/` | `pack-01..05.js/.json` (20 níveis cada), `manifest.js/.json`. **Gerados** por `tools/gen_levels.py`. |
+| `audio.js` | `Sound`: sons sintetizados (Web Audio, sem arquivos) + `navigator.vibrate`; chaves persistidas em `miaucolor:settings:v1`; áudio só após 1º gesto. |
 | `progress.js` | `Progress`: estrelas, melhor tempo, nível desbloqueado, partida em andamento. |
 | `tools/gen_levels.py` | Gerador offline (Python), classifica dificuldade, escreve packs e valida (`--verify`). |
 | `README.md` | Doc de usuário/dev (atualizado). |
@@ -123,6 +124,9 @@ progresso), `campaignId` (null = treino livre), `currentLevel`, `cells[][]` (DOM
 ### 5.5 Persistência (localStorage)
 - `miaucolor:v1` → `{ v:1, stars:{id:1..3}, best:{id:segundos}, unlocked:id, inProgress:{id,marks,lives,elapsed}|null }`.
 - `miaucolor:gen:v1` → `{ id: [regionsString, solutionDigits, tier, score, diff] }` (só infinitos).
+- `miaucolor:settings:v1` → `{ sound:bool, haptics:bool }`.
+- **Modo desenvolvedor:** `index.html?dev` mostra Modo Dev, aba Resolve Nível e Documentação (`[data-dev]`,
+  `body.dev-ui`). Sem `?dev` ficam ocultos.
 
 ## 6. Evidências medidas (não refazer sem necessidade)
 
@@ -158,15 +162,15 @@ progresso), `campaignId` (null = treino livre), `currentLevel`, `cells[][]` (DOM
 - **Um slot** de partida em andamento: abrir outro nível troca/perde o anterior.
 - Reabrir nível já concluído começa do zero; estrelas só sobem.
 - `Limpar` apaga também gatos já fixados; "Revelar solução" é grátis e encerra a partida (sem custo/registro).
-- Dev Mode visível e acessível ao jogador; abas "Guia Help"/"Documentação Algorítmica"/"Resolve Nível" no menu
-  principal (são ferramentas, não produto).
-- Marca inconsistente: **MiauColor** (título) × **Miaudoku** (README antigo/trechos) × **Meowdoku**
-  (comentários/`Instructions`).
-- `.cell:hover { transform }` ainda não protegido por `@media (hover:hover)` (hover "gruda" no toque);
-  `box-shadow: inset 0 0 0 100vmax` (`.has-cat`, animação `cellerr`) é pesado; `body.flash` (flash vermelho de
-  tela inteira) é problema de fotossensibilidade; sem `prefers-reduced-motion`.
+- Abas "Guia Help" e "Níveis" ficam no menu principal; **Guia Help** foi mantido de propósito (guia de estratégias para o
+  jogador; deve ser substituído pelo tutorial C11).
+- `Instructions` (nota original do dono) ainda cita "Meowdoku" — mantido de propósito.
 - Células são `div` sem `role`/`tabindex`/`aria-*`; modal sem foco/Esc; cores parecidas na `PALETTE`
-  (`#b9d3e4`/`#8ed6f5`, `#de5959`/`#e0689a`, `#fccd3c`/`#ffbb77`); sem bordas entre regiões.
+  (`#b9d3e4`/`#8ed6f5`, `#de5959`/`#e0689a`, `#fccd3c`/`#ffbb77`); a borda entre regiões (C6) ajuda mas não
+  substitui um modo daltônico.
+- O CSS ainda tem blocos de override empilhados (layout tela cheia → menu lateral → responsivo/compact).
+- Os sons são sintetizados (timbres simples): **nunca ouvidos por um humano durante os testes** (só verificado por
+  contagem de osciladores/vibrações). Vale ajustar timbre/volume em aparelho real.
 - Células 10×10 em tela de 360 px ≈ 32 px (abaixo de 44 px recomendados).
 - Primeira geração de um nível infinito pode levar ~5 s (PC) se o prefetch não terminou; em celular provavelmente mais.
 - O 10×10 infinito gera em Worker, mas o pior caso do reparo chega a ~10 s.
@@ -185,7 +189,7 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. Prioridade: **P0** bloqueia v
 | A3 | Unificar solvers duplicados | 🟡 P1 | `engine.countSolutions` vs `findSolutions` (aba Resolve Nível) em `script.js` |
 | A4 | Delegação de eventos no tabuleiro | ✅ | pointer events no `#board` |
 | A5 | Modularizar `script.js` | 🟡 P1 | extraídos: engine/progress/levels/infinite; falta separar UI do jogo, solver tab, layout/menu |
-| A6 | CSS: consolidar overrides, remover hack `100vmax`, `@media (hover:hover)`, `touch-action: manipulation`, `-webkit-tap-highlight-color`, `viewport-fit=cover` + `env(safe-area-inset-*)` | ⬜ P0 | só `.lv-btn` já protegido |
+| A6 | CSS: consolidar overrides, remover hack `100vmax`, `@media (hover:hover)`, `touch-action: manipulation`, `-webkit-tap-highlight-color`, `viewport-fit=cover` + `env(safe-area-inset-*)` | 🟡 | ✅ hack 100vmax→`::after`, hover só com mouse, touch-action, tap-highlight, safe-area, viewport-fit; ⬜ consolidar os blocos de override |
 | A7 | Estrutura p/ centenas de fases (packs, manifest, loader sob demanda) | ✅ | |
 | A8 | Níveis infinitos determinísticos + cache + prefetch | ✅ | |
 | A9 | Testes automatizados (paridade solver, unicidade, determinismo, regressão de UI) | ⬜ P0 | sem Node: criar `tests.html` rodando no navegador e/ou testes Python em `tools/` |
@@ -211,15 +215,15 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. Prioridade: **P0** bloqueia v
 | ID | Item | Status | Notas |
 |---|---|---|---|
 | C1 | Toque simples ✕ imediato + duplo toque confirma | ✅ | decisão do dono |
-| C2 | Sons (tap/gato/erro/vitória) + mute | ⬜ P0 | Web Audio; iniciar após 1º gesto |
-| C3 | Háptica (`navigator.vibrate`) + chave | ⬜ P1 | |
+| C2 | Sons (tap/gato/erro/vitória/derrota) + mute | ✅ | `audio.js`; botão "🔊 Som" persistente; só após 1º gesto |
+| C3 | Háptica (`navigator.vibrate`) + chave | ✅ | botão "📳 Vibração" persistente |
 | C4 | Animações: gato pula, coração quebra, confete/estrelas na vitória | ⬜ P1 | |
-| C5 | Remover flash de tela cheia; `prefers-reduced-motion` | ⬜ P0 | `body.flash`, `shake` |
-| C6 | Bordas grossas entre regiões | ⬜ P0 | ajuda daltonismo e cores parecidas |
+| C5 | Remover flash de tela cheia; `prefers-reduced-motion` | ✅ | `body.flash` removido; erro = realce `::after` |
+| C6 | Bordas grossas entre regiões | ✅ | classes `bt/br/bb/bl` + `box-shadow` inset (`--bw` 3–7 px) |
 | C7 | Modo daltônico (ícones/números por região) + paleta com distância perceptual | ⬜ P1 | |
 | C8 | Acessibilidade: `role/tabindex/aria`, teclado, foco/Esc no modal | ⬜ P1 | |
-| C9 | Unificar nome/marca (MiauColor) e README/comentários | ⬜ P0 | |
-| C10 | Esconder Modo Dev e tirar Resolve Nível/Guia/Docs do menu principal (flag `?dev`) | ⬜ P0 | |
+| C9 | Unificar nome/marca (MiauColor) e README/comentários | ✅ | `Instructions` mantido (nota do dono) |
+| C10 | Esconder Modo Dev e tirar Resolve Nível/Docs do menu principal (flag `?dev`) | ✅ | **Guia Help** mantido (decisão de PM; vira tutorial em C11) |
 | C11 | Tutorial interativo (3 níveis) substituindo "Guia Help" | ⬜ P1 | |
 | C12 | Tela de configurações (som, háptica, tema, daltonismo) | ⬜ P1 | |
 | C13 | Realce de conflitos em tempo real | ⬜ P2 | ⚠️ pode conflitar com a mecânica de validação por duplo toque; discutir antes |
@@ -239,17 +243,16 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. Prioridade: **P0** bloqueia v
 
 ## 10. Próximas ações sugeridas (ordem recomendada)
 
-1. **C5 + C6 + A6** (CSS: sem flash, `reduced-motion`, bordas entre regiões, hover só com mouse, safe-area).
-   *Aceite:* nenhum `body.flash`; bordas visíveis em todos os tamanhos; sem hover preso no toque; sem faixas no
-   notch; layout 360×640 sem rolagem do tabuleiro.
-2. **C2 (+C3)** áudio/háptica com `Settings` em localStorage. *Aceite:* sons só após 1º gesto; mute persistente.
-3. **C9 + C10** marca única e esconder dev/ferramentas (`?dev` no URL reativa). *Aceite:* usuário comum não vê
-   Modo Dev nem as abas de documentação.
-4. **A9** `tests.html` (sem Node) cobrindo: paridade `gradeLevel` com packs, unicidade dos 100 níveis,
+(Itens 1–3 da versão anterior — CSS mobile, áudio/háptica, marca/`?dev` — **concluídos**, ver §9 e §13.)
+
+1. **A9** `tests.html` (sem Node) cobrindo: paridade `gradeLevel` com packs, unicidade dos 100 níveis,
    determinismo `generateInfinite`, fluxo de estrelas/desbloqueio (com `localStorage` isolado).
-5. **D1 + A10 + D5** PWA + hospedagem estática. *Aceite:* instalável e funcional offline (inclui `levels/*`).
-6. **D2** reclassificação dos packs; **B12** slots por nível; **B10** custo de "Revelar solução".
-7. **D3** teste em aparelhos reais e ajuste do `DOUBLE_TAP_MS`/tamanho de célula no 10×10.
+2. **D1 + A10 + D5** PWA + hospedagem estática. *Aceite:* instalável e funcional offline (inclui `levels/*`).
+3. **D2** reclassificação dos packs; **B12** slots por nível; **B10** custo de "Revelar solução".
+4. **C8** acessibilidade (roles/aria, teclado, foco/Esc no modal) e **C7** modo daltônico.
+5. **C4** animações de vitória/erro; **C11** tutorial; **C12** tela de configurações.
+6. **D3** teste em aparelhos reais (duplo toque, safe-area, timbre/volume dos sons, desempenho do 10×10) e ajuste de
+   `DOUBLE_TAP_MS`/tamanho de célula.
 
 ## 11. Como verificar o projeto (receitas)
 
@@ -281,3 +284,11 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. Prioridade: **P0** bloqueia v
   - ✅ Níveis infinitos ≥101 (10×10, determinísticos, cache, prefetch, mapa "∞").
   - ✅ README atualizado e este Memory Palace criado.
   - Pendente: tudo marcado ⬜ no §9 (foco imediato: C5, C6, A6, C2, C9, C10, A9, D1).
+- **Sessão 2 (retomada a partir do commit `66cc01c` do GitHub):**
+  - Contexto: alterações locais não commitadas de outro agente foram guardadas em `git stash` (não aplicadas;
+    `git stash list`) a pedido do dono ("reverter para o GitHub"). Não dê `stash pop` sem falar com o dono.
+  - ✅ CSS mobile (commit `bde0cdd`): bordas entre regiões, realce via `::after`, sem flash de tela,
+    `prefers-reduced-motion`, hover só com mouse, `touch-action`, tap-highlight, safe-area, `viewport-fit=cover`.
+  - ✅ Marca única MiauColor + ferramentas de dev atrás de `?dev` (commit `dd39627`).
+  - ✅ Sons e vibração com chaves persistentes (`audio.js`), verificados por contagem de osciladores/vibrações.
+  - Pendente (foco imediato): A9 (testes), D1/A10/D5 (PWA + hospedagem), D2, B12, B10, C8, C7, D3.

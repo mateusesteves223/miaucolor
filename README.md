@@ -36,6 +36,7 @@ O tabuleiro e suas regiões são gerados em JavaScript. A interface é feita com
 - **Progresso:** salvo em `localStorage`, inclusive a partida em andamento (um slot): ao reabrir, o jogo retoma de onde parou.
 - **Treino livre:** "Novo jogo" gera um tabuleiro aleatório (não conta para a campanha).
 - **Modo desenvolvedor:** abra `index.html?dev` para exibir o Modo Dev (vidas infinitas, auto-✕; não conta para a campanha), a aba "Resolve Nível" e a documentação algorítmica. Para o jogador comum essas ferramentas ficam ocultas.
+- **Som e vibração:** sons sintetizados (sem arquivos) e vibração no celular, com chaves "Som" e "Vibração" que ficam salvas.
 
 Para regenerar os níveis dos packs: `python tools/gen_levels.py` (use `--verify` para só validar).
 
@@ -47,5 +48,6 @@ Para regenerar os níveis dos packs: `python tools/gen_levels.py` (use `--verify
 - `engine.js` — motor puro: geração por seed, unicidade, solver lógico e dificuldade (roda na página e em Workers).
 - `infinite.js` — níveis infinitos: geração em Worker, cache e antecipação.
 - `levels.js` — carregador dos packs de níveis; `levels/` — packs e manifesto gerados.
+- `audio.js` — sons sintetizados (Web Audio) e vibração, com preferências salvas.
 - `progress.js` — estrelas, recordes e partida em andamento (`localStorage`).
 - `tools/gen_levels.py` — gerador offline (seed fixa, solução única, dificuldade por solver lógico).

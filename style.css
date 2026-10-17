@@ -376,6 +376,9 @@ body.compact .sidebar .timer { font-size: .85rem; }
 
 /* Ferramentas de desenvolvedor (Modo Dev, Resolve Nível, Documentação): só com ?dev na URL */
 body:not(.dev-ui) [data-dev] { display: none !important; }
+
+/* Chaves de som/vibração: discretas, ficam esmaecidas quando desligadas */
+#sound-btn.off, #haptics-btn.off { opacity: .6; }
 .lv-btn.done { background: #33305a; }
 .lv-btn.current { border-color: var(--accent); }
 .lv-btn.locked { opacity: .45; cursor: not-allowed; }

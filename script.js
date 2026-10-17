@@ -207,6 +207,7 @@ boardEl.addEventListener("pointerup", e => {
   lastTap = { cell, t: now, prev: marks[r][c] };
   marks[r][c] = marks[r][c] === 1 ? 0 : 1;
   updateCell(r, c);
+  Sound.tap();
   persist();
 });
 
@@ -243,6 +244,7 @@ function tryCat(r, c) {
     if (devMode && autoColorEl.checked) autoCrossRegion(r, c);
     updateCell(r, c);
     updateStatus();
+    Sound.cat();
     persist();
     if (marks.flat().filter(m => m === 2).length === N) win();
     return;
@@ -250,6 +252,7 @@ function tryCat(r, c) {
   marks[r][c] = 3;                 // erro: ✕ vinho fixo
   updateCell(r, c);
   shake(cells[r][c]);
+  Sound.error();
   if (devMode) return;             // modo dev: vidas infinitas
   lives--;
   renderLives();
@@ -299,6 +302,7 @@ const starText = n => "★".repeat(n) + "☆".repeat(3 - n);
 
 function win() {
   lockBoard();
+  setTimeout(() => Sound.win(), 350);               // depois do "miau" do último gato
   statusEl.textContent = "🎉 Todos os gatos estão em paz!";
   if (!campaignId || cheated) {
     setTimeout(() => showModal("🏆", "Parabéns!", "Você resolveu o MiauColor!", "Jogar novamente", newGame), 500);
@@ -320,6 +324,7 @@ function win() {
 function gameOver() {
   if (!campaignId) lost = true;      // trava "mesmo nível" só no treino livre
   lockBoard();
+  setTimeout(() => Sound.lose(), 250);
   statusEl.textContent = "💀 Game over";
   setTimeout(() => showModal("😿", "Fim de jogo", "Suas vidas acabaram. Tente novamente o mesmo nível!",
     "Tentar o mesmo nível", retryLevel, campaignId ? ["Níveis", showLevels] : null), 700);
@@ -475,6 +480,22 @@ findCatBtn.addEventListener("click", () => {
 
 document.getElementById("new").addEventListener("click", newGame);
 document.getElementById("clear").addEventListener("click", clearBoard);
+
+/* Chaves de som e vibração (preferências persistentes) */
+function bindToggle(id, label, getter, setter) {
+  const btn = document.getElementById(id);
+  const render = () => {
+    const on = getter();
+    btn.setAttribute("aria-pressed", on);
+    btn.textContent = `${label}: ${on ? "ligado" : "desligado"}`;
+    btn.classList.toggle("off", !on);
+  };
+  btn.addEventListener("click", () => { setter(!getter()); render(); });
+  render();
+}
+bindToggle("sound-btn", "🔊 Som", () => Sound.sound, v => Sound.setSound(v));
+bindToggle("haptics-btn", "📳 Vibração", () => Sound.haptics, v => Sound.setHaptics(v));
+window.addEventListener("pointerdown", () => Sound.unlock(), { once: true });   // áudio só após um gesto
 document.getElementById("reveal").addEventListener("click", showSolution);
 document.getElementById("size").addEventListener("change", newGame);
 
