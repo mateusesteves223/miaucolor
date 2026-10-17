@@ -344,13 +344,20 @@ function retryLevel() {
 
 /* Gera em Web Worker (tamanhos grandes levam segundos e travariam a página). */
 const ASYNC_FROM = 9;
+let activeGenWorker = null;   // referência ao Worker de geração em andamento
+function cancelActiveGenWorker() {
+  if (activeGenWorker) { activeGenWorker.terminate(); activeGenWorker = null; }
+}
 function generateLevelAsync(n) {
+  cancelActiveGenWorker();    // encerra Worker anterior antes de iniciar outro
   return new Promise(resolve => {
     const fallback = () => { generateLevel(n); resolve(); };   // sem Worker: thread principal
     try {
       const worker = spawnEngineWorker("onmessage = e => postMessage(E.generateUnique(e.data, Math.random));");
-      worker.onmessage = e => { solution = e.data.cols; regions = e.data.reg; worker.terminate(); resolve(); };
-      worker.onerror = () => { worker.terminate(); fallback(); };
+      activeGenWorker = worker;
+      const release = () => { worker.terminate(); if (activeGenWorker === worker) activeGenWorker = null; };
+      worker.onmessage = e => { solution = e.data.cols; regions = e.data.reg; release(); resolve(); };
+      worker.onerror = () => { release(); fallback(); };
       worker.postMessage(n);
     } catch {
       fallback();

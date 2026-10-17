@@ -23,6 +23,14 @@ Além disso, gatos não podem se encostar, nem mesmo na diagonal.
 
 Não há dependências ou etapa de compilação. Clone ou baixe o repositório e abra `index.html` em um navegador moderno.
 
+Para exportar os arquivos de código para `fullCode.md`, execute no PowerShell, a partir da raiz do projeto:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\export-full-code.ps1
+```
+
+O arquivo inclui o nome e a data da última alteração de cada arquivo; para arquivos em subpastas, inclui também o caminho relativo. Ele é recriado a cada execução e não inclui a si mesmo.
+
 ## Sobre o projeto
 
 O tabuleiro e suas regiões são gerados em JavaScript. A interface é feita com HTML e CSS, com layout responsivo, animações, painel de vidas e guia visual de estratégias.

@@ -14,15 +14,29 @@ const Sound = (() => {
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch { /* sem espaço */ } }
 
-  function ensure() {
+  // Cria o contexto sob demanda (nunca na carga do arquivo) e o retoma se estiver suspenso.
+  // resume() é assíncrono: o erro é engolido para não gerar "unhandled rejection".
+  function ensureAudioContext() {
     if (!ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
       ctx = new AC();
     }
-    if (ctx.state === "suspended") ctx.resume();
+    if (ctx.state === "suspended" || ctx.state === "interrupted") {   // "interrupted": iOS Safari
+      try { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { /* ignora */ }
+    }
     return ctx;
   }
+  const ensure = ensureAudioContext;
+
+  // Desbloqueio global: iOS só aceita resume() dentro de touchend/click (pointerdown não conta).
+  // Os ouvintes permanecem até o contexto realmente estar "running".
+  const UNLOCK_EVENTS = ["touchend", "pointerup", "click", "keydown"];
+  function onGesture() {
+    const c = ensureAudioContext();
+    if (c && c.state === "running") UNLOCK_EVENTS.forEach(e => window.removeEventListener(e, onGesture, true));
+  }
+  UNLOCK_EVENTS.forEach(e => window.addEventListener(e, onGesture, true));
 
   function tone({ freq, to = freq, dur = 0.12, type = "sine", gain = 0.1, delay = 0 }) {
     if (!settings.sound) return;

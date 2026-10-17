@@ -7,7 +7,11 @@
  * Ao alterar a lista abaixo (ou para forçar atualização), incremente CACHE. */
 const CACHE = "miaucolor-v2";
 
-const PRECACHE = [
+// Diretório onde o sw.js está hospedado (ex.: "/repo/miaucolor/"), independente do subdiretório.
+const BASE = self.location.pathname.replace(/[^/]*$/, "");
+const toAbs = p => new URL(BASE + p.replace(/^\.\//, ""), self.location.origin).href;
+
+const PRECACHE_PATHS = [
   "./",
   "index.html",
   "style.css",
@@ -28,6 +32,7 @@ const PRECACHE = [
   "icons/icon-512.png",
   "icons/apple-touch-icon.png",
 ];
+const PRECACHE = PRECACHE_PATHS.map(toAbs);   // URLs absolutas já resolvidas sob BASE
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -47,7 +52,9 @@ self.addEventListener("fetch", event => {
 
   event.respondWith(
     caches.open(CACHE).then(async cache => {
-      const cached = await cache.match(req, { ignoreSearch: true });   // ?dev usa o mesmo cache
+      let cached = await cache.match(req, { ignoreSearch: true });   // ?dev usa o mesmo cache
+      // Navegação (ex.: "/repo/miaucolor" sem barra final ou com query): cai no index sob BASE.
+      if (!cached && req.mode === "navigate") cached = await cache.match(toAbs("index.html"));
       const network = fetch(req)
         .then(res => { if (res && res.ok) cache.put(req, res.clone()); return res; })
         .catch(() => null);

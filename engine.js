@@ -370,7 +370,12 @@ function spawnEngineWorker(handlerSrc) {
   const src = `const E = (${createEngine.toString()})();\n${handlerSrc}`;
   const url = URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
   const worker = new Worker(url);
+  // Revogação diferida: Safari/WebKit e Firefox mobile buscam o script do Worker de forma assíncrona;
+  // revogar na hora quebraria a inicialização. Idempotente (timer + terminate).
+  let revoked = false;
+  const revoke = () => { if (!revoked) { revoked = true; URL.revokeObjectURL(url); } };
+  const timer = setTimeout(revoke, 2000);
   const terminate = worker.terminate.bind(worker);
-  worker.terminate = () => { terminate(); URL.revokeObjectURL(url); };
+  worker.terminate = () => { terminate(); clearTimeout(timer); setTimeout(revoke, 2000); };
   return worker;
 }
