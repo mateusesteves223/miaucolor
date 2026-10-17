@@ -1,7 +1,7 @@
 ﻿"use strict";
 
 /* =====================================================================
- * MEOWDOKU
+ * MIAUCOLOR
  * Estado:
  *   solution[r] = c        -> coluna do gato na linha r (uma permutação)
  *   regions[r][c] = id     -> matriz 2D com o id da região (0..N-1)
@@ -20,6 +20,9 @@ let solution = [];
 let regions = [];
 let marks = [];
 let solved = false;
+
+/* Ferramentas de desenvolvedor só aparecem com ?dev na URL (ex.: index.html?dev) */
+document.body.classList.toggle("dev-ui", new URLSearchParams(location.search).has("dev"));
 
 /* ---------- Motor (engine.js): geração, solver e dificuldade ---------- */
 const E = createEngine();

@@ -373,6 +373,9 @@ body.compact .sidebar .timer { font-size: .85rem; }
 .lv-stars { font-size: .75rem; color: #ffd15c; letter-spacing: .08em; min-height: 1em; }
 .lv-diff { font-size: .6rem; color: var(--muted); }
 .level-group small { font-weight: 400; opacity: .8; }
+
+/* Ferramentas de desenvolvedor (Modo Dev, Resolve Nível, Documentação): só com ?dev na URL */
+body:not(.dev-ui) [data-dev] { display: none !important; }
 .lv-btn.done { background: #33305a; }
 .lv-btn.current { border-color: var(--accent); }
 .lv-btn.locked { opacity: .45; cursor: not-allowed; }

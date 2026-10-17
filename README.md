@@ -1,4 +1,4 @@
-﻿# Miaudoku
+﻿# MiauColor
 
 Um puzzle de lógica com gatos, regiões coloridas e níveis gerados proceduralmente.
 
@@ -34,7 +34,8 @@ O tabuleiro e suas regiões são gerados em JavaScript. A interface é feita com
 - **Dificuldade:** vem do que um solver lógico precisa para resolver o mapa sem chutar (região de 1 célula, região presa a uma linha/coluna, 2 regiões em 2 colunas, 3 em 3, e por fim eliminação por contradição), medido em passos ponderados. Em 10×10 a distribuição natural é ≈ 35% Fácil, 25% Médio, 20% Difícil, 15% Expert.
 - **Estrelas:** 3 sem erros, 2 com um erro, 1 com dois ou mais. O melhor tempo de cada nível é guardado.
 - **Progresso:** salvo em `localStorage`, inclusive a partida em andamento (um slot): ao reabrir, o jogo retoma de onde parou.
-- **Treino livre:** "Novo jogo" gera um tabuleiro aleatório (não conta para a campanha). O Modo Dev também não conta.
+- **Treino livre:** "Novo jogo" gera um tabuleiro aleatório (não conta para a campanha).
+- **Modo desenvolvedor:** abra `index.html?dev` para exibir o Modo Dev (vidas infinitas, auto-✕; não conta para a campanha), a aba "Resolve Nível" e a documentação algorítmica. Para o jogador comum essas ferramentas ficam ocultas.
 
 Para regenerar os níveis dos packs: `python tools/gen_levels.py` (use `--verify` para só validar).
 
