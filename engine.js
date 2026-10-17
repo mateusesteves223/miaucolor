@@ -97,18 +97,23 @@ function createEngine() {
   /* ---------- 3) Unicidade ---------- */
   function countSolutions(n, reg, limit = 2) {
     const cols = Array(n).fill(-1);
-    const usedCols = new Set(), usedRegs = new Set();
+    let usedCols = 0, usedRegs = 0;
     let count = 0;
     (function go(row) {
       if (count >= limit) return;
       if (row === n) { count++; return; }
       for (let c = 0; c < n; c++) {
         const g = reg[row][c];
-        if (usedCols.has(c) || usedRegs.has(g)) continue;
+        const colBit = 1 << c, regBit = 1 << g;
+        if ((usedCols & colBit) !== 0 || (usedRegs & regBit) !== 0) continue;
         if (row > 0 && Math.abs(cols[row - 1] - c) <= 1) continue;
-        cols[row] = c; usedCols.add(c); usedRegs.add(g);
+        cols[row] = c;
+        usedCols |= colBit;
+        usedRegs |= regBit;
         go(row + 1);
-        usedCols.delete(c); usedRegs.delete(g); cols[row] = -1;
+        usedCols &= ~colBit;
+        usedRegs &= ~regBit;
+        cols[row] = -1;
       }
     })(0);
     return count;

@@ -14,12 +14,18 @@ const PALETTE = [
     "#8ed6f5", "#e0689a",
   ];
 const SYMBOLS = ["", "✕", "🐱"];
+const GameState = Object.freeze({
+  IDLE: "IDLE",
+  PLAYING: "PLAYING",
+  PAUSED: "PAUSED",
+  GAME_OVER: "GAME_OVER",
+  WON: "WON"
+});
 
 let N = 7;
 let solution = [];
 let regions = [];
 let marks = [];
-let solved = false;
 
 /* Ferramentas de desenvolvedor só aparecem com ?dev na URL (ex.: index.html?dev) */
 document.body.classList.toggle("dev-ui", new URLSearchParams(location.search).has("dev"));
@@ -47,14 +53,21 @@ function generateLevel(n) {
  * ===================================================================== */
 const MAX_LIVES = 3;
 const DOUBLE_TAP_MS = 300;
-let lives = MAX_LIVES;
-let lost = false;               // perdeu: só pode repetir o mesmo nível
-let over = false;                 // fim de jogo (vitória, derrota ou revelação)
+const game = {
+  state: GameState.IDLE,
+  lives: MAX_LIVES,
+  lost: false,
+  cheated: false,
+  devMode: false,
+  dragged: false,
+  generating: false,
+  drag: null,
+  dragStart: null,
+  lastTap: { cell: null, t: 0, prev: 0 }
+};
 let cells = [];
 let cellSymbols = [];
 let heartNodes = [];
-let devMode = false;
-let cheated = false;            // modo dev usado na partida: não conta para estrelas/progresso
 let campaignId = null;          // id do nível da campanha (null = treino livre)
 let currentLevel = null;
 
@@ -76,6 +89,31 @@ function timerPause() {
 }
 function timerReset(ms = 0) { tickStart = null; elapsedMs = ms; renderTimer(); }
 
+const allowedTransitions = Object.freeze({
+  [GameState.IDLE]: [GameState.PLAYING, GameState.PAUSED],
+  [GameState.PLAYING]: [GameState.PAUSED, GameState.IDLE, GameState.GAME_OVER, GameState.WON],
+  [GameState.PAUSED]: [GameState.PLAYING, GameState.IDLE, GameState.GAME_OVER, GameState.WON],
+  [GameState.GAME_OVER]: [GameState.IDLE, GameState.PLAYING, GameState.PAUSED],
+  [GameState.WON]: [GameState.IDLE, GameState.PLAYING, GameState.PAUSED]
+});
+
+function setGameState(next) {
+  if (game.state === next) {
+    if (next === GameState.PLAYING) timerStart();
+    return;
+  }
+  if (!allowedTransitions[game.state].includes(next)) {
+    throw new Error(`Transição de estado inválida: ${game.state} → ${next}`);
+  }
+  game.state = next;
+  if (next === GameState.PLAYING) timerStart();
+  else timerPause();
+}
+
+const isPlaying = () => game.state === GameState.PLAYING;
+const isTerminal = () => game.state === GameState.GAME_OVER || game.state === GameState.WON;
+const gameTabActive = () => !!document.querySelector('.tab[data-target="game"].active');
+
 function formatTime(secs) {
   return String(Math.floor(secs / 60)).padStart(2, "0") + ":" + String(secs % 60).padStart(2, "0");
 }
@@ -85,8 +123,12 @@ function renderTimer() {
 }
 setInterval(renderTimer, 500);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) { timerPause(); persist(); }
-  else if (!over) timerStart();
+  if (document.hidden) {
+    if (isPlaying()) setGameState(GameState.PAUSED);
+    persist();
+  } else if (game.state === GameState.PAUSED && gameTabActive()) {
+    setGameState(GameState.PLAYING);
+  }
 });
 
 function renderLevelInfo() {
@@ -97,8 +139,8 @@ function renderLevelInfo() {
 
 /* Salva a partida em andamento (só campanha) para retomar após fechar o app */
 function persist() {
-  if (!campaignId || over || cheated) return;
-  Progress.saveProgress({ id: campaignId, marks, lives, elapsed: Math.round(timerElapsed()) });
+  if (!campaignId || isTerminal() || game.state === GameState.IDLE || game.cheated) return;
+  Progress.saveProgress({ id: campaignId, marks, lives: game.lives, elapsed: Math.round(timerElapsed()) });
 }
 
 function renderCell(r, c) {
@@ -131,7 +173,7 @@ function renderLives() {
   }
   for (let i = 0; i < MAX_LIVES; i++) {
     const heart = heartNodes[i];
-    const alive = i < lives;
+    const alive = i < game.lives;
     heart.classList.toggle("lost", !alive);
     const text = alive ? "❤️" : "🖤";
     if (heart.textContent !== text) heart.textContent = text;
@@ -179,10 +221,6 @@ function buildBoard() {
 }
 
 /* Clique e arraste: o primeiro quadrado define se o gesto pinta ✕ ou apaga ✕ */
-let drag = null;     // { mode: 1 | 0 } enquanto o ponteiro está pressionado
-let dragStart = null;
-let dragged = false;
-
 function cellAt(x, y) {
   const el = document.elementFromPoint(x, y);
   const cell = el && el.closest ? el.closest(".cell") : null;
@@ -192,58 +230,60 @@ function cellAt(x, y) {
 function dragApply(cell) {
   const r = +cell.dataset.r, c = +cell.dataset.c;
   const m = marks[r][c];
-  if (m >= 2 || m === drag.mode) return;
-  marks[r][c] = drag.mode;
+  if (m >= 2 || m === game.drag.mode) return;
+  marks[r][c] = game.drag.mode;
   renderCell(r, c);
 }
 
 boardEl.addEventListener("pointerdown", e => {
-  dragged = false;
-  if (over || e.button !== 0) return;
+  game.dragged = false;
+  if (!isPlaying() || e.button !== 0) return;
   const cell = cellAt(e.clientX, e.clientY);
   if (!cell) return;
   const m = marks[+cell.dataset.r][+cell.dataset.c];
   if (m >= 2) return;
-  dragStart = cell;
-  drag = { mode: m === 1 ? 0 : 1 };
+  game.dragStart = cell;
+  game.drag = { mode: m === 1 ? 0 : 1 };
 });
 
 boardEl.addEventListener("pointermove", e => {
-  if (!drag) return;
+  if (!isPlaying() || !game.drag) return;
   const cell = cellAt(e.clientX, e.clientY);
   if (!cell) return;
-  if (!dragged) {
-    if (cell === dragStart) return;
-    dragged = true;
-    dragApply(dragStart);
+  if (!game.dragged) {
+    if (cell === game.dragStart) return;
+    game.dragged = true;
+    dragApply(game.dragStart);
   }
   dragApply(cell);
 });
 
 /* Toque simples alterna ✕ na hora; segundo toque na mesma célula confirma o gato */
-let lastTap = { cell: null, t: 0, prev: 0 };
-
 boardEl.addEventListener("pointerup", e => {
-  const cell = dragStart;                       // célula do pointerdown (null se inválido)
-  if (!cell || dragged || over) return;
+  const cell = game.dragStart;                  // célula do pointerdown (null se inválido)
+  if (!cell || game.dragged || !isPlaying()) return;
   const r = +cell.dataset.r, c = +cell.dataset.c;
   if (marks[r][c] >= 2) return;
   const now = performance.now();
-  if (lastTap.cell === cell && now - lastTap.t <= DOUBLE_TAP_MS) {
-    marks[r][c] = lastTap.prev;                 // desfaz o ✕ do primeiro toque
+  if (game.lastTap.cell === cell && now - game.lastTap.t <= DOUBLE_TAP_MS) {
+    marks[r][c] = game.lastTap.prev;            // desfaz o ✕ do primeiro toque
     renderCell(r, c);
-    lastTap = { cell: null, t: 0, prev: 0 };
+    game.lastTap = { cell: null, t: 0, prev: 0 };
     tryCat(r, c);
     return;
   }
-  lastTap = { cell, t: now, prev: marks[r][c] };
+  game.lastTap = { cell, t: now, prev: marks[r][c] };
   marks[r][c] = marks[r][c] === 1 ? 0 : 1;
   renderCell(r, c);
   Sound.tap();
   persist();
 });
 
-const endDrag = () => { if (dragged) persist(); drag = null; dragStart = null; };
+const endDrag = () => {
+  if (game.dragged) persist();
+  game.drag = null;
+  game.dragStart = null;
+};
 window.addEventListener("pointerup", endDrag);
 window.addEventListener("pointercancel", endDrag);
 
@@ -270,10 +310,11 @@ function autoCrossRegion(r, c) {
 }
 
 function tryCat(r, c) {
+  if (!isPlaying()) return;
   if (solution[r] === c) {
     marks[r][c] = 2;
-    if (devMode && autoXEl.checked) autoCross(r, c);
-    if (devMode && autoColorEl.checked) autoCrossRegion(r, c);
+    if (game.devMode && autoXEl.checked) autoCross(r, c);
+    if (game.devMode && autoColorEl.checked) autoCrossRegion(r, c);
     renderCell(r, c);
     updateStatus();
     Sound.cat();
@@ -285,10 +326,10 @@ function tryCat(r, c) {
   renderCell(r, c);
   shake(cells[r][c]);
   Sound.error();
-  if (devMode) return;             // modo dev: vidas infinitas
-  lives--;
+  if (game.devMode) return;             // modo dev: vidas infinitas
+  game.lives--;
   renderLives();
-  if (lives <= 0) gameOver();
+  if (game.lives <= 0) gameOver();
   else persist();
 }
 
@@ -301,10 +342,9 @@ function shake(el) {
   }
 }
 
-function lockBoard() {
-  over = true;
+function lockBoard(nextState) {
+  setGameState(nextState);
   boardEl.classList.add("locked");
-  timerPause();
   renderTimer();
   Progress.clearProgress();
 }
@@ -333,29 +373,31 @@ const starsFor = errors => Math.max(1, 3 - errors);
 const starText = n => "★".repeat(n) + "☆".repeat(3 - n);
 
 function win() {
-  lockBoard();
+  if (!isPlaying()) return;
+  lockBoard(GameState.WON);
   setTimeout(() => Sound.win(), 350);               // depois do "miau" do último gato
   statusEl.textContent = "🎉 Todos os gatos estão em paz!";
-  if (!campaignId || cheated) {
+  if (!campaignId || game.cheated) {
     setTimeout(() => showModal("🏆", "Parabéns!", "Você resolveu o MiauColor!", "Jogar novamente", newGame), 500);
     return;
   }
   const id = campaignId;
   const secs = Math.round(timerElapsed() / 1000);
-  const stars = starsFor(MAX_LIVES - lives);
+  const stars = starsFor(MAX_LIVES - game.lives);
   const prevBest = Progress.best(id);
   Progress.complete(id, stars, secs, Infinity);     // a campanha não tem fim
   prefetchInfinite(id);
   const record = prevBest && secs < prevBest ? " 🏅 Novo recorde!" : "";
   const text = `<span class="modal-stars">${starText(stars)}</span><br>Tempo: ${formatTime(secs)}${record}`;
   setTimeout(() => showModal("🏆", "Nível concluído!", text, "Próximo nível",
-    () => playLevel(id + 1).then(ok => { if (!ok && !generating) showLevels(); }),
+    () => playLevel(id + 1).then(ok => { if (!ok && !game.generating) showLevels(); }),
     ["Níveis", showLevels]), 500);
 }
 
 function gameOver() {
-  if (!campaignId) lost = true;      // trava "mesmo nível" só no treino livre
-  lockBoard();
+  if (!isPlaying()) return;
+  if (!campaignId) game.lost = true;      // trava "mesmo nível" só no treino livre
+  lockBoard(GameState.GAME_OVER);
   setTimeout(() => Sound.lose(), 250);
   statusEl.textContent = "💀 Game over";
   setTimeout(() => showModal("😿", "Fim de jogo", "Suas vidas acabaram. Tente novamente o mesmo nível!",
@@ -364,20 +406,19 @@ function gameOver() {
 
 function resetBoard() {
   marks = matrix(N, 0);
-  lives = MAX_LIVES;
-  over = false;
-  cheated = devMode;
+  game.lives = MAX_LIVES;
+  game.cheated = game.devMode;
   modalEl.classList.remove("open");
   buildBoard();
   renderLives();
   updateStatus();
   renderLevelInfo();
   timerReset();
-  timerStart();
+  setGameState(!document.hidden && gameTabActive() ? GameState.PLAYING : GameState.PAUSED);
 }
 
 function retryLevel() {
-  lost = false;
+  game.lost = false;
   resetBoard();
 }
 
@@ -404,11 +445,10 @@ function generateLevelAsync(n) {
   });
 }
 
-let generating = false;
 async function newGame() {
-  if (generating) return;
+  if (game.generating) return;
   const sizeEl = document.getElementById("size");
-  if (lost) {                       // após derrota, o nível não muda
+  if (game.lost) {                       // após derrota, o nível não muda
     sizeEl.value = N;
     retryLevel();
     return;
@@ -417,12 +457,12 @@ async function newGame() {
   campaignId = null;                // sair da campanha: a partida salva continua guardada
   currentLevel = null;
   if (n >= ASYNC_FROM) {
-    generating = true;
-    over = true;
+    game.generating = true;
+    setGameState(GameState.IDLE);
     boardEl.classList.add("locked");
     statusEl.textContent = "⏳ Gerando nível…";
     await generateLevelAsync(n);
-    generating = false;
+    game.generating = false;
   } else {
     generateLevel(n);
   }
@@ -439,18 +479,17 @@ function prefetchInfinite(id) {
 
 /* Carrega um nível da campanha (packs ou infinito), retomando a partida salva se houver */
 async function playLevel(id, resume = true) {
-  if (generating) return false;
+  if (game.generating) return false;
   const slow = MiauLevels.needsGeneration(id);     // nível infinito ainda não salvo
   if (slow) {
-    generating = true;
-    over = true;
+    game.generating = true;
+    setGameState(GameState.IDLE);
     modalEl.classList.remove("open");
     boardEl.classList.add("locked");
-    timerPause();
     statusEl.textContent = "⏳ Gerando nível…";
   }
   const lv = await MiauLevels.get(id);
-  if (slow) generating = false;
+  if (slow) game.generating = false;
   if (!lv) {
     if (slow) statusEl.textContent = "Não foi possível gerar o nível";
     return false;
@@ -460,26 +499,26 @@ async function playLevel(id, resume = true) {
   N = lv.n;
   solution = lv.solution;
   regions = lv.regions;
-  lost = false;
+  game.lost = false;
   document.getElementById("size").value = N;
   resetBoard();
   prefetchInfinite(id);
 
-  const saved = resume && !cheated && Progress.getProgress(id);
+  const saved = resume && !game.cheated && Progress.getProgress(id);
   if (saved && saved.marks.length === N) {
     marks = saved.marks;
-    lives = saved.lives;
+    game.lives = saved.lives;
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
     renderLives();
     updateStatus();
     timerReset(saved.elapsed);
-    timerStart();
+    if (!document.hidden && gameTabActive()) setGameState(GameState.PLAYING);
   }
   return true;
 }
 
 function clearBoard() {
-  if (over) return;
+  if (!isPlaying()) return;
   marks = matrix(N, 0);          // gatos já fixados também voltam ao vazio, vidas são mantidas
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
   updateStatus();
@@ -487,10 +526,11 @@ function clearBoard() {
 }
 
 function showSolution() {
+  if (!isPlaying()) return;
   marks = matrix(N, 0);
   solution.forEach((c, r) => (marks[r][c] = 2));
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
-  lockBoard();
+  lockBoard(GameState.GAME_OVER);
   updateStatus();
   statusEl.textContent = "Solução revelada";
 }
@@ -502,15 +542,15 @@ const autoColorEl = document.getElementById("auto-color");
 const autoColorWrap = document.getElementById("auto-color-wrap");
 const findCatBtn = document.getElementById("find-cat");
 devEl.addEventListener("change", () => {
-  devMode = devEl.checked;
-  if (devMode) cheated = true;      // trapaça: a partida não gera estrelas nem progresso
-  findCatBtn.hidden = !devMode;
-  autoXWrap.hidden = !devMode;
-  document.getElementById("dev-note").hidden = !devMode;
-  autoColorWrap.hidden = !devMode;
+  game.devMode = devEl.checked;
+  if (game.devMode) game.cheated = true;      // trapaça: a partida não gera estrelas nem progresso
+  findCatBtn.hidden = !game.devMode;
+  autoXWrap.hidden = !game.devMode;
+  document.getElementById("dev-note").hidden = !game.devMode;
+  autoColorWrap.hidden = !game.devMode;
 });
 findCatBtn.addEventListener("click", () => {
-  if (over) return;
+  if (!isPlaying()) return;
   const left = solution.map((c, r) => [r, c]).filter(([r, c]) => marks[r][c] !== 2);
   if (!left.length) return;
   const [r, c] = left[Math.floor(Math.random() * left.length)];
@@ -663,8 +703,14 @@ document.querySelectorAll(".tab").forEach(btn =>
     document.querySelectorAll(".panel").forEach(p =>
       p.classList.toggle("active", p.id === btn.dataset.target));
     if (btn.dataset.target === "levels") renderLevelMap();
-    if (btn.dataset.target === "game") { if (!over) timerStart(); }
-    else { timerPause(); persist(); }            // o tempo só corre na aba do jogo
+    if (btn.dataset.target === "game") {
+      if (game.state === GameState.PAUSED && !document.hidden) setGameState(GameState.PLAYING);
+    } else if (isPlaying()) {
+      setGameState(GameState.PAUSED);
+      persist();
+    } else if (game.state === GameState.PAUSED) {
+      persist();
+    }
   }));
 
 /* ---------- Mapa de níveis ---------- */
