@@ -81,6 +81,12 @@ const Sound = (() => {
       tone({ freq: 900, to: 460, dur: 0.18, type: "sawtooth", gain: 0.05, delay: 0.11 });
       vibrate(15);
     },
+    point(combo = 0) {                              // "plim" cristalino; sobe um semitom a cada combo
+      const k = Math.pow(2, Math.min(combo, 4) / 12);
+      tone({ freq: 1568 * k, to: 1568 * k * 1.01, dur: 0.14, type: "sine", gain: 0.05 });
+      tone({ freq: 2093 * k, to: 2093 * k * 1.01, dur: 0.22, type: "sine", gain: 0.04, delay: 0.07 });
+      tone({ freq: 3136 * k, to: 3136 * k, dur: 0.12, type: "triangle", gain: 0.015, delay: 0.07 });
+    },
     error() {
       tone({ freq: 190, to: 90, dur: 0.25, type: "square", gain: 0.06 });
       vibrate([30, 40, 30]);

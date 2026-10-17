@@ -1,7 +1,7 @@
 "use strict";
 
 /* Progresso do jogador em localStorage (versionado para não quebrar saves futuros).
- * { v, stars: {id: 1..3}, best: {id: segundos}, unlocked: id, inProgress: {id, marks, lives, elapsed} } */
+ * { v, stars: {id: 1..3}, best: {id: segundos}, unlocked: id, totalScore, inProgress: {id, marks, lives, elapsed, score} } */
 const Progress = (() => {
   // Chave fixa (independente da versão do formato): a versão fica em data.v.
   const KEY = "miaucolor:v1";
@@ -12,10 +12,11 @@ const Progress = (() => {
    * e o CURRENT_VERSION passa a ser calculado automaticamente. Nunca descarte dados antigos. */
   const migrations = {
     1: d => ({ ...d, v: 2 }),                // v1 -> v2: formato idêntico; apenas marca a versão
+    2: d => ({ ...d, totalScore: Number.isFinite(d.totalScore) && d.totalScore >= 0 ? d.totalScore : 0, v: 3 }),   // v2 -> v3: placar geral
   };
   const CURRENT_VERSION = Math.max(...Object.keys(migrations).map(Number)) + 1;
 
-  const defaults = () => ({ v: CURRENT_VERSION, stars: {}, best: {}, unlocked: 1, inProgress: null });
+  const defaults = () => ({ v: CURRENT_VERSION, stars: {}, best: {}, unlocked: 1, totalScore: 0, inProgress: null });
 
   function migrate(raw) {
     let d = { ...raw };
@@ -41,6 +42,7 @@ const Progress = (() => {
       }
     }
     if (Number.isInteger(d.unlocked) && d.unlocked >= 1) out.unlocked = d.unlocked;
+    if (num(d.totalScore, 0)) out.totalScore = Math.floor(d.totalScore);
     const p = d.inProgress;
     out.inProgress = isObj(p) && Number.isInteger(p.id) && p.id >= 1 ? p : null;
     return out;
@@ -77,11 +79,22 @@ const Progress = (() => {
     stars: id => data.stars[id] || 0,
     best: id => data.best[id] || null,
     totalStars: () => Object.values(data.stars).reduce((a, b) => a + b, 0),
+    get totalScore() { return data.totalScore; },
+
+    /* 1234 -> "1.2k", 45800 -> "45.8k", 1250000 -> "1.2M" (truncado, nunca arredonda para cima) */
+    formatScore(num) {
+      const n = Math.max(0, Math.floor(Number(num) || 0));
+      const short = (tenths, s) => (tenths / 10).toString() + s;   // aritmética inteira evita 45.8 -> 45.7
+      if (n >= 1e6) return short(Math.floor(n / 1e5), "M");
+      if (n >= 1e3) return short(Math.floor(n / 100), "k");
+      return String(n);
+    },
 
     /* Nível para continuar: a partida em andamento ou o último desbloqueado */
     current: () => (data.inProgress ? data.inProgress.id : data.unlocked),
 
-    complete(id, stars, secs, totalLevels) {
+    complete(id, stars, secs, totalLevels, score = 0) {
+      if (Number.isFinite(score) && score > 0) data.totalScore += Math.floor(score);
       data.stars[id] = Math.max(data.stars[id] || 0, stars);
       if (!data.best[id] || secs < data.best[id]) data.best[id] = secs;
       if (id >= data.unlocked && id < totalLevels) data.unlocked = id + 1;

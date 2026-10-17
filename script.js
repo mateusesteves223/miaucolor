@@ -63,7 +63,9 @@ const game = {
   generating: false,
   drag: null,
   dragStart: null,
-  lastTap: { cell: null, t: 0, prev: 0 }
+  lastTap: { cell: null, t: 0, prev: 0 },
+  score: 0,
+  combo: 0
 };
 let cells = [];
 let cellSymbols = [];
@@ -78,6 +80,7 @@ const modalEl = document.getElementById("modal");
 const timerEl = document.getElementById("timer");
 const levelInfoEl = document.getElementById("level-info");
 const levelValueEl = document.getElementById("level-value");
+const scoreValueEl = document.getElementById("score-value");
 
 /* ---------- Cronômetro (pausa ao encerrar a partida ou ocultar a aba) ---------- */
 let elapsedMs = 0;
@@ -136,10 +139,79 @@ function renderLevelInfo() {
   levelValueEl.textContent = campaignId ? String(campaignId) : "—";
 }
 
+/* ---------- Pontuação: pop-out na célula + contador animado na HUD ---------- */
+const POINTS_BASE = 100;
+const POINTS_COMBO_STEP = 25;      // bônus por acerto consecutivo sem errar
+const COMBO_CAP = 4;               // bônus máximo: +100
+const SCORE_ROLL_DELAY_MS = 200;   // deixa o "+N" aparecer antes de os pontos "entrarem" na HUD
+const POINT_POP_MS = 800;
+const scoreRollMs = delta => Math.min(1500, 800 + Math.abs(delta) * 2);   // +100 ≈ 1 s
+
+let scoreShown = 0;                // valor atualmente exibido (a animação parte dele)
+let scoreRaf = 0;
+
+function pointsFor(combo) { return POINTS_BASE + POINTS_COMBO_STEP * Math.min(combo, COMBO_CAP); }
+
+/* Rola os dígitos de `scoreShown` até `to` (ease-out suave); chamadas novas retomam do valor atual.
+ * Não depende de prefers-reduced-motion: é uma contagem, não um movimento de tela. */
+function setScoreDisplay(to, animate = true) {
+  cancelAnimationFrame(scoreRaf);
+  const from = scoreShown;
+  if (!animate || from === to) {
+    scoreShown = to;
+    scoreValueEl.textContent = String(to);
+    return;
+  }
+  const dur = scoreRollMs(to - from);
+  const t0 = performance.now() + SCORE_ROLL_DELAY_MS;
+  let bumped = false;
+  const step = now => {
+    const p = Math.min(1, Math.max(0, (now - t0) / dur));
+    if (p > 0 && !bumped) {                        // pulinho ao começar a subir
+      bumped = true;
+      scoreValueEl.classList.remove("bump");
+      void scoreValueEl.offsetWidth;
+      scoreValueEl.classList.add("bump");
+    }
+    scoreShown = Math.round(from + (to - from) * (1 - (1 - p) * (1 - p)));
+    scoreValueEl.textContent = String(scoreShown);
+    if (p < 1) scoreRaf = requestAnimationFrame(step);
+  };
+  scoreRaf = requestAnimationFrame(step);
+}
+
+function setScore(value, animate = true) {
+  game.score = value;
+  setScoreDisplay(value, animate);
+}
+
+/* Texto flutuante sobre a célula; é removido ao fim da animação (com fallback por timeout) */
+function showPointPop(r, c, points) {
+  const rect = cells[r][c].getBoundingClientRect();
+  const pop = document.createElement("div");
+  pop.className = "point-pop";
+  pop.textContent = `+${points}`;
+  pop.style.left = `${rect.left + rect.width / 2}px`;
+  pop.style.top = `${rect.top + rect.height / 2}px`;
+  pop.style.fontSize = `${Math.max(14, rect.width * 0.42)}px`;
+  document.body.appendChild(pop);
+  const remove = () => pop.remove();
+  pop.addEventListener("animationend", remove, { once: true });
+  setTimeout(remove, POINT_POP_MS + 150);
+}
+
+function awardPoints(r, c) {
+  const points = pointsFor(game.combo);
+  showPointPop(r, c, points);
+  Sound.point(game.combo);
+  game.combo++;
+  setScore(game.score + points);
+}
+
 /* Salva a partida em andamento (só campanha) para retomar após fechar o app */
 function persist() {
   if (!campaignId || isTerminal() || game.state === GameState.IDLE || game.cheated) return;
-  Progress.saveProgress({ id: campaignId, marks, lives: game.lives, elapsed: Math.round(timerElapsed()) });
+  Progress.saveProgress({ id: campaignId, marks, lives: game.lives, elapsed: Math.round(timerElapsed()), score: game.score });
 }
 
 function renderCell(r, c) {
@@ -318,11 +390,13 @@ function tryCat(r, c) {
     renderCell(r, c);
     updateStatus();
     Sound.cat();
+    awardPoints(r, c);
     persist();
     if (marks.flat().filter(m => m === 2).length === N) win();
     return;
   }
   marks[r][c] = 3;                 // erro: ✕ vinho fixo
+  game.combo = 0;
   renderCell(r, c);
   shake(cells[r][c]);
   Sound.error();
@@ -385,10 +459,10 @@ function win() {
   const secs = Math.round(timerElapsed() / 1000);
   const stars = starsFor(MAX_LIVES - game.lives);
   const prevBest = Progress.best(id);
-  Progress.complete(id, stars, secs, Infinity);     // a campanha não tem fim
+  Progress.complete(id, stars, secs, Infinity, game.score);     // a campanha não tem fim
   prefetchInfinite(id);
   const record = prevBest && secs < prevBest ? " 🏅 Novo recorde!" : "";
-  const text = `<span class="modal-stars">${starText(stars)}</span><br>Tempo: ${formatTime(secs)}${record}`;
+  const text = `<span class="modal-stars">${starText(stars)}</span><br>Pontos: ${Progress.formatScore(game.score)}<br>Tempo: ${formatTime(secs)}${record}`;
   setTimeout(() => showModal("🏆", "Nível concluído!", text, "Próximo nível",
     () => playLevel(id + 1).then(ok => { if (!ok && !game.generating) showLevels(); }),
     ["Níveis", showLevels]), 500);
@@ -413,6 +487,8 @@ function resetBoard() {
   renderLives();
   updateStatus();
   renderLevelInfo();
+  setScore(0, false);
+  game.combo = 0;
   timerReset();
   setGameState(!document.hidden && gameTabActive() ? GameState.PLAYING : GameState.PAUSED);
 }
@@ -511,6 +587,8 @@ async function playLevel(id, resume = true) {
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
     renderLives();
     updateStatus();
+    const placed = marks.flat().filter(m => m === 2).length;
+    setScore(Number.isFinite(saved.score) && saved.score >= 0 ? saved.score : placed * POINTS_BASE, false);   // saves antigos não têm score
     timerReset(saved.elapsed);
     if (!document.hidden && gameTabActive()) setGameState(GameState.PLAYING);
   }
@@ -521,6 +599,8 @@ function clearBoard() {
   if (!isPlaying()) return;
   marks = matrix(N, 0);          // gatos já fixados também voltam ao vazio, vidas são mantidas
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
+  setScore(0);                   // sem gatos no tabuleiro, sem pontos (evita farmar limpando e recolocando)
+  game.combo = 0;
   updateStatus();
   persist();
 }
@@ -753,7 +833,7 @@ function levelGroup(title, hint) {
 
 async function renderLevelMap() {
   const all = await MiauLevels.loadAll();
-  levelsTotalEl.textContent = `★ ${Progress.totalStars()}`;
+  levelsTotalEl.textContent = `★ ${Progress.totalStars()} · 🏆 ${Progress.formatScore(Progress.totalScore)} pts`;
   levelMapEl.innerHTML = "";
   let section = null;
   let lastN = 0;

@@ -5,7 +5,7 @@
  * - Depois: responde do cache e atualiza em segundo plano (stale-while-revalidate),
  *   então uma nova versão publicada aparece na visita seguinte.
  * Ao alterar a lista abaixo (ou para forçar atualização), incremente CACHE. */
-const CACHE = "miaucolor-v2";
+const CACHE = "miaucolor-v3";
 
 // Diretório onde o sw.js está hospedado (ex.: "/repo/miaucolor/"), independente do subdiretório.
 const BASE = self.location.pathname.replace(/[^/]*$/, "");
