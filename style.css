@@ -68,6 +68,8 @@ main { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
 }
 #board.locked .cell { cursor: default; }
 .cell {
+  --bc: rgba(18, 15, 30, .9);                                  /* cor da borda entre regiões */
+  --bw: clamp(3px, calc(100cqw / var(--size) * .075), 7px);    /* espessura proporcional à célula */
   position: relative;
   display: flex; align-items: center; justify-content: center;
   aspect-ratio: 1 / 1;
@@ -79,16 +81,32 @@ main { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
   color: #222;
   line-height: 1;
   transition: filter .15s, transform .15s;
+  /* borda grossa só nos lados onde a célula vizinha é de outra região (classes bt/br/bb/bl) */
+  box-shadow:
+    inset 0 var(--bt, 0px) 0 0 var(--bc),
+    inset calc(-1 * var(--br, 0px)) 0 0 0 var(--bc),
+    inset 0 calc(-1 * var(--bb, 0px)) 0 0 var(--bc),
+    inset var(--bl, 0px) 0 0 0 var(--bc);
 }
-.cell:hover { filter: brightness(1.12); }
-#board:not(.locked) .cell:not(.has-cat):hover, #sboard .cell:hover { transform: scale(.96); }
+.cell.bt { --bt: var(--bw); }
+.cell.br { --br: var(--bw); }
+.cell.bb { --bb: var(--bw); }
+.cell.bl { --bl: var(--bw); }
+/* camada de realce (gato fixo / erro) sem animar box-shadow */
+.cell::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+.cell.has-cat::after { background: rgba(255,255,255,.18); opacity: 1; }
+/* hover só com mouse: em telas de toque ele "gruda" após o toque */
+@media (hover: hover) {
+  .cell:hover { filter: brightness(1.12); }
+  #board:not(.locked) .cell:not(.has-cat):hover, #sboard .cell:hover { transform: scale(.96); }
+}
 .sym {
+  position: relative; z-index: 1;                /* acima da camada ::after */
   font-size: calc(100cqw / var(--size) * .55);   /* proporcional à célula */
   line-height: 1;
   animation: pop .2s ease-out;
 }
 .sym.x {
-  position: relative;
   width: .75em;
   height: .75em;
   animation-duration: .12s;
@@ -105,7 +123,6 @@ main { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
 }
 .sym.x::before { transform: translateY(-50%) rotate(45deg); }
 .sym.x::after { transform: translateY(-50%) rotate(-45deg); }
-.cell.has-cat { box-shadow: inset 0 0 0 100vmax rgba(255,255,255,.18); }
 
 @keyframes pop { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); } }
 @keyframes shake {
@@ -113,11 +130,17 @@ main { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; }
   20% { transform: translateX(-6px); } 40% { transform: translateX(6px); }
   60% { transform: translateX(-4px); } 80% { transform: translateX(4px); }
 }
-@keyframes redflash { 30% { background-color: #5a1e33; } }
-@keyframes cellerr { 30% { box-shadow: inset 0 0 0 100vmax rgba(255,0,40,.75); } }
-.cell.shake { animation: shake .5s, cellerr .6s; }
+@keyframes errfade { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+.cell.shake { animation: shake .5s; }
+.cell.shake::after { background: rgba(255,0,40,.75); animation: errfade .6s; }
 #board.shake { animation: shake .5s; }
-body.flash { animation: redflash .6s; }
+
+/* Sem movimento para quem pede menos animação (o realce vermelho do erro continua) */
+@media (prefers-reduced-motion: reduce) {
+  .cell.shake, #board.shake { animation: none; }
+  .sym, .modal.open, .modal-card, .menu-drop.open, .solve-btn { animation: none; }
+  .cell, .heart, .swatch { transition: none; }
+}
 
 .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(10,8,25,.75); z-index: 10; }
 .modal.open { display: flex; animation: fade .3s; }
@@ -354,3 +377,10 @@ body.compact .sidebar .timer { font-size: .85rem; }
 .lv-btn.current { border-color: var(--accent); }
 .lv-btn.locked { opacity: .45; cursor: not-allowed; }
 @media (hover: hover) { .lv-btn:not(:disabled):hover { border-color: var(--accent); } }
+
+/* ---------- Mobile: toque e áreas seguras (notch / barra de gestos) ---------- */
+body {
+  touch-action: manipulation;                    /* sem zoom por duplo toque fora do tabuleiro */
+  -webkit-tap-highlight-color: transparent;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}

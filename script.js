@@ -130,6 +130,13 @@ function buildBoard() {
       el.style.background = PALETTE[regions[r][c] % PALETTE.length];
 
       el.dataset.r = r; el.dataset.c = c;
+      // borda grossa onde a vizinha é de outra região (ajuda daltônicos e cores parecidas)
+      const id = regions[r][c];
+      const differs = (a, b) => a >= 0 && b >= 0 && a < N && b < N && regions[a][b] !== id;
+      if (differs(r - 1, c)) el.classList.add("bt");
+      if (differs(r, c + 1)) el.classList.add("br");
+      if (differs(r + 1, c)) el.classList.add("bb");
+      if (differs(r, c - 1)) el.classList.add("bl");
       cells[r][c] = el;
       boardEl.appendChild(el);
     }
@@ -248,12 +255,11 @@ function tryCat(r, c) {
 }
 
 function shake(el) {
-  for (const target of [el, boardEl, document.body]) {
-    const cls = target === document.body ? "flash" : "shake";
-    target.classList.remove(cls);
+  for (const target of [el, boardEl]) {
+    target.classList.remove("shake");
     void target.offsetWidth;            // reinicia a animação
-    target.classList.add(cls);
-    setTimeout(() => target.classList.remove(cls), 600);
+    target.classList.add("shake");
+    setTimeout(() => target.classList.remove("shake"), 600);
   }
 }
 
