@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>MiauColor — testes</title>
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; background: #1e1b2e; color: #f1eefc; padding: 1rem 1.5rem; }
+    h1 { font-size: 1.2rem; }
+    #summary { font-weight: 700; margin: .5rem 0 1rem; }
+    .row { padding: .15rem 0; }
+    .pass::before { content: "✅ "; }
+    .fail::before { content: "❌ "; }
+    .fail { color: #ff9aa8; }
+    small { color: #a9a3c7; }
+  </style>
+</head>
+<body>
+  <h1>MiauColor — testes automatizados</h1>
+  <p><small>Abra este arquivo no navegador (sem servidor). O localStorage é substituído por uma versão em memória:
+  seu progresso real não é tocado.</small></p>
+  <div id="summary">Executando…</div>
+  <div id="results"></div>
+
+  <!-- localStorage em memória: precisa vir ANTES dos scripts que o leem -->
+  <script>
+    (() => {
+      const store = new Map();
+      const mem = {
+        getItem: k => (store.has(k) ? store.get(k) : null),
+        setItem: (k, v) => { store.set(k, String(v)); },
+        removeItem: k => { store.delete(k); },
+        clear: () => store.clear(),
+      };
+      Object.defineProperty(window, "localStorage", { value: mem, configurable: true });
+    })();
+  </script>
+  <script src="engine.js"></script>
+  <script src="infinite.js"></script>
+  <script src="levels.js"></script>
+  <script src="levels/manifest.js"></script>
+  <script src="progress.js"></script>
+  <script>
+    "use strict";
+    const E = createEngine();
+    const tests = [];
+    const test = (name, fn) => tests.push({ name, fn });
+    const assert = (cond, msg) => { if (!cond) throw new Error(msg || "asserção falhou"); };
+    const eq = (a, b, msg) => assert(JSON.stringify(a) === JSON.stringify(b), `${msg || "valores diferentes"}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`);
+
+    const decodeRegions = (n, s) => Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => s.charCodeAt(r * n + c) - 65));
+    function regionsConnected(reg, n) {
+      for (let id = 0; id < n; id++) {
+        const cells = [];
+        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (reg[r][c] === id) cells.push([r, c]);
+        if (!cells.length) return false;
+        const seen = new Set([cells[0][0] * n + cells[0][1]]), stack = [cells[0]];
+        while (stack.length) {
+          const [r, c] = stack.pop();
+          for (const [dr, dc] of E.DIRS) {
+            const a = r + dr, b = c + dc;
+            if (a >= 0 && b >= 0 && a < n && b < n && reg[a][b] === id && !seen.has(a * n + b)) { seen.add(a * n + b); stack.push([a, b]); }
+          }
+        }
+        if (seen.size !== cells.length) return false;
+      }
+      return true;
+    }
+    function validPlacement(n, reg, sol) {            // regras do jogo aplicadas à solução
+      if (new Set(sol).size !== n) return false;
+      if (new Set(sol.map((c, r) => reg[r][c])).size !== n) return false;
+      for (let r = 1; r < n; r++) if (Math.abs(sol[r] - sol[r - 1]) <= 1) return false;
+      return true;
+    }
+
+    /* ---------- Motor ---------- */
+    test("PRNG: mesma seed, mesma sequência; seeds diferentes divergem", () => {
+      const a = E.rngFor("x"), b = E.rngFor("x"), c = E.rngFor("y");
+      const sa = [a(), a(), a()], sb = [b(), b(), b()], sc = [c(), c(), c()];
+      eq(sa, sb, "sequências iguais");
+      assert(JSON.stringify(sa) !== JSON.stringify(sc), "seeds diferentes devem divergir");
+    });
+    test("PRNG: valores em [0, 1)", () => {
+      const r = E.rngFor("faixa");
+      for (let i = 0; i < 1000; i++) { const v = r(); assert(v >= 0 && v < 1, "fora de [0,1): " + v); }
+    });
+    test("generateUnique 5x5..8x8: solução única, regiões conexas, jogada válida", () => {
+      for (const n of [5, 6, 7, 8]) {
+        const { cols, reg } = E.generateUnique(n, E.rngFor("teste:" + n));
+        eq(E.countSolutions(n, reg, 3), 1, `${n}x${n} deve ter 1 solução`);
+        assert(regionsConnected(reg, n), `${n}x${n}: região desconexa`);
+        assert(validPlacement(n, reg, cols), `${n}x${n}: solução viola as regras`);
+      }
+    });
+    test("generateUnique é determinístico por seed", () => {
+      eq(E.generateUnique(7, E.rngFor("det")), E.generateUnique(7, E.rngFor("det")));
+    });
+    test("gradeLevel devolve null para mapa com solução errada", () => {
+      const { cols, reg } = E.generateUnique(6, E.rngFor("err"));
+      const wrong = cols.slice(); [wrong[0], wrong[1]] = [wrong[1], wrong[0]];
+      assert(E.gradeLevel(6, reg, wrong) === null, "gabarito errado deveria ser rejeitado");
+    });
+    test("difficultyLabel: limites das classes", () => {
+      eq([E.difficultyLabel(10), E.difficultyLabel(16), E.difficultyLabel(17), E.difficultyLabel(40), E.difficultyLabel(41), E.difficultyLabel(80), E.difficultyLabel(81)],
+        ["Fácil", "Fácil", "Médio", "Médio", "Difícil", "Difícil", "Expert"]);
+    });
+
+    /* ---------- Packs (100 níveis) ---------- */
+    test("manifest: 5 packs, 100 níveis", () => { eq([MiauLevels.total], [100]); });
+    test("100 níveis dos packs: únicos, conexos, válidos e com tier/score idênticos ao gerador Python", async () => {
+      const ids = new Set();
+      for (let id = 1; id <= 100; id++) {
+        const lv = await MiauLevels.get(id);
+        assert(lv, `nível ${id} não carregou`);
+        assert(!ids.has(id) && lv.id === id, `id duplicado/errado ${id}`); ids.add(id);
+        assert(new Set(lv.regions.flat()).size === lv.n, `nível ${id}: nº de regiões ≠ n`);
+        eq(E.countSolutions(lv.n, lv.regions, 3), 1, `nível ${id} deve ter solução única`);
+        assert(regionsConnected(lv.regions, lv.n), `nível ${id}: região desconexa`);
+        assert(validPlacement(lv.n, lv.regions, lv.solution), `nível ${id}: gabarito inválido`);
+        const g = E.gradeLevel(lv.n, lv.regions, lv.solution);
+        assert(g && g.tier === lv.tier && g.score === lv.score, `nível ${id}: dificuldade diverge (JS ${g && g.tier}/${g && g.score} × pack ${lv.tier}/${lv.score})`);
+      }
+    });
+    test("MiauLevels: 101 é infinito, 100 não; nível 0 devolve null", async () => {
+      assert(MiauLevels.isInfinite(101) && !MiauLevels.isInfinite(100), "limite do infinito");
+      assert((await MiauLevels.get(0)) === null, "nível 0 deveria ser null");
+    });
+
+    /* ---------- Infinito ---------- */
+    test("generateInfinite(101): determinístico, 10x10, único, jogada válida, rótulo coerente (≈ 10 s)", () => {
+      const a = E.generateInfinite(101), b = E.generateInfinite(101);
+      eq(a, b, "mesma seed deve gerar o mesmo nível");
+      eq([a.n], [10]);
+      const reg = decodeRegions(10, a.regions);
+      eq(E.countSolutions(10, reg, 3), 1, "solução única");
+      assert(regionsConnected(reg, 10), "região desconexa");
+      assert(validPlacement(10, reg, a.solution), "gabarito inválido");
+      eq([a.diff], [E.difficultyLabel(a.score)], "rótulo ≠ score");
+    });
+    test("generateInfinite: ids diferentes geram níveis diferentes", () => {
+      assert(E.generateInfinite(102).regions !== E.generateInfinite(103).regions, "níveis iguais");
+    });
+
+    /* ---------- Progresso ---------- */
+    test("Progress: estrelas só sobem, recorde de tempo, desbloqueio e partida em andamento", () => {
+      eq([Progress.unlocked, Progress.totalStars()], [1, 0], "estado inicial");
+      Progress.saveProgress({ id: 1, marks: [[0]], lives: 3, elapsed: 5 });
+      eq([Progress.getProgress(1) !== null, Progress.getProgress(2)], [true, null], "slot por nível");
+      Progress.complete(1, 2, 30, Infinity);
+      eq([Progress.stars(1), Progress.best(1), Progress.unlocked, Progress.getProgress(1)], [2, 30, 2, null], "1ª conclusão");
+      Progress.complete(1, 1, 40, Infinity);
+      eq([Progress.stars(1), Progress.best(1)], [2, 30], "pior resultado não sobrescreve");
+      Progress.complete(1, 3, 20, Infinity);
+      eq([Progress.stars(1), Progress.best(1), Progress.unlocked], [3, 20, 2], "melhor resultado atualiza; não re-libera");
+      Progress.complete(150, 1, 10, Infinity);
+      eq([Progress.unlocked], [151], "sem teto: o infinito continua liberando");
+    });
+    test("Progress: save persiste e sobrevive a JSON inválido", () => {
+      localStorage.setItem("miaucolor:v1", "{não é json");
+      // recarregar o módulo não é possível aqui; garante apenas que o estado em memória segue consistente
+      Progress.complete(2, 3, 12, Infinity);
+      eq([Progress.stars(2)], [3]);
+      assert(JSON.parse(localStorage.getItem("miaucolor:v1")).stars[2] === 3, "não gravou");
+    });
+
+    /* ---------- Runner ---------- */
+    (async () => {
+      const results = document.getElementById("results");
+      let pass = 0, fail = 0;
+      window.__testResults = [];
+      for (const t of tests) {
+        const t0 = performance.now();
+        let ok = true, err = "";
+        try { await t.fn(); } catch (e) { ok = false; err = e.message; }
+        const ms = Math.round(performance.now() - t0);
+        ok ? pass++ : fail++;
+        window.__testResults.push({ name: t.name, ok, err, ms });
+        const row = document.createElement("div");
+        row.className = "row " + (ok ? "pass" : "fail");
+        row.innerHTML = `${t.name} <small>(${ms} ms)</small>` + (ok ? "" : `<br><small>${err}</small>`);
+        results.appendChild(row);
+      }
+      const summary = document.getElementById("summary");
+      summary.textContent = `${pass} passaram, ${fail} falharam (${tests.length} testes)`;
+      document.title = (fail ? "FALHOU" : "OK") + " — " + summary.textContent;
+      window.__testsDone = true;
+    })();
+  </script>
+</body>
+</html>
