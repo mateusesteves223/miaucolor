@@ -51,6 +51,8 @@ let lives = MAX_LIVES;
 let lost = false;               // perdeu: só pode repetir o mesmo nível
 let over = false;                 // fim de jogo (vitória, derrota ou revelação)
 let cells = [];
+let cellSymbols = [];
+let heartNodes = [];
 let devMode = false;
 let cheated = false;            // modo dev usado na partida: não conta para estrelas/progresso
 let campaignId = null;          // id do nível da campanha (null = treino livre)
@@ -77,7 +79,10 @@ function timerReset(ms = 0) { tickStart = null; elapsedMs = ms; renderTimer(); }
 function formatTime(secs) {
   return String(Math.floor(secs / 60)).padStart(2, "0") + ":" + String(secs % 60).padStart(2, "0");
 }
-function renderTimer() { timerEl.textContent = "⏱ " + formatTime(Math.floor(timerElapsed() / 1000)); }
+function renderTimer() {
+  const text = "⏱ " + formatTime(Math.floor(timerElapsed() / 1000));
+  if (timerEl.textContent !== text) timerEl.textContent = text;
+}
 setInterval(renderTimer, 500);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { timerPause(); persist(); }
@@ -96,45 +101,79 @@ function persist() {
   Progress.saveProgress({ id: campaignId, marks, lives, elapsed: Math.round(timerElapsed()) });
 }
 
-function updateCell(r, c) {
+function renderCell(r, c) {
   const el = cells[r][c];
+  const symbol = cellSymbols[r][c];
   const m = marks[r][c];
+  const cross = m === 1 || m === 3;
+
   el.dataset.mark = m;
   el.classList.toggle("has-cat", m === 2);
-  el.innerHTML = m === 1 || m === 3 ? '<span class="sym x' + (m === 3 ? ' wrong' : '') + '" aria-hidden="true"></span>'
-               : m === 2 ? '<span class="sym cat">🐱</span>' : "";
+  symbol.hidden = m === 0;
+  symbol.classList.toggle("x", cross);
+  symbol.classList.toggle("cat", m === 2);
+  symbol.classList.toggle("wrong", m === 3);
+  const text = m === 2 ? "🐱" : "";
+  if (symbol.textContent !== text) symbol.textContent = text;
 }
 
 function renderLives() {
-  livesEl.innerHTML = "";
+  if (heartNodes.length !== MAX_LIVES) {
+    const fragment = document.createDocumentFragment();
+    heartNodes = [];
+    for (let i = 0; i < MAX_LIVES; i++) {
+      const heart = document.createElement("span");
+      heart.className = "heart";
+      heartNodes.push(heart);
+      fragment.appendChild(heart);
+    }
+    livesEl.replaceChildren(fragment);
+  }
   for (let i = 0; i < MAX_LIVES; i++) {
-    const h = document.createElement("span");
-    h.className = "heart" + (i < lives ? "" : " lost");
-    h.textContent = i < lives ? "❤️" : "🖤";
-    livesEl.appendChild(h);
+    const heart = heartNodes[i];
+    const alive = i < lives;
+    heart.classList.toggle("lost", !alive);
+    const text = alive ? "❤️" : "🖤";
+    if (heart.textContent !== text) heart.textContent = text;
   }
 }
 
 function updateStatus() {
-  const placed = marks.flat().filter(m => m === 2).length;
-  statusEl.textContent = `Gatos: ${placed}/${N}`;
+  let placed = 0;
+  for (const row of marks) for (const mark of row) if (mark === 2) placed++;
+  const text = `Gatos: ${placed}/${N}`;
+  if (statusEl.textContent !== text) statusEl.textContent = text;
 }
 
 function buildBoard() {
   boardEl.style.setProperty("--size", N);
-  boardEl.innerHTML = "";
   boardEl.classList.remove("locked");
-  cells = matrix(N, null);
+  if (cells.length !== N) {
+    cells = matrix(N, null);
+    cellSymbols = matrix(N, null);
+    const fragment = document.createDocumentFragment();
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const cell = document.createElement("div");
+        const symbol = document.createElement("span");
+        cell.className = "cell";
+        cell.dataset.r = r; cell.dataset.c = c;
+        symbol.className = "sym";
+        symbol.setAttribute("aria-hidden", "true");
+        symbol.hidden = true;
+        cell.appendChild(symbol);
+        cells[r][c] = cell;
+        cellSymbols[r][c] = symbol;
+        fragment.appendChild(cell);
+      }
+    }
+    boardEl.replaceChildren(fragment);
+  }
 
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
-      const el = document.createElement("div");
-      el.className = "cell";
-      el.style.background = PALETTE[regions[r][c] % PALETTE.length];
-
-      el.dataset.r = r; el.dataset.c = c;
-      cells[r][c] = el;
-      boardEl.appendChild(el);
+      cells[r][c].style.background = PALETTE[regions[r][c] % PALETTE.length];
+      renderCell(r, c);
     }
   }
 }
@@ -155,7 +194,7 @@ function dragApply(cell) {
   const m = marks[r][c];
   if (m >= 2 || m === drag.mode) return;
   marks[r][c] = drag.mode;
-  updateCell(r, c);
+  renderCell(r, c);
 }
 
 boardEl.addEventListener("pointerdown", e => {
@@ -192,14 +231,14 @@ boardEl.addEventListener("pointerup", e => {
   const now = performance.now();
   if (lastTap.cell === cell && now - lastTap.t <= DOUBLE_TAP_MS) {
     marks[r][c] = lastTap.prev;                 // desfaz o ✕ do primeiro toque
-    updateCell(r, c);
+    renderCell(r, c);
     lastTap = { cell: null, t: 0, prev: 0 };
     tryCat(r, c);
     return;
   }
   lastTap = { cell, t: now, prev: marks[r][c] };
   marks[r][c] = marks[r][c] === 1 ? 0 : 1;
-  updateCell(r, c);
+  renderCell(r, c);
   Sound.tap();
   persist();
 });
@@ -214,7 +253,7 @@ function autoCross(r, c) {
     const near = Math.abs(i - r) <= 1 && Math.abs(j - c) <= 1;
     if ((i === r || j === c || near) && marks[i][j] === 0) {
       marks[i][j] = 1;
-      updateCell(i, j);
+      renderCell(i, j);
     }
   }
 }
@@ -225,7 +264,7 @@ function autoCrossRegion(r, c) {
   for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
     if (regions[i][j] === id && marks[i][j] === 0) {
       marks[i][j] = 1;
-      updateCell(i, j);
+      renderCell(i, j);
     }
   }
 }
@@ -235,7 +274,7 @@ function tryCat(r, c) {
     marks[r][c] = 2;
     if (devMode && autoXEl.checked) autoCross(r, c);
     if (devMode && autoColorEl.checked) autoCrossRegion(r, c);
-    updateCell(r, c);
+    renderCell(r, c);
     updateStatus();
     Sound.cat();
     persist();
@@ -243,7 +282,7 @@ function tryCat(r, c) {
     return;
   }
   marks[r][c] = 3;                 // erro: ✕ vinho fixo
-  updateCell(r, c);
+  renderCell(r, c);
   shake(cells[r][c]);
   Sound.error();
   if (devMode) return;             // modo dev: vidas infinitas
@@ -430,7 +469,7 @@ async function playLevel(id, resume = true) {
   if (saved && saved.marks.length === N) {
     marks = saved.marks;
     lives = saved.lives;
-    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) updateCell(r, c);
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
     renderLives();
     updateStatus();
     timerReset(saved.elapsed);
@@ -442,7 +481,7 @@ async function playLevel(id, resume = true) {
 function clearBoard() {
   if (over) return;
   marks = matrix(N, 0);          // gatos já fixados também voltam ao vazio, vidas são mantidas
-  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) updateCell(r, c);
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
   updateStatus();
   persist();
 }
@@ -450,7 +489,7 @@ function clearBoard() {
 function showSolution() {
   marks = matrix(N, 0);
   solution.forEach((c, r) => (marks[r][c] = 2));
-  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) updateCell(r, c);
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
   lockBoard();
   updateStatus();
   statusEl.textContent = "Solução revelada";
