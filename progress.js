@@ -2,10 +2,12 @@
 
 /* Progresso do jogador em localStorage (versionado para não quebrar saves futuros).
  * { v, stars: {id: 1..3}, best: {id: segundos}, unlocked: id, totalScore, inProgress: {id, marks, lives, elapsed, score},
- *   items: {hint, revealCat, safeCross}, installed } */
+ *   items: {hint, revealCat, safeCross}, installed, language } */
 const Progress = (() => {
   // Chave fixa (independente da versão do formato): a versão fica em data.v.
+  // Mantida após o rebranding para MeowColor: renomear apagaria os saves existentes.
   const KEY = "miaucolor:v1";
+  const LANGS = ["pt", "en", "es"];          // idiomas suportados (espelha I18n.LANGS)
   const isObj = o => o !== null && typeof o === "object" && !Array.isArray(o);
 
   /* Migrações encadeadas: migrations[n] converte um save da versão n para n+1.
@@ -16,6 +18,7 @@ const Progress = (() => {
     2: d => ({ ...d, totalScore: Number.isFinite(d.totalScore) && d.totalScore >= 0 ? d.totalScore : 0, v: 3 }),   // v2 -> v3: placar geral
     3: d => ({ ...d, items: { ...defaultItems(), ...(isObj(d.items) ? d.items : {}) }, v: 4 }),                   // v3 -> v4: inventário de power-ups
         4: d => ({ ...d, installed: d.installed === true, v: 5 }),                                                    // v4 -> v5: flag de PWA instalado
+    5: d => ({ ...d, language: LANGS.includes(d.language) ? d.language : null, v: 6 }),                             // v5 -> v6: idioma escolhido manualmente (null = automático)
       };
   const CURRENT_VERSION = Math.max(...Object.keys(migrations).map(Number)) + 1;
 
@@ -24,7 +27,7 @@ const Progress = (() => {
   const ITEM_MAX = 99;
   function defaultItems() { return { hint: ITEM_START, revealCat: ITEM_START, safeCross: ITEM_START }; }
 
-  const defaults = () => ({ v: CURRENT_VERSION, stars: {}, best: {}, unlocked: 1, totalScore: 0,   inProgress: null, items: defaultItems(), installed: false });
+  const defaults = () => ({ v: CURRENT_VERSION, stars: {}, best: {}, unlocked: 1, totalScore: 0,   inProgress: null, items: defaultItems(), installed: false, language: null });
 
   function migrate(raw) {
     let d = { ...raw };
@@ -52,6 +55,7 @@ const Progress = (() => {
     if (Number.isInteger(d.unlocked) && d.unlocked >= 1) out.unlocked = d.unlocked;
     if (num(d.totalScore, 0)) out.totalScore = Math.floor(d.totalScore);
     if (d.installed === true) out.installed = true;
+    if (LANGS.includes(d.language)) out.language = d.language;
     if (isObj(d.items)) {
       for (const k of ITEM_KEYS) {
         if (Number.isInteger(d.items[k]) && d.items[k] >= 0) out.items[k] = Math.min(d.items[k], ITEM_MAX);
@@ -134,6 +138,14 @@ const Progress = (() => {
     /* PWA instalado (appinstalled ou execução em modo standalone) */
     get installed() { return data.installed; },
     markInstalled() { if (!data.installed) { data.installed = true; save(); } },
+
+    /* Idioma escolhido manualmente ("pt" | "en" | "es"); null = seguir o navegador */
+    get language() { return data.language; },
+    setLanguage(lang) {
+      if (lang !== null && !LANGS.includes(lang)) return;
+      data.language = lang;
+      save();
+    },
 
     saveProgress(p) { data.inProgress = p; save(); },
     getProgress: id => (data.inProgress && data.inProgress.id === id ? data.inProgress : null),

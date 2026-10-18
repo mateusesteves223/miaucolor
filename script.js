@@ -1,7 +1,7 @@
 ﻿"use strict";
 
 /* =====================================================================
- * MIAUCOLOR
+ * MEOWCOLOR
  * Estado:
  *   solution[r] = c        -> coluna do gato na linha r (uma permutação)
  *   regions[r][c] = id     -> matriz 2D com o id da região (0..N-1)
@@ -26,6 +26,11 @@ let N = 7;
 let solution = [];
 let regions = [];
 let marks = [];
+
+/* Idioma: preferência salva (manual) ou o do navegador. `langHooks` re-renderiza o que é gerado por JS. */
+I18n.setLanguage(Progress.language || I18n.detect());
+const t = I18n.t;
+const langHooks = [];
 
 /* Ferramentas de desenvolvedor só aparecem com ?dev na URL (ex.: index.html?dev) */
 document.body.classList.toggle("dev-ui", new URLSearchParams(location.search).has("dev"));
@@ -252,12 +257,22 @@ function renderLives() {
   }
 }
 
-function updateStatus() {
-  let placed = 0;
-  for (const row of marks) for (const mark of row) if (mark === 2) placed++;
-  const text = `Gatos: ${placed}/${N}`;
+/* A linha de status mostra o contador de gatos ou uma mensagem fixa (vitória, derrota...) guardada por chave,
+ * para ser retraduzida ao trocar de idioma. */
+let statusKey = null;
+function renderStatus() {
+  let text;
+  if (statusKey) text = t(statusKey);
+  else {
+    let placed = 0;
+    for (const row of marks) for (const mark of row) if (mark === 2) placed++;
+    text = t("status.cats", { n: placed, total: N });
+  }
   if (statusEl.textContent !== text) statusEl.textContent = text;
 }
+function updateStatus() { statusKey = null; renderStatus(); }
+function setStatusKey(key) { statusKey = key; renderStatus(); }
+langHooks.push(renderStatus);
 
 function buildBoard() {
   boardEl.style.setProperty("--size", N);
@@ -430,8 +445,12 @@ function lockBoard(nextState) {
   Progress.clearProgress();
 }
 
-/* extra (opcional): [rótulo, ação] de um botão secundário */
-function showModal(emoji, title, text, label, action, extra) {
+/* `build()` devolve { emoji, title, text, label, action, extra? } (extra = [rótulo, ação] de um botão secundário).
+ * É uma função para que o modal aberto possa ser remontado ao trocar de idioma. */
+let modalBuild = null;
+let modalAfter = null;
+function renderModal() {
+  const { emoji, title, text, label, action, extra } = modalBuild();
   modalEl.innerHTML =
     `<div class="modal-card"><div class="modal-emoji">${emoji}</div>
      <h2>${title}</h2><p>${text}</p>
@@ -439,10 +458,21 @@ function showModal(emoji, title, text, label, action, extra) {
        <button id="modal-btn">${label}</button>
        ${extra ? `<button id="modal-btn2" class="secondary">${extra[0]}</button>` : ""}
      </div></div>`;
-  modalEl.classList.add("open");
   document.getElementById("modal-btn").addEventListener("click", action);
   if (extra) document.getElementById("modal-btn2").addEventListener("click", extra[1]);
+  if (modalAfter) modalAfter();
 }
+function showModal(build, after = null) {
+  modalBuild = build;
+  modalAfter = after;
+  renderModal();
+  modalEl.classList.add("open");
+}
+langHooks.push(() => {
+  if (!modalEl.classList.contains("open") || !modalBuild) return;
+  renderModal();
+  if (rechargeBusy) setRechargeBusy(true);
+});
 
 function showLevels() {
   modalEl.classList.remove("open");
@@ -457,24 +487,31 @@ function win() {
   if (!isPlaying()) return;
   lockBoard(GameState.WON);
   setTimeout(() => Sound.win(), 350);               // depois do "miau" do último gato
-  statusEl.textContent = "🎉 Todos os gatos estão em paz!";
+  setStatusKey("status.won");
   if (!campaignId || game.cheated) {
-    setTimeout(() => showModal("🏆", "Parabéns!", "Você resolveu o MiauColor!", "Jogar novamente", newGame), 500);
+    setTimeout(() => showModal(() => ({
+      emoji: "🏆", title: t("modal.free.title"), text: t("modal.free.text"),
+      label: t("modal.free.btn"), action: newGame,
+    })), 500);
     return;
   }
   const id = campaignId;
   const secs = Math.round(timerElapsed() / 1000);
   const stars = starsFor(MAX_LIVES - game.lives);
+  const score = game.score;
   const prevBest = Progress.best(id);
-  Progress.complete(id, stars, secs, Infinity, game.score);     // a campanha não tem fim
+  Progress.complete(id, stars, secs, Infinity, score);     // a campanha não tem fim
   prefetchInfinite(id);
-  const record = prevBest && secs < prevBest ? " 🏅 Novo recorde!" : "";
-  const text = `<span class="modal-stars">${starText(stars)}</span><br>Pontos: ${Progress.formatScore(game.score)}<br>Tempo: ${formatTime(secs)}${record}`;
+  const isRecord = !!prevBest && secs < prevBest;
   setTimeout(() => {
-    showModal("🏆", "Nível concluído!", text, "Próximo nível",
-      () => playLevel(id + 1).then(ok => { if (!ok && !game.generating) showLevels(); }),
-      ["Níveis", showLevels]);
-    PwaInstall.attachPromo(modalEl);
+    showModal(() => ({
+      emoji: "🏆",
+      title: t("modal.win.title"),
+      text: `<span class="modal-stars">${starText(stars)}</span><br>${t("modal.win.points", { n: Progress.formatScore(score) })}<br>${t("modal.win.time", { t: formatTime(secs) })}${isRecord ? " " + t("modal.win.record") : ""}`,
+      label: t("modal.win.next"),
+      action: () => playLevel(id + 1).then(ok => { if (!ok && !game.generating) showLevels(); }),
+      extra: [t("modal.levels"), showLevels],
+    }), () => PwaInstall.attachPromo(modalEl));
   }, 500);
 }
 
@@ -483,9 +520,12 @@ function gameOver() {
   if (!campaignId) game.lost = true;      // trava "mesmo nível" só no treino livre
   lockBoard(GameState.GAME_OVER);
   setTimeout(() => Sound.lose(), 250);
-  statusEl.textContent = "💀 Game over";
-  setTimeout(() => showModal("😿", "Fim de jogo", "Suas vidas acabaram. Tente novamente o mesmo nível!",
-    "Tentar o mesmo nível", retryLevel, campaignId ? ["Níveis", showLevels] : null), 700);
+  setStatusKey("status.over");
+  setTimeout(() => showModal(() => ({
+    emoji: "😿", title: t("modal.over.title"), text: t("modal.over.text"),
+    label: t("modal.over.retry"), action: retryLevel,
+    extra: campaignId ? [t("modal.levels"), showLevels] : null,
+  })), 700);
 }
 
 function resetBoard() {
@@ -548,7 +588,7 @@ async function newGame() {
     game.generating = true;
     setGameState(GameState.IDLE);
     boardEl.classList.add("locked");
-    statusEl.textContent = "⏳ Gerando nível…";
+    setStatusKey("status.generating");
     await generateLevelAsync(n);
     game.generating = false;
   } else {
@@ -574,12 +614,12 @@ async function playLevel(id, resume = true) {
     setGameState(GameState.IDLE);
     modalEl.classList.remove("open");
     boardEl.classList.add("locked");
-    statusEl.textContent = "⏳ Gerando nível…";
+    setStatusKey("status.generating");
   }
   const lv = await MiauLevels.get(id);
   if (slow) game.generating = false;
   if (!lv) {
-    if (slow) statusEl.textContent = "Não foi possível gerar o nível";
+    if (slow) setStatusKey("status.genFail");
     return false;
   }
   campaignId = id;
@@ -624,7 +664,7 @@ function showSolution() {
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
   lockBoard(GameState.GAME_OVER);
   updateStatus();
-  statusEl.textContent = "Solução revelada";
+  setStatusKey("status.revealed");
 }
 
 const devEl = document.getElementById("dev");
@@ -653,19 +693,20 @@ document.getElementById("new").addEventListener("click", newGame);
 document.getElementById("clear").addEventListener("click", clearBoard);
 
 /* Chaves de som e vibração (preferências persistentes) */
-function bindToggle(id, label, getter, setter) {
+function bindToggle(id, labelKey, getter, setter) {
   const btn = document.getElementById(id);
   const render = () => {
     const on = getter();
     btn.setAttribute("aria-pressed", on);
-    btn.textContent = `${label}: ${on ? "ligado" : "desligado"}`;
+    btn.textContent = t("toggle.state", { label: t(labelKey), state: t(on ? "toggle.on" : "toggle.off") });
     btn.classList.toggle("off", !on);
   };
   btn.addEventListener("click", () => { setter(!getter()); render(); });
+  langHooks.push(render);
   render();
 }
-bindToggle("sound-btn", "🔊 Som", () => Sound.sound, v => Sound.setSound(v));
-bindToggle("haptics-btn", "📳 Vibração", () => Sound.haptics, v => Sound.setHaptics(v));
+bindToggle("sound-btn", "ctrl.sound", () => Sound.sound, v => Sound.setSound(v));
+bindToggle("haptics-btn", "ctrl.haptics", () => Sound.haptics, v => Sound.setHaptics(v));
 window.addEventListener("pointerdown", () => Sound.unlock(), { once: true });   // áudio só após um gesto
 document.getElementById("reveal").addEventListener("click", showSolution);
 document.getElementById("size").addEventListener("change", newGame);
@@ -675,11 +716,8 @@ document.getElementById("size").addEventListener("change", newGame);
  * Com estoque 0 o botão oferece recarga (+3) via anúncio recompensado (ads.js).
  * Os ✕ e gatos postos aqui nunca dão pontos nem combo.
  * ===================================================================== */
-const COLOR_NAMES = [
-  "Azul-gelo", "Roxo", "Laranja", "Amarelo", "Verde", "Azul",
-  "Turquesa", "Rosa", "Marrom", "Vermelho", "Azul-céu", "Magenta",
-];                                                   // mesma ordem de PALETTE
-const colorName = id => COLOR_NAMES[id % COLOR_NAMES.length];
+const COLOR_COUNT = PALETTE.length;
+const colorName = id => I18n.colorName(id % COLOR_COUNT);   // mesma ordem de PALETTE
 const REWARD_UNITS = 3;
 const HINT_CELLS_MS = 5000;
 const HINT_TEXT_MS = 9000;
@@ -690,7 +728,8 @@ document.querySelectorAll(".pu-btn").forEach(btn => {
   itemUi[btn.dataset.item] = { btn, badge: btn.querySelector(".pu-badge") };
   btn.addEventListener("click", () => usePowerUp(btn.dataset.item));
 });
-const ITEM_LABELS = { hint: "💡 Dica", revealCat: "🐱 Revelar Gato", safeCross: "✕ 3x Seguros" };
+const ITEM_ICONS = { hint: "💡", revealCat: "🐱", safeCross: "✕" };
+const itemLabel = key => `${ITEM_ICONS[key]} ${t(`item.${key}.label`)}`;
 
 function renderItems() {
   for (const [key, { btn, badge }] of Object.entries(itemUi)) {
@@ -698,22 +737,28 @@ function renderItems() {
     const text = n > 0 ? String(n) : `🎬 +${REWARD_UNITS}`;
     if (badge.textContent !== text) badge.textContent = text;
     btn.classList.toggle("empty", n === 0);
+    const label = t(`item.${key}.aria`);
     btn.setAttribute("aria-label", n > 0
-      ? `${ITEM_LABELS[key]}: ${n} restantes`
-      : `${ITEM_LABELS[key]}: esgotado. Assistir vídeo para ganhar +${REWARD_UNITS}`);
+      ? t("item.left", { label, n })
+      : t("item.empty", { label, n: REWARD_UNITS }));
   }
 }
+langHooks.push(renderItems);
 
-/* Caixa de mensagem sobre a barra de power-ups: some sozinha ou ao toque */
+/* Caixa de mensagem sobre a barra de power-ups: some sozinha ou ao toque.
+ * `build` devolve o texto, para poder ser retraduzido enquanto a mensagem está visível. */
 let hudMsgTimer = 0;
-function hideHudMessage() { clearTimeout(hudMsgTimer); hudMsgEl.hidden = true; }
-function showHudMessage(text, ms = HINT_TEXT_MS) {
+let hudMsgBuild = null;
+function hideHudMessage() { clearTimeout(hudMsgTimer); hudMsgBuild = null; hudMsgEl.hidden = true; }
+function showHudMessage(build, ms = HINT_TEXT_MS) {
   clearTimeout(hudMsgTimer);
-  hudMsgEl.textContent = text;
+  hudMsgBuild = build;
+  hudMsgEl.textContent = build();
   hudMsgEl.hidden = false;
   hudMsgTimer = setTimeout(hideHudMessage, ms);
 }
 hudMsgEl.addEventListener("click", hideHudMessage);
+langHooks.push(() => { if (hudMsgBuild && !hudMsgEl.hidden) hudMsgEl.textContent = hudMsgBuild(); });
 
 /* Realce temporário: `glow` = casas que explicam a dica; `target` = casas a marcar */
 let hintEls = [];
@@ -732,34 +777,35 @@ function highlightCells(glow, target, ms = HINT_CELLS_MS) {
   hintTimer = setTimeout(clearHighlights, ms);
 }
 
-const listText = list => (list.length < 2 ? list.join("") : `${list.slice(0, -1).join(", ")} e ${list[list.length - 1]}`);
+const listText = I18n.list;
 function unitText(u) {
   const id = +u.slice(1);
-  return u[0] === "g" ? `a cor ${colorName(id)}` : u[0] === "r" ? `a linha ${id + 1}` : `a coluna ${id + 1}`;
+  return u[0] === "g" ? t("unit.color", { name: colorName(id) }) : t(u[0] === "r" ? "unit.row" : "unit.col", { n: id + 1 });
 }
 
+/* Dica "inteligente": o texto é montado a partir de h.kind + parâmetros (cores, linhas/colunas) no idioma atual */
 function hintMessage(h) {
-  const word = h.axis === "r" ? "linha" : "coluna";
-  const Word = word[0].toUpperCase() + word.slice(1);
+  const axis = t(h.axis === "r" ? "axis.row" : "axis.col");
+  const axes = t(h.axis === "r" ? "axis.rows" : "axis.cols");
+  const cap = s => s[0].toUpperCase() + s.slice(1);
   const regs = (h.regs || []).map(colorName);
   const lines = (h.lines || []).map(v => v + 1);
   switch (h.kind) {
     case "single": {
       const [r, c] = h.cells[0];
-      const who = unitText(h.unit);
-      return `${who[0].toUpperCase() + who.slice(1)} só tem uma casa válida: linha ${r + 1}, coluna ${c + 1}. Dê dois toques para pôr o gato.`;
+      return t("hint.single", { Who: cap(unitText(h.unit)), r: r + 1, c: c + 1 });
     }
     case "regionLine":
-      return `A cor ${regs[0]} só possui casas válidas na ${Word} ${lines[0]}. Marque ✕ nas casas das outras cores dessa ${word}.`;
+      return t("hint.regionLine", { color: regs[0], axis, n: lines[0] });
     case "lineRegion":
-      return `Na ${Word} ${lines[0]}, só a cor ${regs[0]} tem casas válidas. Marque ✕ nas demais casas dessa cor.`;
+      return t("hint.lineRegion", { color: regs[0], axis, n: lines[0] });
     case "regionSet":
-      return `As cores ${listText(regs)} só possuem casas válidas nas ${Word}s ${listText(lines)}. Nenhuma outra cor pode ter gato nelas: marque ✕.`;
+      return t("hint.regionSet", { colors: listText(regs), axes, lines: listText(lines) });
     case "lineSet":
-      return `As ${Word}s ${listText(lines)} só possuem casas válidas nas cores ${listText(regs)}. Essas cores não podem ter gato fora delas: marque ✕.`;
+      return t("hint.lineSet", { Axes: cap(axes), axes, colors: listText(regs), lines: listText(lines) });
     default: {
       const [r, c] = h.cells[0];
-      return `Se houvesse um gato na linha ${r + 1}, coluna ${c + 1}, ${unitText(h.unit)} ficaria sem nenhuma casa válida. Marque ✕ aqui.`;
+      return t("hint.contradiction", { r: r + 1, c: c + 1, unit: unitText(h.unit) });
     }
   }
 }
@@ -767,14 +813,14 @@ function hintMessage(h) {
 function useHint() {
   const h = E.findHint(N, regions, marks);
   if (!h) {                                          // sem dedução simples: não gasta o item
-    showHudMessage("Sem dedução simples no momento. Tente Revelar Gato.", 4000);
+    showHudMessage(() => t("hint.none"), 4000);
     return;
   }
   if (!Progress.useItem("hint")) return;
   renderItems();
   Sound.click();
   highlightCells(h.cells, h.targets);
-  showHudMessage(hintMessage(h));
+  showHudMessage(() => hintMessage(h));
 }
 
 function useRevealCat() {
@@ -788,7 +834,7 @@ function useRevealCat() {
 function useSafeCross() {
   const picks = E.pickSafeCrosses(N, regions, solution, marks, 3);
   if (!picks.length) {
-    showHudMessage("Não há mais casas livres sem gato para marcar.", 4000);
+    showHudMessage(() => t("hint.noSafe"), 4000);
     return;
   }
   if (!Progress.useItem("safeCross")) return;
@@ -812,9 +858,11 @@ function offerRecharge(key) {
   if (game.adHold) return;
   game.adHold = true;
   setGameState(GameState.PAUSED);
-  showModal("🎬", "Itens esgotados",
-    `Seus itens deste tipo acabaram! Assista a um vídeo curto para recarregar +${REWARD_UNITS} unidades`,
-    `🎬 Assistir vídeo (+${REWARD_UNITS})`, () => watchForItem(key), ["Agora não", closeRecharge]);
+  showModal(() => ({
+    emoji: "🎬", title: t("modal.recharge.title"), text: t("modal.recharge.text", { n: REWARD_UNITS }),
+    label: t("modal.recharge.watch", { n: REWARD_UNITS }), action: () => watchForItem(key),
+    extra: [t("modal.recharge.later"), closeRecharge],
+  }));
 }
 
 function setRechargeBusy(busy) {
@@ -851,8 +899,8 @@ async function watchForItem(key) {
     Sound.point();
   }
   closeRecharge();
-  if (res.rewarded) showHudMessage(`+${REWARD_UNITS} de ${ITEM_LABELS[key]} recarregados!`, 3000);
-  else if (res.reason === "offline") showHudMessage("Sem conexão: não foi possível carregar o vídeo. Tente novamente online.", 4000);
+  if (res.rewarded) showHudMessage(() => t("item.recharged", { n: REWARD_UNITS, label: itemLabel(key) }), 3000);
+  else if (res.reason === "offline") showHudMessage(() => t("ads.offline"), 4000);
 }
 
 renderItems();
@@ -894,7 +942,7 @@ function buildPalette() {
   for (let i = 0; i < PALETTE.length; i++) {
     const b = document.createElement("button");
     b.type = "button"; b.className = "swatch" + (i === sColor ? " active" : "");
-    b.style.background = PALETTE[i]; b.setAttribute("aria-label", "Cor " + (i + 1));
+    b.style.background = PALETTE[i]; b.setAttribute("aria-label", t("solver.swatch", { n: i + 1 }));
     b.setAttribute("role", "radio");
     b.setAttribute("aria-checked", String(i === sColor));
     b.addEventListener("click", () => {
@@ -921,17 +969,27 @@ function clearCats() {
   sBoard.querySelectorAll(".has-cat").forEach(e => e.classList.remove("has-cat"));
 }
 
-function updateSolverStatus() {
+/* Mensagem do solver: `solverMsg` guarda { key, params, cls } para ser retraduzida; null = status do preenchimento */
+let solverMsg = null;
+function renderSolverStatus() {
   const total = sN * sN;
   let painted = 0;
   const used = new Set();
   for (const row of sGrid) for (const v of row) if (v >= 0) { painted++; used.add(v); }
   sSolveBtn.hidden = !(painted === total && used.size === sN);
-  sStatus.className = "s-status";
-  if (painted < total) sStatus.textContent = `Pintadas ${painted}/${total}`;
-  else if (used.size !== sN) { sStatus.textContent = `Use exatamente ${sN} cores (usadas: ${used.size})`; sStatus.classList.add("bad"); }
-  else { sStatus.textContent = "Quadro completo!"; sStatus.classList.add("ok"); }
+  let msg = solverMsg;
+  if (!msg) {
+    if (painted < total) msg = { key: "solver.painted", params: { n: painted, total }, cls: "" };
+    else if (used.size !== sN) msg = { key: "solver.exact", params: { n: sN, used: used.size }, cls: "bad" };
+    else msg = { key: "solver.complete", cls: "ok" };
+  }
+  sStatus.className = "s-status" + (msg.cls ? " " + msg.cls : "");
+  sStatus.textContent = t(msg.key, msg.params);
 }
+function updateSolverStatus() { solverMsg = null; renderSolverStatus(); }
+langHooks.push(renderSolverStatus, () => {
+  paletteEl.querySelectorAll(".swatch").forEach((b, i) => b.setAttribute("aria-label", t("solver.swatch", { n: i + 1 })));
+});
 
 function buildSolverBoard() {
   sN = +sSizeEl.value;
@@ -953,16 +1011,16 @@ function solveDrawn() {
   const { count, first } = findSolutions(sN, sGrid);
   clearCats();
   if (!count) {
-    sStatus.className = "s-status bad";
-    sStatus.textContent = "Este quadro não tem solução. Confira as cores.";
+    solverMsg = { key: "solver.none", cls: "bad" };
+    renderSolverStatus();
     return;
   }
   first.forEach((c, r) => {
     sCells[r][c].classList.add("has-cat");
     sCells[r][c].insertAdjacentHTML("beforeend", '<span class="sym cat">🐱</span>');
   });
-  sStatus.className = "s-status ok";
-  sStatus.textContent = count > 1 ? "Há mais de uma solução; mostrando a primeira." : "Solução única encontrada!";
+  solverMsg = { key: count > 1 ? "solver.multi" : "solver.unique", cls: "ok" };
+  renderSolverStatus();
 }
 
 function solverCellAt(x, y) {
@@ -1012,10 +1070,10 @@ function levelButton(id, diff) {
   b.className = "lv-btn" + (locked ? " locked" : "") + (stars ? " done" : "") +
     (id === Progress.unlocked && !stars ? " current" : "");
   b.disabled = locked;
-  b.setAttribute("aria-label", `Nível ${id}` + (diff ? `, ${diff}` : "") + (locked ? ", bloqueado" : `, ${stars} de 3 estrelas`));
+  b.setAttribute("aria-label", t("level.aria", { id }) + (diff ? `, ${I18n.diffLabel(diff)}` : "") + ", " + (locked ? t("level.locked") : t("level.stars", { n: stars })));
   b.innerHTML = `<span class="lv-num">${locked ? "🔒" : id}</span>` +
     `<span class="lv-stars">${locked ? "" : starText(stars)}</span>` +
-    (diff && !locked ? `<span class="lv-diff">${diff}</span>` : "");
+    (diff && !locked ? `<span class="lv-diff">${I18n.diffLabel(diff)}</span>` : "");
   b.addEventListener("click", () => startCampaign(id));
   return b;
 }
@@ -1033,7 +1091,7 @@ function levelGroup(title, hint) {
 
 async function renderLevelMap() {
   const all = await MiauLevels.loadAll();
-  levelsTotalEl.textContent = `★ ${Progress.totalStars()} · 🏆 ${Progress.formatScore(Progress.totalScore)} pts`;
+  levelsTotalEl.textContent = t("levels.total", { stars: Progress.totalStars(), score: Progress.formatScore(Progress.totalScore) });
   levelMapEl.innerHTML = "";
   let section = null;
   let lastN = 0;
@@ -1049,8 +1107,8 @@ async function renderLevelMap() {
   if (Progress.unlocked > total) {               // campanha infinita: 10×10 com dificuldade variável
     const last = Progress.unlocked;
     const first = Math.max(total + 1, last - INFINITE_SHOWN + 1);
-    section = levelGroup("∞ Infinito · 10×10",
-      first > total + 1 ? `(últimos ${INFINITE_SHOWN} de ${last - total})` : "dificuldade variável");
+    section = levelGroup(t("levels.infinite"),
+      first > total + 1 ? t("levels.infiniteLast", { n: INFINITE_SHOWN, total: last - total }) : t("levels.infiniteVar"));
     for (let id = first; id <= last; id++) {
       const info = InfiniteLevels.info(id);
       section.appendChild(levelButton(id, info && info.diff));
@@ -1073,12 +1131,16 @@ function openLegal(key) {
   for (const s of legalSections) {
     const match = s.dataset.legal === key;
     s.hidden = !match;
-    if (match) { legalTitle.textContent = s.dataset.title; found = true; }
+    if (match) { legalTitle.textContent = t(s.dataset.titleKey); found = true; }
   }
   if (!found || legalDialog.open) return;
   legalDialog.querySelector(".legal-body").scrollTop = 0;
   legalDialog.showModal();
 }
+langHooks.push(() => {                          // título da página legal aberta acompanha o idioma
+  const open = [...legalSections].find(s => !s.hidden);
+  if (open) legalTitle.textContent = t(open.dataset.titleKey);
+});
 
 document.addEventListener("click", e => {
   const link = e.target.closest("[data-legal]:is(button)");
@@ -1130,13 +1192,13 @@ const PwaInstall = (() => {
     const card = document.createElement("div");
     card.className = "pwa-promo";
     card.innerHTML =
-      `<p class="pwa-promo-title">📲 Leve o MiauColor com você</p>
+      `<p class="pwa-promo-title">${t("pwa.promoTitle")}</p>
        <ul class="pwa-promo-list">
-         <li>⚡ Acesso rápido na tela inicial</li>
-         <li>📶 Economia de dados</li>
-         <li>✈️ Funciona 100% offline</li>
+         <li>${t("pwa.promo1")}</li>
+         <li>${t("pwa.promo2")}</li>
+         <li>${t("pwa.promo3")}</li>
        </ul>
-       <button type="button" class="pwa-promo-btn">Instalar grátis</button>`;
+       <button type="button" class="pwa-promo-btn">${t("pwa.promoBtn")}</button>`;
     card.querySelector("button").addEventListener("click", install);
     actions.before(card);
   }
@@ -1202,6 +1264,33 @@ applyLayout();
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 }
+
+/* ---------- Idioma: seletor PT/EN/ES e atualização da interface sem recarregar ---------- */
+const langBtns = document.querySelectorAll(".lang-btn");
+
+/* Traduz o DOM estático (data-i18n*) e re-renderiza tudo o que o JS gera (status, modais, itens, mapa de níveis...) */
+function updateLanguage() {
+  document.documentElement.lang = I18n.htmlLang;
+  document.title = t("app.title");
+  I18n.apply();
+  for (const btn of langBtns) {
+    const on = btn.dataset.lang === I18n.lang;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", on);
+  }
+  for (const hook of langHooks) hook();
+  if (document.getElementById("levels").classList.contains("active")) renderLevelMap();
+}
+
+for (const btn of langBtns) {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.lang === I18n.lang) return;
+    I18n.setLanguage(btn.dataset.lang);
+    Progress.setLanguage(I18n.lang);             // escolha manual persistida; sem escolha, segue o navegador
+    updateLanguage();
+  });
+}
+updateLanguage();
 
 /* Abre direto na campanha (partida em andamento ou último nível liberado); sem packs, cai no treino livre */
 (async () => {

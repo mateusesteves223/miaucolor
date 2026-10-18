@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>MiauColor — testes</title>
+  <title>MeowColor — testes</title>
   <style>
     body { font: 14px/1.5 system-ui, sans-serif; background: #1e1b2e; color: #f1eefc; padding: 1rem 1.5rem; }
     h1 { font-size: 1.2rem; }
@@ -15,7 +15,7 @@
   </style>
 </head>
 <body>
-  <h1>MiauColor — testes automatizados</h1>
+  <h1>MeowColor — testes automatizados</h1>
   <p><small>Abra este arquivo no navegador (sem servidor). O localStorage é substituído por uma versão em memória:
   seu progresso real não é tocado.</small></p>
   <div id="summary">Executando…</div>
@@ -39,6 +39,7 @@
   <script src="levels.js"></script>
   <script src="levels/manifest.js"></script>
   <script src="progress.js"></script>
+  <script src="i18n.js"></script>
   <script>
     "use strict";
     const E = createEngine();
@@ -230,6 +231,30 @@
       eq([Progress.addItem("hint", 3), Progress.addItem("hint", 0), Progress.addItem("nope", 3)], [3, 3, 0], "recarga +3; valores inválidos ignorados");
       assert(JSON.parse(localStorage.getItem("miaucolor:v1")).items.hint === 3, "inventário não persistiu");
       eq([Progress.addItem("hint", 500)], [99], "teto de estoque");
+    });
+
+    test("Progress: idioma escolhido persiste na mesma chave (miaucolor:v1) e ignora valores inválidos", () => {
+      eq([Progress.language], [null], "padrão: automático");
+      Progress.setLanguage("xx");
+      eq([Progress.language], [null], "idioma inválido ignorado");
+      Progress.setLanguage("es");
+      eq([Progress.language, JSON.parse(localStorage.getItem("miaucolor:v1")).language], ["es", "es"], "persistido");
+      Progress.setLanguage(null);
+      eq([Progress.language], [null], "volta ao automático");
+    });
+    test("I18n: detecção pelo navegador, fallback e interpolação", () => {
+      eq([I18n.detect(["pt-BR"]), I18n.detect(["es-MX", "en"]), I18n.detect(["fr", "en-US"]), I18n.detect(["de"])], ["pt", "es", "en", "en"], "detect");
+      I18n.setLanguage("en");
+      eq([I18n.t("status.cats", { n: 2, total: 7 }), I18n.t("chave.inexistente")], ["Cats: 2/7", "chave.inexistente"], "interpolação e chave ausente");
+      eq([I18n.t("hint.regionLine", { color: "Green", axis: I18n.t("axis.row"), n: 2 }).startsWith("Green color only has valid cells in row 2")], [true], "dica em inglês");
+      I18n.setLanguage("es");
+      eq([I18n.t("hint.regionLine", { color: "Verde", axis: I18n.t("axis.row"), n: 2 }).startsWith("El color Verde solo tiene casillas válidas en la fila 2")], [true], "dica em espanhol");
+      I18n.setLanguage("pt");
+      eq([I18n.list(["1", "2", "3"]), I18n.diffLabel("Fácil")], ["1, 2 e 3", "Fácil"], "lista e dificuldade em pt");
+    });
+    test("I18n: en e es têm exatamente as mesmas chaves de pt", () => {
+      const base = Object.keys(I18n.DICT.pt).sort();
+      for (const l of ["en", "es"]) eq(Object.keys(I18n.DICT[l]).sort(), base, `chaves de ${l}`);
     });
 
     /* ---------- Runner ---------- */

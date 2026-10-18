@@ -8,41 +8,46 @@
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>MiauColor</title>
+  <title>MeowColor</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <nav class="sidenav">
   <header>
-    <h1>🐱 MiauColor</h1>
-    <button id="menu-btn" class="menu-btn" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-drop">
+    <h1>🐱 <span data-i18n="app.name">MeowColor</span></h1>
+    <div class="lang-switch" role="group" data-i18n-attr="aria-label:lang.group" aria-label="Idioma">
+      <button type="button" class="lang-btn" data-lang="pt" lang="pt" data-i18n-attr="aria-label:lang.pt;title:lang.pt" aria-label="Português" title="Português">PT</button>
+      <button type="button" class="lang-btn" data-lang="en" lang="en" data-i18n-attr="aria-label:lang.en;title:lang.en" aria-label="English" title="English">EN</button>
+      <button type="button" class="lang-btn" data-lang="es" lang="es" data-i18n-attr="aria-label:lang.es;title:lang.es" aria-label="Español" title="Español">ES</button>
+    </div>
+    <button id="menu-btn" class="menu-btn" type="button" aria-label="Abrir menu" data-i18n-attr="aria-label:menu.open" aria-expanded="false" aria-controls="menu-drop">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
     <ul class="rules">
-      <li>Um gato por cor</li>
-      <li>Um gato por linha e coluna</li>
-      <li>Os gatos não podem se encostar</li>
+      <li data-i18n="rules.color">Um gato por cor</li>
+      <li data-i18n="rules.line">Um gato por linha e coluna</li>
+      <li data-i18n="rules.touch">Os gatos não podem se encostar</li>
     </ul>
   </header>
 
   <div class="tabs" role="tablist">
-    <button class="tab active" data-target="game">Jogar</button>
-    <button class="tab" data-target="levels">Níveis</button>
-    <button class="tab" data-target="solver" data-dev>Resolve Nível</button>
-    <button class="tab" data-target="help">Guia Help</button>
+    <button class="tab active" data-target="game" data-i18n="tab.game">Jogar</button>
+    <button class="tab" data-target="levels" data-i18n="tab.levels">Níveis</button>
+    <button class="tab" data-target="solver" data-dev data-i18n="tab.solver">Resolve Nível</button>
+    <button class="tab" data-target="help" data-i18n="tab.help">Guia Help</button>
     <button class="tab" data-target="wiki" data-dev>Documentação Algorítmica</button>
   </div>
 
   <div id="menu-drop" class="menu-drop"></div>
 
   <div class="pwa-install" hidden>
-    <button id="pwa-install-btn" class="pwa-install-btn" type="button">📲 Instalar App (Jogar Offline)</button>
+    <button id="pwa-install-btn" class="pwa-install-btn" type="button" data-i18n="pwa.install">📲 Instalar App (Jogar Offline)</button>
   </div>
 
-  <footer class="legal-links" aria-label="Informações legais">
-    <button type="button" class="legal-link" data-legal="privacy" aria-haspopup="dialog">Política de Privacidade</button>
-    <button type="button" class="legal-link" data-legal="terms" aria-haspopup="dialog">Termos de Uso</button>
-    <button type="button" class="legal-link" data-legal="contact" aria-haspopup="dialog">Contato</button>
+  <footer class="legal-links" aria-label="Informações legais" data-i18n-attr="aria-label:legal.aria">
+    <button type="button" class="legal-link" data-legal="privacy" aria-haspopup="dialog" data-i18n="legal.privacy.link">Política de Privacidade</button>
+    <button type="button" class="legal-link" data-legal="terms" aria-haspopup="dialog" data-i18n="legal.terms.link">Termos de Uso</button>
+    <button type="button" class="legal-link" data-legal="contact" aria-haspopup="dialog" data-i18n="legal.contact.link">Contato</button>
   </footer>
 
   </nav>
@@ -53,40 +58,40 @@
       <div class="game-side">
       <div class="game-hud">
         <div id="level-info" class="level-info" aria-live="polite" aria-atomic="true">
-          <span class="level-info-label">NÍVEL ATUAL</span>
+          <span class="level-info-label" data-i18n="hud.level">NÍVEL ATUAL</span>
           <span id="level-value" class="level-info-value"></span>
         </div>
         <div id="score-info" class="level-info score-info">
-          <span class="level-info-label">PONTOS</span>
+          <span class="level-info-label" data-i18n="hud.score">PONTOS</span>
           <span id="score-value" class="level-info-value">0</span>
         </div>
       </div>
         <div class="powerups" id="powerups">
-          <div class="powerup-bar" role="group" aria-label="Power-ups">
-            <button type="button" class="pu-btn" data-item="hint" aria-label="Dica inteligente"><span class="pu-icon" aria-hidden="true">💡</span><span class="pu-label">Dica</span><span class="pu-badge" aria-hidden="true">3</span></button>
-            <button type="button" class="pu-btn" data-item="revealCat" aria-label="Revelar gato"><span class="pu-icon" aria-hidden="true">🐱</span><span class="pu-label">Revelar Gato</span><span class="pu-badge" aria-hidden="true">3</span></button>
-            <button type="button" class="pu-btn" data-item="safeCross" aria-label="3 X seguros"><span class="pu-icon" aria-hidden="true">✕</span><span class="pu-label">3x Seguros</span><span class="pu-badge" aria-hidden="true">3</span></button>
+          <div class="powerup-bar" role="group" aria-label="Power-ups" data-i18n-attr="aria-label:item.group">
+            <button type="button" class="pu-btn" data-item="hint" aria-label="Dica inteligente"><span class="pu-icon" aria-hidden="true">💡</span><span class="pu-label" data-i18n="item.hint.label">Dica</span><span class="pu-badge" aria-hidden="true">3</span></button>
+            <button type="button" class="pu-btn" data-item="revealCat" aria-label="Revelar gato"><span class="pu-icon" aria-hidden="true">🐱</span><span class="pu-label" data-i18n="item.revealCat.label">Revelar Gato</span><span class="pu-badge" aria-hidden="true">3</span></button>
+            <button type="button" class="pu-btn" data-item="safeCross" aria-label="3 X seguros"><span class="pu-icon" aria-hidden="true">✕</span><span class="pu-label" data-i18n="item.safeCross.label">3x Seguros</span><span class="pu-badge" aria-hidden="true">3</span></button>
           </div>
           <div id="hint-msg" class="hint-msg" role="status" aria-live="polite" hidden></div>
         </div>
       <aside class="sidebar">
       <div class="controls">
-        <label>Tamanho:
+        <label><span data-i18n="ctrl.size">Tamanho:</span>
           <select id="size">
             <option>5</option><option>6</option><option selected>7</option>
             <option>8</option><option>9</option><option>10</option>
           </select>
         </label>
-        <button id="new">Novo jogo</button>
-        <button id="clear">Limpar</button>
+        <button id="new" data-i18n="ctrl.new">Novo jogo</button>
+        <button id="clear" data-i18n="ctrl.clear">Limpar</button>
         <button id="sound-btn" type="button" aria-pressed="true">🔊 Som</button>
         <button id="haptics-btn" type="button" aria-pressed="true">📳 Vibração</button>
       </div>
-      <div id="lives" class="lives" aria-label="Vidas"></div>
+      <div id="lives" class="lives" aria-label="Vidas" data-i18n-attr="aria-label:ctrl.lives"></div>
       <div id="status"></div>
-      <div id="timer" class="timer" aria-label="Tempo">⏱ 00:00</div>
-      <p class="hint">Clique: marca ✕<br>Duplo clique: coloca 🐱</p>
-      <div class="reveal-wrap"><button id="reveal" class="link-btn">Revelar solução</button>
+      <div id="timer" class="timer" aria-label="Tempo" data-i18n-attr="aria-label:ctrl.timer">⏱ 00:00</div>
+      <p class="hint" data-i18n-html="ctrl.tapHint">Clique: marca ✕<br>Duplo clique: coloca 🐱</p>
+      <div class="reveal-wrap"><button id="reveal" class="link-btn" data-i18n="ctrl.reveal">Revelar solução</button>
         <div class="dev-card" data-dev>
           <label class="dev-head"><span>🛠️ Modo Dev</span><input type="checkbox" id="dev" class="switch" aria-label="Modo Dev"></label>
           <div class="dev-body">
@@ -99,15 +104,15 @@
       </div>
       </aside>
       </div>
-      <div class="stage"><div id="board" aria-label="Tabuleiro"></div></div>
-      <div id="modal" class="modal" role="dialog" aria-modal="true" aria-label="Mensagem do jogo"></div>
+      <div class="stage"><div id="board" aria-label="Tabuleiro" data-i18n-attr="aria-label:ctrl.board"></div></div>
+      <div id="modal" class="modal" role="dialog" aria-modal="true" aria-label="Mensagem do jogo" data-i18n-attr="aria-label:modal.aria"></div>
     </section>
 
     <!-- ===== ABA: RESOLVE NÍVEL ===== -->
     <!-- ===== MAPA DE NÍVEIS ===== -->
     <section id="levels" class="panel">
       <div class="levels-head">
-        <h2>Níveis</h2>
+        <h2 data-i18n="levels.title">Níveis</h2>
         <span id="levels-total" class="levels-total"></span>
       </div>
       <div id="level-map"></div>
@@ -116,116 +121,116 @@
     <section id="solver" class="panel">
       <aside class="sidebar">
         <div class="controls">
-          <label>Tamanho:
+          <label><span data-i18n="solver.size">Tamanho:</span>
             <select id="s-size">
               <option>5</option><option>6</option><option>7</option>
               <option>8</option><option>9</option><option>10</option>
             </select>
           </label>
-          <button id="s-clear">Limpar</button>
+          <button id="s-clear" data-i18n="ctrl.clear">Limpar</button>
         </div>
-        <div class="palette-title">Paleta</div>
-        <div id="palette" class="palette" role="radiogroup" aria-label="Paleta de cores"></div>
-        <p class="palette-hint">Toque em uma cor para selecioná-la; deslize para ver as demais.</p>
+        <div class="palette-title" data-i18n="solver.palette">Paleta</div>
+        <div id="palette" class="palette" role="radiogroup" aria-label="Paleta de cores" data-i18n-attr="aria-label:solver.paletteAria"></div>
+        <p class="palette-hint" data-i18n="solver.paletteHint">Toque em uma cor para selecioná-la; deslize para ver as demais.</p>
         <div id="s-status" class="s-status"></div>
-        <button id="s-solve" class="solve-btn" hidden>🐱 Resolver nível</button>
-        <p class="hint">Clique ou arraste para pintar o quadro com as cores do seu nível.</p>
+        <button id="s-solve" class="solve-btn" data-i18n="solver.solve" hidden>🐱 Resolver nível</button>
+        <p class="hint" data-i18n="solver.draw">Clique ou arraste para pintar o quadro com as cores do seu nível.</p>
       </aside>
-      <div class="stage"><div id="sboard" aria-label="Quadro para pintar"></div></div>
+      <div class="stage"><div id="sboard" aria-label="Quadro para pintar" data-i18n-attr="aria-label:solver.boardAria"></div></div>
     </section>
 
     <!-- ===== ABA 2: GUIA HELP ===== -->
     <section id="help" class="panel">
       <article class="doc">
-        <h2>Guia de estratégias</h2>
-        <p class="guide-intro">Use as regras para eliminar possibilidades. Marque ✕ quando tiver certeza de que uma célula não pode receber gato; guarde seus palpites para quando a lógica não avançar.</p>
+        <h2 data-i18n="guide.title">Guia de estratégias</h2>
+        <p class="guide-intro" data-i18n="guide.intro">Use as regras para eliminar possibilidades. Marque ✕ quando tiver certeza de que uma célula não pode receber gato; guarde seus palpites para quando a lógica não avançar.</p>
 
         <div class="strategy-grid">
           <section class="strategy-card">
-            <span class="strategy-number">01 · DEDUÇÃO</span>
-            <h3>Procure uma cor com poucas opções</h3>
-            <p>Uma região precisa receber exatamente um gato. Se só restar uma célula possível naquela cor, ela é obrigatória. Se restarem duas, mantenha as duas possibilidades até outra regra eliminar uma.</p>
+            <span class="strategy-number" data-i18n="g1.n">01 · DEDUÇÃO</span>
+            <h3 data-i18n="g1.t">Procure uma cor com poucas opções</h3>
+            <p data-i18n="g1.p">Uma região precisa receber exatamente um gato. Se só restar uma célula possível naquela cor, ela é obrigatória. Se restarem duas, mantenha as duas possibilidades até outra regra eliminar uma.</p>
             <figure class="example">
-              <figcaption>Exemplo: a região azul só pode usar uma destas casas.</figcaption>
-              <div class="mini-board two-options" role="img" aria-label="Duas células candidatas na região azul">
+              <figcaption data-i18n="g1.cap">Exemplo: a região azul só pode usar uma destas casas.</figcaption>
+              <div class="mini-board two-options" role="img" aria-label="Duas células candidatas na região azul" data-i18n-attr="aria-label:g1.aria">
                 <span class="candidate blue"></span><span></span><span class="candidate blue"></span><span></span>
               </div>
-              <div class="legend"><span><i class="legend-dot blue"></i> Região azul: 2 candidatas</span></div>
+              <div class="legend"><span><i class="legend-dot blue"></i><span data-i18n="g1.l1">Região azul: 2 candidatas</span></span></div>
             </figure>
           </section>
 
           <section class="strategy-card">
-            <span class="strategy-number">02 · BLOQUEIO</span>
-            <h3>Cor presa em uma linha ou coluna</h3>
-            <p>Se todas as posições possíveis de uma cor estão na mesma linha, essa linha já terá seu gato naquela região. Elimine com ✕ as outras cores nas demais casas da linha. A mesma lógica vale para uma coluna.</p>
+            <span class="strategy-number" data-i18n="g2.n">02 · BLOQUEIO</span>
+            <h3 data-i18n="g2.t">Cor presa em uma linha ou coluna</h3>
+            <p data-i18n="g2.p">Se todas as posições possíveis de uma cor estão na mesma linha, essa linha já terá seu gato naquela região. Elimine com ✕ as outras cores nas demais casas da linha. A mesma lógica vale para uma coluna.</p>
             <figure class="example">
-              <figcaption>A região azul só cabe na linha destacada; as outras casas da linha ficam bloqueadas.</figcaption>
-              <div class="mini-board four-cells" role="img" aria-label="Candidatas da região azul e casas bloqueadas na mesma linha">
+              <figcaption data-i18n="g2.cap">A região azul só cabe na linha destacada; as outras casas da linha ficam bloqueadas.</figcaption>
+              <div class="mini-board four-cells" role="img" aria-label="Candidatas da região azul e casas bloqueadas na mesma linha" data-i18n-attr="aria-label:g2.aria">
                 <span class="candidate blue"></span><span class="candidate blue"></span><span class="eliminated">✕</span><span class="eliminated">✕</span>
               </div>
-              <div class="legend"><span><i class="legend-dot blue"></i> Candidatas azuis</span><span><i class="legend-cross">✕</i> Outras cores eliminadas</span></div>
+              <div class="legend"><span><i class="legend-dot blue"></i><span data-i18n="g2.l1">Candidatas azuis</span></span><span><i class="legend-cross">✕</i><span data-i18n="g2.l2">Outras cores eliminadas</span></span></div>
             </figure>
           </section>
 
           <section class="strategy-card">
-            <span class="strategy-number">03 · PARES</span>
-            <h3>Duas cores reservam duas linhas</h3>
-            <p>Se duas cores só podem aparecer em duas mesmas linhas, elas ocuparão essas duas linhas — uma em cada. Nenhuma outra cor pode ficar nelas. Marque ✕ nas demais candidatas dessas linhas.</p>
+            <span class="strategy-number" data-i18n="g3.n">03 · PARES</span>
+            <h3 data-i18n="g3.t">Duas cores reservam duas linhas</h3>
+            <p data-i18n="g3.p">Se duas cores só podem aparecer em duas mesmas linhas, elas ocuparão essas duas linhas — uma em cada. Nenhuma outra cor pode ficar nelas. Marque ✕ nas demais candidatas dessas linhas.</p>
             <figure class="example">
-              <figcaption>As regiões azul e dourada estão restritas às linhas A e B.</figcaption>
-              <div class="pair-demo" role="img" aria-label="Duas linhas reservadas às regiões azul e dourada; candidatas de outras cores eliminadas">
+              <figcaption data-i18n="g3.cap">As regiões azul e dourada estão restritas às linhas A e B.</figcaption>
+              <div class="pair-demo" role="img" aria-label="Duas linhas reservadas às regiões azul e dourada; candidatas de outras cores eliminadas" data-i18n-attr="aria-label:g3.aria">
                 <span class="row-label">A</span><span class="candidate blue">A</span><span class="candidate gold">B</span><span class="eliminated">✕</span><span class="eliminated">✕</span>
                 <span class="row-label">B</span><span class="candidate blue">A</span><span class="candidate gold">B</span><span class="eliminated">✕</span><span class="eliminated">✕</span>
               </div>
-              <div class="legend"><span><i class="legend-dot blue"></i> Azul</span><span><i class="legend-dot gold"></i> Dourada</span><span><i class="legend-cross">✕</i> Outras cores</span></div>
+              <div class="legend"><span><i class="legend-dot blue"></i><span data-i18n="g3.l1">Azul</span></span><span><i class="legend-dot gold"></i><span data-i18n="g3.l2">Dourada</span></span><span><i class="legend-cross">✕</i><span data-i18n="g3.l3">Outras cores</span></span></div>
             </figure>
           </section>
 
           <section class="strategy-card">
-            <span class="strategy-number">04 · INTERSEÇÃO</span>
-            <h3>Região alinhada com uma linha</h3>
-            <p>O raciocínio também funciona ao contrário: se, dentro de uma região, as candidatas estão todas na mesma linha ou coluna, essa linha ou coluna não pode receber outro gato daquela região fora dela.</p>
+            <span class="strategy-number" data-i18n="g4.n">04 · INTERSEÇÃO</span>
+            <h3 data-i18n="g4.t">Região alinhada com uma linha</h3>
+            <p data-i18n="g4.p">O raciocínio também funciona ao contrário: se, dentro de uma região, as candidatas estão todas na mesma linha ou coluna, essa linha ou coluna não pode receber outro gato daquela região fora dela.</p>
             <figure class="example">
-              <figcaption>As duas candidatas da região verde estão na linha; a candidata fora dela é impossível.</figcaption>
-              <div class="mini-board four-cells" role="img" aria-label="Duas candidatas verdes na mesma linha e uma candidata eliminada fora da região">
+              <figcaption data-i18n="g4.cap">As duas candidatas da região verde estão na linha; a candidata fora dela é impossível.</figcaption>
+              <div class="mini-board four-cells" role="img" aria-label="Duas candidatas verdes na mesma linha e uma candidata eliminada fora da região" data-i18n-attr="aria-label:g4.aria">
                 <span class="candidate green"></span><span class="candidate green"></span><span></span><span class="eliminated">✕</span>
               </div>
-              <div class="legend"><span><i class="legend-dot green"></i> Região verde alinhada</span><span><i class="legend-cross">✕</i> Eliminada pela interseção</span></div>
+              <div class="legend"><span><i class="legend-dot green"></i><span data-i18n="g4.l1">Região verde alinhada</span></span><span><i class="legend-cross">✕</i><span data-i18n="g4.l2">Eliminada pela interseção</span></span></div>
             </figure>
           </section>
 
           <section class="strategy-card">
-            <span class="strategy-number">05 · VIZINHANÇA</span>
-            <h3>Use o espaço ao redor de um gato</h3>
-            <p>Depois de confirmar um gato, elimine as casas da mesma linha, coluna e cor. Também elimine as casas vizinhas, inclusive diagonais. Assim os gatos não se encostam.</p>
+            <span class="strategy-number" data-i18n="g5.n">05 · VIZINHANÇA</span>
+            <h3 data-i18n="g5.t">Use o espaço ao redor de um gato</h3>
+            <p data-i18n="g5.p">Depois de confirmar um gato, elimine as casas da mesma linha, coluna e cor. Também elimine as casas vizinhas, inclusive diagonais. Assim os gatos não se encostam.</p>
             <figure class="example">
-              <figcaption>Um gato bloqueia as casas ao redor (incluindo diagonais).</figcaption>
-              <div class="mini-board neighborhood" role="img" aria-label="Gato no centro e casas vizinhas bloqueadas">
+              <figcaption data-i18n="g5.cap">Um gato bloqueia as casas ao redor (incluindo diagonais).</figcaption>
+              <div class="mini-board neighborhood" role="img" aria-label="Gato no centro e casas vizinhas bloqueadas" data-i18n-attr="aria-label:g5.aria">
                 <span class="blocked">×</span><span class="blocked">×</span><span class="blocked">×</span>
                 <span class="blocked">×</span><span class="cat-cell">🐱</span><span class="blocked">×</span>
                 <span class="blocked">×</span><span class="blocked">×</span><span class="blocked">×</span>
               </div>
-              <div class="legend"><span><i class="legend-cross">×</i> Casas que não podem receber outro gato</span></div>
+              <div class="legend"><span><i class="legend-cross">×</i><span data-i18n="g5.l1">Casas que não podem receber outro gato</span></span></div>
             </figure>
           </section>
 
           <section class="strategy-card probability-card">
-            <span class="strategy-number">06 · ESCOLHA</span>
-            <h3>Se travar, priorize a região mais limitada</h3>
-            <p>Conte as candidatas que ainda restam para cada cor. Tente deduzir primeiro a cor com menos opções: cada exclusão afeta linhas, colunas, regiões e vizinhanças. Isso é uma heurística, não uma garantia de que uma casa isolada seja mais provável.</p>
-            <div class="guide-note"><strong>Importante:</strong> não escolha só pela aparência ou por “chance”. As candidatas não têm necessariamente probabilidades iguais; prefira uma dedução que respeite todas as regras.</div>
+            <span class="strategy-number" data-i18n="g6.n">06 · ESCOLHA</span>
+            <h3 data-i18n="g6.t">Se travar, priorize a região mais limitada</h3>
+            <p data-i18n="g6.p">Conte as candidatas que ainda restam para cada cor. Tente deduzir primeiro a cor com menos opções: cada exclusão afeta linhas, colunas, regiões e vizinhanças. Isso é uma heurística, não uma garantia de que uma casa isolada seja mais provável.</p>
+            <div class="guide-note" data-i18n-html="g6.note"><strong>Importante:</strong> não escolha só pela aparência ou por “chance”. As candidatas não têm necessariamente probabilidades iguais; prefira uma dedução que respeite todas as regras.</div>
           </section>
         </div>
 
-        <div class="guide-note guide-summary"><strong>Ordem prática:</strong> confira as regras de cada gato confirmado → procure cores com uma única opção → procure linhas ou colunas com uma única opção → aplique bloqueios, pares e interseções → só então avalie uma tentativa.</div>
+        <div class="guide-note guide-summary" data-i18n-html="guide.summary"><strong>Ordem prática:</strong> confira as regras de cada gato confirmado → procure cores com uma única opção → procure linhas ou colunas com uma única opção → aplique bloqueios, pares e interseções → só então avalie uma tentativa.</div>
       </article>
     </section>
 
     <!-- ===== ABA 3: WIKI ===== -->
-    <section id="wiki" class="panel">
+    <section id="wiki" class="panel" lang="pt-BR">
       <article class="doc">
         <h2>Documentação Algorítmica</h2>
-        <p>Este artigo explica, passo a passo, como o MiauColor gera tabuleiros infinitos e válidos. O código correspondente está em <code>engine.js</code>.</p>
+        <p>Este artigo explica, passo a passo, como o MeowColor gera tabuleiros infinitos e válidos. O código correspondente está em <code>engine.js</code>.</p>
 
         <nav>
           <strong>Sumário</strong>
@@ -306,7 +311,7 @@
         </table>
 
         <h4>5.3 Modelando uma matriz 2D como um grafo</h4>
-        <p>O tabuleiro do MiauColor é um <strong>grafo-grade (grid graph)</strong>:</p>
+        <p>O tabuleiro do MeowColor é um <strong>grafo-grade (grid graph)</strong>:</p>
         <ul>
           <li>cada <strong>célula</strong> <code>(r, c)</code> é um <strong>vértice</strong>;</li>
           <li>há uma <strong>aresta</strong> entre células <strong>vizinhas</strong>: cima, baixo, esquerda, direita (conectividade-4). Com as diagonais, seria conectividade-8.</li>
@@ -366,73 +371,39 @@
     </section>
   </main>
 
-  <div id="ad-banner" class="ad-banner" role="complementary" aria-label="Publicidade"></div>
+  <div id="ad-banner" class="ad-banner" role="complementary" aria-label="Publicidade" data-i18n-attr="aria-label:ads.banner.aria"></div>
 
   <!-- Páginas institucionais (modal nativo: foco preso, Esc fecha e o foco volta ao link de origem) -->
   <dialog id="legal-dialog" class="legal-dialog" aria-labelledby="legal-title">
     <div class="legal-head">
       <h2 id="legal-title"></h2>
-      <button type="button" class="legal-close" id="legal-close" aria-label="Fechar">✕</button>
+      <button type="button" class="legal-close" id="legal-close" aria-label="Fechar" data-i18n-attr="aria-label:legal.close">✕</button>
     </div>
     <div class="legal-body">
-      <section data-legal="privacy" data-title="Política de Privacidade" hidden>
-        <p><small>Última atualização: 18/10/2026</small></p>
-        <p>O <strong>MiauColor</strong> respeita a sua privacidade e foi feito para coletar o mínimo possível, em conformidade com a Lei Geral de Proteção de Dados (LGPD, Lei nº 13.709/2018).</p>
-        <h3>Armazenamento local</h3>
-        <p>O jogo usa o <code>localStorage</code> do seu navegador apenas para salvar o progresso neste aparelho: estrelas, pontos, níveis concluídos, itens (power-ups) e preferências de som e vibração. Esses dados <strong>não são enviados</strong> a nenhum servidor nosso e podem ser apagados a qualquer momento limpando os dados do site no navegador.</p>
-        <h3>Dados pessoais</h3>
-        <p>Não exigimos cadastro e <strong>não coletamos dados pessoais que identifiquem você diretamente</strong>, como nome, e-mail ou telefone. Só tratamos o e-mail se você nos escrever voluntariamente, e apenas para responder à sua mensagem.</p>
-        <h3>Publicidade e serviços de terceiros</h3>
-        <p>O jogo utiliza serviços de terceiros, como o <strong>Google AdSense</strong>, para exibir anúncios. O Google e seus parceiros podem usar <strong>cookies</strong> e identificadores semelhantes (e processar dados como endereço IP e informações do dispositivo) para veicular <strong>anúncios personalizados</strong> com base em suas visitas a este e a outros sites.</p>
-        <ul>
-          <li>Saiba como o Google usa dados: <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">policies.google.com/technologies/partner-sites</a>.</li>
-          <li>Você pode desativar a personalização de anúncios em <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">adssettings.google.com</a> ou em <a href="https://www.aboutads.info" target="_blank" rel="noopener noreferrer">aboutads.info</a>.</li>
-        </ul>
-        <h3>Seus direitos</h3>
-        <p>Nos termos do art. 18 da LGPD, você pode solicitar informações, correção ou eliminação de dados que porventura tratemos. Para isso, use o canal na seção <strong>Contato</strong>.</p>
-        <h3>Alterações</h3>
-        <p>Esta política pode ser atualizada. A data da última revisão fica indicada no topo desta página.</p>
-      </section>
+      <section data-legal="privacy" data-title-key="legal.privacy.title" data-i18n-html="legal.privacy.body" hidden></section>
 
-      <section data-legal="terms" data-title="Termos de Uso" hidden>
-        <p><small>Última atualização: 18/10/2026</small></p>
-        <p>Ao jogar o <strong>MiauColor</strong>, você concorda com os termos abaixo.</p>
-        <h3>Uso gratuito</h3>
-        <p>O jogo é <strong>gratuito</strong> e pode ser financiado por anúncios. Não há cobrança para jogar nem para obter itens.</p>
-        <h3>Fornecido "como está"</h3>
-        <p>O jogo é fornecido <strong>"como está"</strong> e "conforme disponível", sem garantias de qualquer tipo, expressas ou implícitas, incluindo funcionamento ininterrupto ou livre de erros. Não nos responsabilizamos por perdas de progresso, que fica salvo apenas no seu navegador.</p>
-        <h3>Bens virtuais</h3>
-        <p>Estrelas, pontos e itens (dicas, revelar gato, 3x seguros etc.) são <strong>bens virtuais sem valor monetário real</strong>: não podem ser trocados por dinheiro, vendidos ou transferidos.</p>
-        <h3>Uso adequado</h3>
-        <p>Não é permitido tentar prejudicar o funcionamento do jogo, nem usar o conteúdo para fins comerciais sem autorização.</p>
-        <h3>Alterações</h3>
-        <p>Podemos alterar, suspender o jogo ou atualizar estes termos a qualquer momento. O uso continuado após a atualização indica concordância.</p>
-      </section>
+      <section data-legal="terms" data-title-key="legal.terms.title" data-i18n-html="legal.terms.body" hidden></section>
 
-      <section data-legal="contact" data-title="Contato" hidden>
-        <p>Tem feedback, uma dúvida, encontrou um problema ou quer exercer seus direitos de titular de dados? Fale com a gente:</p>
-        <p><a href="mailto:contato@miaucolor.example">contato@miaucolor.example</a></p>
-        <p><small>Respondemos assim que possível.</small></p>
-      </section>
+      <section data-legal="contact" data-title-key="legal.contact.title" data-i18n-html="legal.contact.body" hidden></section>
     </div>
-    <div class="legal-foot"><button type="button" class="secondary" data-legal-close>Fechar</button></div>
+    <div class="legal-foot"><button type="button" class="secondary" data-legal-close data-i18n="legal.close">Fechar</button></div>
   </dialog>
 
   <!-- Instruções de instalação no iOS (Safari não tem beforeinstallprompt) -->
   <dialog id="ios-install-dialog" class="legal-dialog install-dialog" aria-labelledby="ios-install-title">
     <div class="legal-head">
-      <h2 id="ios-install-title">📲 Instalar no iPhone/iPad</h2>
-      <button type="button" class="legal-close" aria-label="Fechar" data-install-close>✕</button>
+      <h2 id="ios-install-title" data-i18n="ios.title">📲 Instalar no iPhone/iPad</h2>
+      <button type="button" class="legal-close" aria-label="Fechar" data-install-close data-i18n-attr="aria-label:legal.close">✕</button>
     </div>
     <div class="legal-body">
-      <p>Para instalar no seu iPhone/iPad:</p>
+      <p data-i18n="ios.intro">Para instalar no seu iPhone/iPad:</p>
       <ol class="install-steps">
-        <li><span class="install-step-icon" aria-hidden="true">📤</span><span>Toque no botão <strong>Compartilhar</strong> no rodapé do Safari.</span></li>
-        <li><span class="install-step-icon" aria-hidden="true">➕</span><span>Selecione <strong>“Adicionar à Tela de Início”</strong>.</span></li>
+        <li><span class="install-step-icon" aria-hidden="true">📤</span><span data-i18n-html="ios.step1">Toque no botão <strong>Compartilhar</strong> no rodapé do Safari.</span></li>
+        <li><span class="install-step-icon" aria-hidden="true">➕</span><span data-i18n-html="ios.step2">Selecione <strong>“Adicionar à Tela de Início”</strong>.</span></li>
       </ol>
-      <p><small>Depois é só abrir o MiauColor pelo ícone na tela inicial, mesmo sem internet.</small></p>
+      <p><small data-i18n-html="ios.note"></small></p>
     </div>
-    <div class="legal-foot"><button type="button" class="secondary" data-install-close>Entendi</button></div>
+    <div class="legal-foot"><button type="button" class="secondary" data-install-close data-i18n="ios.ok">Entendi</button></div>
   </dialog>
 
   <script src="engine.js"></script>
@@ -440,6 +411,7 @@
   <script src="levels.js"></script>
   <script src="levels/manifest.js"></script>
   <script src="progress.js"></script>
+  <script src="i18n.js"></script>
   <script src="audio.js"></script>
   <script src="ads.js"></script>
   <script src="script.js"></script>

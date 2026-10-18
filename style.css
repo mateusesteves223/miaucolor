@@ -263,6 +263,17 @@ main { display: flex; flex-direction: column; }
 .menu-btn svg { width: 1.4rem; height: 1.4rem; }
 .menu-drop { display: none; }
 
+/* Seletor de idioma (PT | EN | ES) */
+.lang-switch { display: inline-flex; gap: .25rem; margin-top: .5rem; }
+.lang-btn {
+  min-width: 2.4rem; min-height: 2rem; padding: .15rem .5rem; border: 1px solid #4a4568; border-radius: 8px;
+  background: #231f38; color: var(--muted); font-size: .75rem; font-weight: 800; letter-spacing: .06em; cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.lang-btn:hover { border-color: var(--accent); color: var(--text); }
+.lang-btn.active { background: var(--accent); border-color: var(--accent); color: #2a1a10; }
+body.compact .lang-switch { margin-top: 0; margin-left: auto; }
+
 /* Modo compacto (celular ou janela baixa): barra superior + menu suspenso */
 body.compact { flex-direction: column; }
 body.compact .sidenav {

@@ -46,7 +46,8 @@ const Ads = (() => {
     showBanner(el) {
       const label = document.createElement("span");
       label.className = "ad-banner-label";
-      label.textContent = "Publicidade";
+      label.dataset.i18n = "ads.banner";
+      label.textContent = I18n.t("ads.banner");
       el.replaceChildren(label);
     },
     showRewarded() {
@@ -55,23 +56,27 @@ const Ads = (() => {
         overlay.className = "ad-overlay";
         overlay.setAttribute("role", "dialog");
         overlay.setAttribute("aria-modal", "true");
-        overlay.setAttribute("aria-label", "Anúncio em vídeo");
+        overlay.dataset.i18nAttr = "aria-label:ads.video.aria";
+        overlay.setAttribute("aria-label", I18n.t("ads.video.aria"));
         const box = document.createElement("div");
         box.className = "ad-overlay-card";
         const title = document.createElement("strong");
-        title.textContent = "🎬 Anúncio (simulação)";
+        title.dataset.i18n = "ads.video.title";
+        title.textContent = I18n.t("ads.video.title");
         const count = document.createElement("span");
         count.className = "ad-overlay-count";
         const actions = document.createElement("div");
         actions.className = "modal-actions";
         const claim = document.createElement("button");
         claim.type = "button";
-        claim.textContent = "Receber recompensa";
+        claim.dataset.i18n = "ads.video.claim";
+        claim.textContent = I18n.t("ads.video.claim");
         claim.hidden = true;
         const close = document.createElement("button");
         close.type = "button";
         close.className = "secondary";
-        close.textContent = "Fechar";
+        close.dataset.i18n = "ads.video.close";
+        close.textContent = I18n.t("ads.video.close");
         actions.append(claim, close);
         box.append(title, count, actions);
         overlay.appendChild(box);
@@ -80,7 +85,7 @@ const Ads = (() => {
         let left = SIM_SECONDS;
         let timer = 0;
         const finish = ok => { clearInterval(timer); overlay.remove(); resolve(ok); };
-        const render = () => { count.textContent = left > 0 ? `Recompensa em ${left}s…` : "Pronto! Recompensa liberada."; };
+        const render = () => { count.textContent = left > 0 ? I18n.t("ads.video.wait", { n: left }) : I18n.t("ads.video.ready"); };
         render();
         timer = setInterval(() => {
           left--;

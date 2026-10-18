@@ -1,4 +1,4 @@
-﻿# MiauColor
+﻿# MeowColor
 
 Um puzzle de lógica com gatos, regiões coloridas e níveis gerados proceduralmente.
 
@@ -59,5 +59,6 @@ Para regenerar os níveis dos packs: `python tools/gen_levels.py` (use `--verify
 - `infinite.js` — níveis infinitos: geração em Worker, cache e antecipação.
 - `levels.js` — carregador dos packs de níveis; `levels/` — packs e manifesto gerados.
 - `audio.js` — sons sintetizados (Web Audio) e vibração, com preferências salvas.
-- `progress.js` — estrelas, recordes e partida em andamento (`localStorage`).
+- `progress.js` — estrelas, recordes, idioma escolhido e partida em andamento (`localStorage`, chave `miaucolor:v1` mantida após o rebranding para MeowColor).
+- `i18n.js` — dicionários `pt`/`en`/`es`, detecção por `navigator.language`, `I18n.t(chave, params)` e `I18n.apply()` para os atributos `data-i18n*`.
 - `tools/gen_levels.py` — gerador offline (seed fixa, solução única, dificuldade por solver lógico).

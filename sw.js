@@ -1,11 +1,11 @@
 "use strict";
 
-/* Service worker do MiauColor: o jogo funciona offline depois da primeira visita.
+/* Service worker do MeowColor: o jogo funciona offline depois da primeira visita.
  * - Pré-cache de todo o "app shell" e dos packs de níveis.
  * - Depois: responde do cache e atualiza em segundo plano (stale-while-revalidate),
  *   então uma nova versão publicada aparece na visita seguinte.
  * Ao alterar a lista abaixo (ou para forçar atualização), incremente CACHE. */
-const CACHE = "miaucolor-v6";
+const CACHE = "meowcolor-v7";
 
 // Diretório onde o sw.js está hospedado (ex.: "/repo/miaucolor/"), independente do subdiretório.
 const BASE = self.location.pathname.replace(/[^/]*$/, "");
@@ -20,6 +20,7 @@ const PRECACHE_PATHS = [
   "infinite.js",
   "levels.js",
   "progress.js",
+  "i18n.js",
   "audio.js",
   "ads.js",
   "manifest.webmanifest",

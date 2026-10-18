@@ -1,8 +1,8 @@
 {
-  "name": "MiauColor",
-  "short_name": "MiauColor",
-  "description": "Quebra-cabeça de lógica: um gato por linha, coluna e cor — sem se tocarem.",
-  "lang": "pt-BR",
+  "name": "MeowColor",
+  "short_name": "MeowColor",
+  "description": "Logic puzzle: one cat per row, column and color — and they can never touch. Available in Português, English and Español.",
+  "lang": "en",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
