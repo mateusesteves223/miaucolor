@@ -814,16 +814,34 @@ function offerRecharge(key) {
     `🎬 Assistir vídeo (+${REWARD_UNITS})`, () => watchForItem(key), ["Agora não", closeRecharge]);
 }
 
+function setRechargeBusy(busy) {
+  for (const id of ["modal-btn", "modal-btn2"]) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    btn.disabled = busy;
+    btn.style.opacity = busy ? "0.6" : "";
+  }
+}
+
 function closeRecharge() {
+  rechargeBusy = false;
+  setRechargeBusy(false);
   modalEl.classList.remove("open");
   game.adHold = false;
   if (game.state === GameState.PAUSED && !document.hidden && gameTabActive()) setGameState(GameState.PLAYING);
 }
 
+let rechargeBusy = false;                            // trava síncrona: um único anúncio por convite
 async function watchForItem(key) {
-  const watchBtn = document.getElementById("modal-btn");
-  if (watchBtn) watchBtn.disabled = true;            // evita toques repetidos durante o anúncio
-  const res = await Ads.showRewarded();
+  if (rechargeBusy) return;
+  rechargeBusy = true;
+  setRechargeBusy(true);                             // antes do await: bloqueia toques repetidos no mesmo instante
+  let res;
+  try {
+    res = await Ads.showRewarded();
+  } catch {
+    res = { rewarded: false, reason: "error" };
+  }
   if (res.rewarded) {
     Progress.addItem(key, REWARD_UNITS);
     renderItems();

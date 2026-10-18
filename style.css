@@ -430,6 +430,7 @@ body.compact .doc nav ul { columns: 1; }.menu-drop .controls select, .menu-drop 
   display: flex; align-items: center; justify-content: center; overflow: hidden;
   background: #17142a; border-top: 1px solid #443f66; contain: strict;
 }
+button:disabled, .pu-btn:disabled, .modal-card button:disabled { cursor: not-allowed; opacity: .6; }
 .ad-banner-label { color: var(--muted); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; opacity: .6; }
 .ad-overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(10, 8, 25, .92); }
 .ad-overlay-card {
@@ -487,6 +488,10 @@ body {
 }
 
 @media (max-width: 700px) {
+  /* Folga entre os controles/tabuleiro e o banner fixo (50px reservados pelo padding do body) */
+  main { padding-bottom: 1.25rem; }
+  #game.active, #solver.active { margin-bottom: 20px; }
+  .powerups { margin-bottom: 4px; }
   #palette {
     display: grid; grid-auto-flow: column; grid-auto-columns: 44px; grid-template-columns: none;
     gap: .55rem; width: 100%; min-width: 0; padding: .35rem .2rem .65rem;
