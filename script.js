@@ -1060,11 +1060,37 @@ async function startCampaign(id) {
   if (!(await playLevel(id))) newGame();
 }
 
+/* Páginas institucionais (Privacidade, Termos, Contato) em um único <dialog> nativo */
+const legalDialog = document.getElementById("legal-dialog");
+const legalTitle = document.getElementById("legal-title");
+const legalSections = legalDialog.querySelectorAll("section[data-legal]");
+
+function openLegal(key) {
+  let found = false;
+  for (const s of legalSections) {
+    const match = s.dataset.legal === key;
+    s.hidden = !match;
+    if (match) { legalTitle.textContent = s.dataset.title; found = true; }
+  }
+  if (!found || legalDialog.open) return;
+  legalDialog.querySelector(".legal-body").scrollTop = 0;
+  legalDialog.showModal();
+}
+
+document.addEventListener("click", e => {
+  const link = e.target.closest("[data-legal]:is(button)");
+  if (link) openLegal(link.dataset.legal);
+});
+legalDialog.addEventListener("click", e => {
+  // Clique no próprio <dialog> (fora do cartão) = backdrop
+  if (e.target === legalDialog || e.target.closest("#legal-close, [data-legal-close]")) legalDialog.close();
+});
+
 /* Menu compacto: em telas pequenas, abas, controles e regras vão para um menu suspenso */
 const compactMq = matchMedia("(max-width: 700px), (max-height: 520px)");
 const menuBtn = document.getElementById("menu-btn");
 const menuDrop = document.getElementById("menu-drop");
-const menuItems = [".tabs", ".controls", ".rules", ".hint", ".reveal-wrap"].map(sel => {
+const menuItems = [".tabs", ".controls", ".rules", ".hint", ".reveal-wrap", ".legal-links"].map(sel => {
   const el = document.querySelector(sel);
   const home = document.createComment(sel);   // marca o lugar original
   el.before(home);

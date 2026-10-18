@@ -35,6 +35,12 @@
 
   <div id="menu-drop" class="menu-drop"></div>
 
+  <footer class="legal-links" aria-label="Informações legais">
+    <button type="button" class="legal-link" data-legal="privacy" aria-haspopup="dialog">Política de Privacidade</button>
+    <button type="button" class="legal-link" data-legal="terms" aria-haspopup="dialog">Termos de Uso</button>
+    <button type="button" class="legal-link" data-legal="contact" aria-haspopup="dialog">Contato</button>
+  </footer>
+
   </nav>
 
   <main>
@@ -357,6 +363,56 @@
   </main>
 
   <div id="ad-banner" class="ad-banner" role="complementary" aria-label="Publicidade"></div>
+
+  <!-- Páginas institucionais (modal nativo: foco preso, Esc fecha e o foco volta ao link de origem) -->
+  <dialog id="legal-dialog" class="legal-dialog" aria-labelledby="legal-title">
+    <div class="legal-head">
+      <h2 id="legal-title"></h2>
+      <button type="button" class="legal-close" id="legal-close" aria-label="Fechar">✕</button>
+    </div>
+    <div class="legal-body">
+      <section data-legal="privacy" data-title="Política de Privacidade" hidden>
+        <p><small>Última atualização: 18/10/2026</small></p>
+        <p>O <strong>MiauColor</strong> respeita a sua privacidade e foi feito para coletar o mínimo possível, em conformidade com a Lei Geral de Proteção de Dados (LGPD, Lei nº 13.709/2018).</p>
+        <h3>Armazenamento local</h3>
+        <p>O jogo usa o <code>localStorage</code> do seu navegador apenas para salvar o progresso neste aparelho: estrelas, pontos, níveis concluídos, itens (power-ups) e preferências de som e vibração. Esses dados <strong>não são enviados</strong> a nenhum servidor nosso e podem ser apagados a qualquer momento limpando os dados do site no navegador.</p>
+        <h3>Dados pessoais</h3>
+        <p>Não exigimos cadastro e <strong>não coletamos dados pessoais que identifiquem você diretamente</strong>, como nome, e-mail ou telefone. Só tratamos o e-mail se você nos escrever voluntariamente, e apenas para responder à sua mensagem.</p>
+        <h3>Publicidade e serviços de terceiros</h3>
+        <p>O jogo utiliza serviços de terceiros, como o <strong>Google AdSense</strong>, para exibir anúncios. O Google e seus parceiros podem usar <strong>cookies</strong> e identificadores semelhantes (e processar dados como endereço IP e informações do dispositivo) para veicular <strong>anúncios personalizados</strong> com base em suas visitas a este e a outros sites.</p>
+        <ul>
+          <li>Saiba como o Google usa dados: <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">policies.google.com/technologies/partner-sites</a>.</li>
+          <li>Você pode desativar a personalização de anúncios em <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">adssettings.google.com</a> ou em <a href="https://www.aboutads.info" target="_blank" rel="noopener noreferrer">aboutads.info</a>.</li>
+        </ul>
+        <h3>Seus direitos</h3>
+        <p>Nos termos do art. 18 da LGPD, você pode solicitar informações, correção ou eliminação de dados que porventura tratemos. Para isso, use o canal na seção <strong>Contato</strong>.</p>
+        <h3>Alterações</h3>
+        <p>Esta política pode ser atualizada. A data da última revisão fica indicada no topo desta página.</p>
+      </section>
+
+      <section data-legal="terms" data-title="Termos de Uso" hidden>
+        <p><small>Última atualização: 18/10/2026</small></p>
+        <p>Ao jogar o <strong>MiauColor</strong>, você concorda com os termos abaixo.</p>
+        <h3>Uso gratuito</h3>
+        <p>O jogo é <strong>gratuito</strong> e pode ser financiado por anúncios. Não há cobrança para jogar nem para obter itens.</p>
+        <h3>Fornecido "como está"</h3>
+        <p>O jogo é fornecido <strong>"como está"</strong> e "conforme disponível", sem garantias de qualquer tipo, expressas ou implícitas, incluindo funcionamento ininterrupto ou livre de erros. Não nos responsabilizamos por perdas de progresso, que fica salvo apenas no seu navegador.</p>
+        <h3>Bens virtuais</h3>
+        <p>Estrelas, pontos e itens (dicas, revelar gato, 3x seguros etc.) são <strong>bens virtuais sem valor monetário real</strong>: não podem ser trocados por dinheiro, vendidos ou transferidos.</p>
+        <h3>Uso adequado</h3>
+        <p>Não é permitido tentar prejudicar o funcionamento do jogo, nem usar o conteúdo para fins comerciais sem autorização.</p>
+        <h3>Alterações</h3>
+        <p>Podemos alterar, suspender o jogo ou atualizar estes termos a qualquer momento. O uso continuado após a atualização indica concordância.</p>
+      </section>
+
+      <section data-legal="contact" data-title="Contato" hidden>
+        <p>Tem feedback, uma dúvida, encontrou um problema ou quer exercer seus direitos de titular de dados? Fale com a gente:</p>
+        <p><a href="mailto:contato@miaucolor.example">contato@miaucolor.example</a></p>
+        <p><small>Respondemos assim que possível.</small></p>
+      </section>
+    </div>
+    <div class="legal-foot"><button type="button" class="secondary" data-legal-close>Fechar</button></div>
+  </dialog>
 
   <script src="engine.js"></script>
   <script src="infinite.js"></script>
