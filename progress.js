@@ -2,7 +2,7 @@
 
 /* Progresso do jogador em localStorage (versionado para não quebrar saves futuros).
  * { v, stars: {id: 1..3}, best: {id: segundos}, unlocked: id, totalScore, inProgress: {id, marks, lives, elapsed, score},
- *   items: {hint, revealCat, safeCross} } */
+ *   items: {hint, revealCat, safeCross}, installed } */
 const Progress = (() => {
   // Chave fixa (independente da versão do formato): a versão fica em data.v.
   const KEY = "miaucolor:v1";
@@ -15,7 +15,8 @@ const Progress = (() => {
     1: d => ({ ...d, v: 2 }),                // v1 -> v2: formato idêntico; apenas marca a versão
     2: d => ({ ...d, totalScore: Number.isFinite(d.totalScore) && d.totalScore >= 0 ? d.totalScore : 0, v: 3 }),   // v2 -> v3: placar geral
     3: d => ({ ...d, items: { ...defaultItems(), ...(isObj(d.items) ? d.items : {}) }, v: 4 }),                   // v3 -> v4: inventário de power-ups
-  };
+        4: d => ({ ...d, installed: d.installed === true, v: 5 }),                                                    // v4 -> v5: flag de PWA instalado
+      };
   const CURRENT_VERSION = Math.max(...Object.keys(migrations).map(Number)) + 1;
 
   const ITEM_KEYS = ["hint", "revealCat", "safeCross"];
@@ -23,7 +24,7 @@ const Progress = (() => {
   const ITEM_MAX = 99;
   function defaultItems() { return { hint: ITEM_START, revealCat: ITEM_START, safeCross: ITEM_START }; }
 
-  const defaults = () => ({ v: CURRENT_VERSION, stars: {}, best: {}, unlocked: 1, totalScore: 0, inProgress: null, items: defaultItems() });
+  const defaults = () => ({ v: CURRENT_VERSION, stars: {}, best: {}, unlocked: 1, totalScore: 0,   inProgress: null, items: defaultItems(), installed: false });
 
   function migrate(raw) {
     let d = { ...raw };
@@ -50,6 +51,7 @@ const Progress = (() => {
     }
     if (Number.isInteger(d.unlocked) && d.unlocked >= 1) out.unlocked = d.unlocked;
     if (num(d.totalScore, 0)) out.totalScore = Math.floor(d.totalScore);
+    if (d.installed === true) out.installed = true;
     if (isObj(d.items)) {
       for (const k of ITEM_KEYS) {
         if (Number.isInteger(d.items[k]) && d.items[k] >= 0) out.items[k] = Math.min(d.items[k], ITEM_MAX);
@@ -128,6 +130,10 @@ const Progress = (() => {
       save();
       return data.items[key];
     },
+
+    /* PWA instalado (appinstalled ou execução em modo standalone) */
+    get installed() { return data.installed; },
+    markInstalled() { if (!data.installed) { data.installed = true; save(); } },
 
     saveProgress(p) { data.inProgress = p; save(); },
     getProgress: id => (data.inProgress && data.inProgress.id === id ? data.inProgress : null),

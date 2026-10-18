@@ -35,6 +35,10 @@
 
   <div id="menu-drop" class="menu-drop"></div>
 
+  <div class="pwa-install" hidden>
+    <button id="pwa-install-btn" class="pwa-install-btn" type="button">📲 Instalar App (Jogar Offline)</button>
+  </div>
+
   <footer class="legal-links" aria-label="Informações legais">
     <button type="button" class="legal-link" data-legal="privacy" aria-haspopup="dialog">Política de Privacidade</button>
     <button type="button" class="legal-link" data-legal="terms" aria-haspopup="dialog">Termos de Uso</button>
@@ -412,6 +416,23 @@
       </section>
     </div>
     <div class="legal-foot"><button type="button" class="secondary" data-legal-close>Fechar</button></div>
+  </dialog>
+
+  <!-- Instruções de instalação no iOS (Safari não tem beforeinstallprompt) -->
+  <dialog id="ios-install-dialog" class="legal-dialog install-dialog" aria-labelledby="ios-install-title">
+    <div class="legal-head">
+      <h2 id="ios-install-title">📲 Instalar no iPhone/iPad</h2>
+      <button type="button" class="legal-close" aria-label="Fechar" data-install-close>✕</button>
+    </div>
+    <div class="legal-body">
+      <p>Para instalar no seu iPhone/iPad:</p>
+      <ol class="install-steps">
+        <li><span class="install-step-icon" aria-hidden="true">📤</span><span>Toque no botão <strong>Compartilhar</strong> no rodapé do Safari.</span></li>
+        <li><span class="install-step-icon" aria-hidden="true">➕</span><span>Selecione <strong>“Adicionar à Tela de Início”</strong>.</span></li>
+      </ol>
+      <p><small>Depois é só abrir o MiauColor pelo ícone na tela inicial, mesmo sem internet.</small></p>
+    </div>
+    <div class="legal-foot"><button type="button" class="secondary" data-install-close>Entendi</button></div>
   </dialog>
 
   <script src="engine.js"></script>
