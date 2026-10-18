@@ -1,10 +1,122 @@
-﻿# MiauColor code export
+﻿> Observacao: O projeto real nao esta estruturado em um unico arquivo; este documento reune os arquivos separados apenas para fornecer contexto a uma IA.
 
-Gerado em: 2026-10-17 01:09:03
+# MiauColor code export
+
+Gerado em: 2026-10-18 00:21:53
+
+## ads.js
+
+- Last modified: 2026-10-17 16:19:54
+
+```js
+"use strict";
+
+/* Anúncios: banner fixo de rodapé + anúncios recompensados (rewarded).
+ * Por padrão usa uma SIMULAÇÃO (sem rede, sem SDK). Para integrar uma rede real, chame
+ * Ads.setProvider({ showBanner(el), showRewarded() }) antes de Ads.init():
+ *   showBanner(el)   -> renderiza o banner dentro de `el` (pode ser assíncrono);
+ *   showRewarded()   -> Promise<boolean> (true = o usuário assistiu até o fim).
+ * Nenhuma função daqui lança exceção: falhas (offline, SDK ausente) viram um resultado. */
+const Ads = (() => {
+  const SIM_SECONDS = 3;                     // duração do vídeo simulado
+  let bannerEl = null;
+  let provider = null;
+  let busy = false;                          // um único anúncio recompensado por vez
+
+  const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
+
+  /* Provedor de simulação: banner de espaço reservado e vídeo com contagem regressiva */
+  const simulation = {
+    showBanner(el) {
+      const label = document.createElement("span");
+      label.className = "ad-banner-label";
+      label.textContent = "Publicidade";
+      el.replaceChildren(label);
+    },
+    showRewarded() {
+      return new Promise(resolve => {
+        const overlay = document.createElement("div");
+        overlay.className = "ad-overlay";
+        overlay.setAttribute("role", "dialog");
+        overlay.setAttribute("aria-modal", "true");
+        overlay.setAttribute("aria-label", "Anúncio em vídeo");
+        const box = document.createElement("div");
+        box.className = "ad-overlay-card";
+        const title = document.createElement("strong");
+        title.textContent = "🎬 Anúncio (simulação)";
+        const count = document.createElement("span");
+        count.className = "ad-overlay-count";
+        const actions = document.createElement("div");
+        actions.className = "modal-actions";
+        const claim = document.createElement("button");
+        claim.type = "button";
+        claim.textContent = "Receber recompensa";
+        claim.hidden = true;
+        const close = document.createElement("button");
+        close.type = "button";
+        close.className = "secondary";
+        close.textContent = "Fechar";
+        actions.append(claim, close);
+        box.append(title, count, actions);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        let left = SIM_SECONDS;
+        let timer = 0;
+        const finish = ok => { clearInterval(timer); overlay.remove(); resolve(ok); };
+        const render = () => { count.textContent = left > 0 ? `Recompensa em ${left}s…` : "Pronto! Recompensa liberada."; };
+        render();
+        timer = setInterval(() => {
+          left--;
+          render();
+          if (left <= 0) { clearInterval(timer); claim.hidden = false; claim.focus(); }
+        }, 1000);
+        claim.addEventListener("click", () => finish(true));
+        close.addEventListener("click", () => finish(false));
+      });
+    },
+  };
+
+  function loadBanner() {
+    if (!bannerEl) return;
+    try {
+      const out = (provider || simulation).showBanner(bannerEl);
+      if (out && typeof out.catch === "function") out.catch(() => {});
+    } catch { /* banner é opcional: o espaço reservado continua no lugar */ }
+  }
+
+  return {
+    /* Monta o banner no #ad-banner (altura fixa no CSS: sem salto de layout) e o recarrega ao voltar online */
+    init() {
+      bannerEl = document.getElementById("ad-banner");
+      if (!bannerEl) return;
+      if (!isOffline()) loadBanner();
+      window.addEventListener("online", loadBanner);
+    },
+
+    setProvider(p) { provider = p && typeof p.showRewarded === "function" ? p : null; },
+
+    /* Resolve sempre: { rewarded: boolean, reason?: "offline" | "busy" | "dismissed" | "error" } */
+    async showRewarded() {
+      if (busy) return { rewarded: false, reason: "busy" };
+      if (isOffline()) return { rewarded: false, reason: "offline" };
+      busy = true;
+      try {
+        const ok = await (provider || simulation).showRewarded();
+        return ok ? { rewarded: true } : { rewarded: false, reason: "dismissed" };
+      } catch {
+        return { rewarded: false, reason: "error" };
+      } finally {
+        busy = false;
+      }
+    },
+  };
+})();
+```
 
 ## audio.js
 
-- Last modified: 2026-10-16 23:31:06
+- Last modified: 2026-10-17 15:51:29
 
 ```js
 "use strict";
@@ -17,21 +129,37 @@ const Sound = (() => {
   const defaults = { sound: true, haptics: true };
   let settings = load();
   let ctx = null;
+  let lastClickAt = 0;
+  let clickStreak = 0;
 
   function load() {
     try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY)) }; } catch { return { ...defaults }; }
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch { /* sem espaço */ } }
 
-  function ensure() {
+  // Cria o contexto sob demanda (nunca na carga do arquivo) e o retoma se estiver suspenso.
+  // resume() é assíncrono: o erro é engolido para não gerar "unhandled rejection".
+  function ensureAudioContext() {
     if (!ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
       ctx = new AC();
     }
-    if (ctx.state === "suspended") ctx.resume();
+    if (ctx.state === "suspended" || ctx.state === "interrupted") {   // "interrupted": iOS Safari
+      try { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { /* ignora */ }
+    }
     return ctx;
   }
+  const ensure = ensureAudioContext;
+
+  // Desbloqueio global: iOS só aceita resume() dentro de touchend/click (pointerdown não conta).
+  // Os ouvintes permanecem até o contexto realmente estar "running".
+  const UNLOCK_EVENTS = ["touchend", "pointerup", "click", "keydown"];
+  function onGesture() {
+    const c = ensureAudioContext();
+    if (c && c.state === "running") UNLOCK_EVENTS.forEach(e => window.removeEventListener(e, onGesture, true));
+  }
+  UNLOCK_EVENTS.forEach(e => window.addEventListener(e, onGesture, true));
 
   function tone({ freq, to = freq, dur = 0.12, type = "sine", gain = 0.1, delay = 0 }) {
     if (!settings.sound) return;
@@ -52,6 +180,13 @@ const Sound = (() => {
   }
 
   const vibrate = pattern => { if (settings.haptics && navigator.vibrate) navigator.vibrate(pattern); };
+  function playClick() {
+    const now = performance.now();
+    clickStreak = now - lastClickAt < 280 ? Math.min(clickStreak + 1, 8) : 0;
+    lastClickAt = now;
+    const freq = 520 * Math.pow(2, clickStreak / 24);
+    tone({ freq, to: freq * 0.73, dur: 0.055, type: "triangle", gain: 0.065 });
+  }
 
   return {
     unlock: ensure,
@@ -60,22 +195,36 @@ const Sound = (() => {
     setSound(on) { settings.sound = on; save(); },
     setHaptics(on) { settings.haptics = on; save(); if (on) vibrate(15); },
 
-    tap() { tone({ freq: 520, to: 380, dur: 0.05, type: "triangle", gain: 0.07 }); },
+    click: playClick,
+    tap: playClick,
     cat() {                                         // "miau": sobe e desce
       tone({ freq: 520, to: 900, dur: 0.12, type: "sawtooth", gain: 0.05 });
       tone({ freq: 900, to: 460, dur: 0.18, type: "sawtooth", gain: 0.05, delay: 0.11 });
       vibrate(15);
+    },
+    point(combo = 0) {                              // "plim" cristalino; sobe um semitom a cada combo
+      const k = Math.pow(2, Math.min(combo, 4) / 12);
+      tone({ freq: 1568 * k, to: 1568 * k * 1.01, dur: 0.14, type: "sine", gain: 0.05 });
+      tone({ freq: 2093 * k, to: 2093 * k * 1.01, dur: 0.22, type: "sine", gain: 0.04, delay: 0.07 });
+      tone({ freq: 3136 * k, to: 3136 * k, dur: 0.12, type: "triangle", gain: 0.015, delay: 0.07 });
     },
     error() {
       tone({ freq: 190, to: 90, dur: 0.25, type: "square", gain: 0.06 });
       vibrate([30, 40, 30]);
     },
     win() {
-      [523, 659, 784, 1047].forEach((f, i) => tone({ freq: f, dur: 0.2, type: "triangle", gain: 0.09, delay: i * 0.1 }));
+      [523, 659, 784, 1047, 1319].forEach((f, i) => {
+        tone({ freq: f, to: f * 1.015, dur: 0.22, type: "triangle", gain: 0.085, delay: i * 0.13 });
+      });
+      tone({ freq: 1047, to: 1319, dur: 0.32, type: "sine", gain: 0.045, delay: 0.52 });
       vibrate([20, 30, 20, 30, 70]);
     },
     lose() {
-      [392, 330, 262].forEach((f, i) => tone({ freq: f, to: f * 0.96, dur: 0.22, type: "triangle", gain: 0.09, delay: i * 0.16 }));
+      [196, 147, 110].forEach((f, i) => {
+        const delay = i * 0.2;
+        tone({ freq: f, to: f * 0.72, dur: 0.3, type: "triangle", gain: 0.085, delay });
+        tone({ freq: f * 1.035, to: f * 0.74, dur: 0.3, type: "sawtooth", gain: 0.025, delay: delay + 0.025 });
+      });
       vibrate(120);
     },
   };
@@ -84,7 +233,7 @@ const Sound = (() => {
 
 ## engine.js
 
-- Last modified: 2026-10-16 22:36:29
+- Last modified: 2026-10-17 16:19:29
 
 ```js
 "use strict";
@@ -186,18 +335,23 @@ function createEngine() {
   /* ---------- 3) Unicidade ---------- */
   function countSolutions(n, reg, limit = 2) {
     const cols = Array(n).fill(-1);
-    const usedCols = new Set(), usedRegs = new Set();
+    let usedCols = 0, usedRegs = 0;
     let count = 0;
     (function go(row) {
       if (count >= limit) return;
       if (row === n) { count++; return; }
       for (let c = 0; c < n; c++) {
         const g = reg[row][c];
-        if (usedCols.has(c) || usedRegs.has(g)) continue;
+        const colBit = 1 << c, regBit = 1 << g;
+        if ((usedCols & colBit) !== 0 || (usedRegs & regBit) !== 0) continue;
         if (row > 0 && Math.abs(cols[row - 1] - c) <= 1) continue;
-        cols[row] = c; usedCols.add(c); usedRegs.add(g);
+        cols[row] = c;
+        usedCols |= colBit;
+        usedRegs |= regBit;
         go(row + 1);
-        usedCols.delete(c); usedRegs.delete(g); cols[row] = -1;
+        usedCols &= ~colBit;
+        usedRegs &= ~regBit;
+        cols[row] = -1;
       }
     })(0);
     return count;
@@ -424,6 +578,158 @@ function createEngine() {
     return { tier, score: steps[1] + 3 * steps[2] + 8 * steps[3] + 15 * steps[4], steps, opening };
   }
 
+  /* ---------- Power-ups: dica, revelar gato e ✕ seguros ----------
+   * `marks[r][c]`: 0 vazio | 1 ✕ | 2 gato | 3 ✕ errado. Na dedução só os gatos entram (são sempre
+   * certos); os ✕ do jogador podem estar errados e servem apenas para pular dicas já aplicadas. */
+
+  /* Procura a dedução lógica mais simples que ainda traga algo NOVO ao jogador.
+   * Devolve { kind, tier, axis?, lines?, regs?, unit?, cells, targets } ou null (sem dedução sem chute).
+   *   cells   = casas que justificam a dedução; targets = casas que podem receber ✕ (vazio em "single").
+   * kind: single | regionLine | lineRegion | regionSet | lineSet | contradiction */
+  function findHint(n, reg, marks) {
+    const cells = {};
+    for (let i = 0; i < n; i++) cells["r" + i] = [];
+    for (let i = 0; i < n; i++) cells["c" + i] = [];
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const g = "g" + reg[i][j];
+      (cells[g] = cells[g] || []).push([i, j]);
+      cells["r" + i].push([i, j]);
+      cells["c" + j].push([i, j]);
+    }
+    const units = Object.keys(cells);
+    const cand = matrix(n, true);
+    const done = new Set();
+    const kindOf = u => u[0];
+    const idOf = u => +u.slice(1);
+    const live = u => cells[u].filter(([r, c]) => cand[r][c]);
+    const inUnit = (u, [r, c]) => (kindOf(u) === "r" ? r === idOf(u) : kindOf(u) === "c" ? c === idOf(u) : reg[r][c] === idOf(u));
+    const free = k => units.filter(u => kindOf(u) === k && !done.has(u));
+
+    function zone(r, c) {
+      const z = new Set();
+      for (let a = Math.max(0, r - 1); a < Math.min(n, r + 2); a++)
+        for (let b = Math.max(0, c - 1); b < Math.min(n, c + 2); b++) z.add(a * n + b);
+      for (const u of ["r" + r, "c" + c, "g" + reg[r][c]]) for (const [a, b] of cells[u]) z.add(a * n + b);
+      return z;
+    }
+    function put(r, c) {
+      for (const idx of zone(r, c)) cand[Math.floor(idx / n)][idx % n] = false;
+      done.add("r" + r); done.add("c" + c); done.add("g" + reg[r][c]);
+    }
+    const combinations = (arr, k) => {
+      const out = [];
+      (function rec(start, cur) {
+        if (cur.length === k) { out.push(cur.slice()); return; }
+        for (let i = start; i < arr.length; i++) { cur.push(arr[i]); rec(i + 1, cur); cur.pop(); }
+      })(0, []);
+      return out;
+    };
+
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (marks[r][c] === 2) put(r, c);
+
+    // Próxima dedução (das técnicas mais simples às mais complexas) que elimina ao menos uma casa viva.
+    function nextStep() {
+      for (const u of units) {                                   // 1) única casa possível
+        if (done.has(u)) continue;
+        const lv = live(u);
+        if (!lv.length) return null;                             // inconsistente: não deveria ocorrer
+        if (lv.length === 1) return { kind: "single", tier: 1, unit: u, cells: lv, targets: [] };
+      }
+      for (const u of units) {                                   // 2) região presa a uma linha/coluna (e o inverso)
+        if (done.has(u)) continue;
+        const lv = live(u);
+        if (kindOf(u) === "g") {
+          for (const [axis, key] of [["r", 0], ["c", 1]]) {
+            const vals = new Set(lv.map(p => p[key]));
+            if (vals.size !== 1) continue;
+            const v = [...vals][0];
+            const targets = live(axis + v).filter(p => reg[p[0]][p[1]] !== idOf(u));
+            if (targets.length) return { kind: "regionLine", tier: 2, axis, lines: [v], regs: [idOf(u)], cells: lv, targets };
+          }
+        } else {
+          const gs = new Set(lv.map(([r, c]) => reg[r][c]));
+          if (gs.size !== 1) continue;
+          const g = [...gs][0];
+          const targets = live("g" + g).filter(p => !inUnit(u, p));
+          if (targets.length) return { kind: "lineRegion", tier: 2, axis: kindOf(u), lines: [idOf(u)], regs: [g], cells: lv, targets };
+        }
+      }
+      for (const k of [2, 3]) for (const [axis, key] of [["r", 0], ["c", 1]]) {   // 3) k regiões em k linhas/colunas (e o inverso)
+        for (const combo of combinations(free("g"), k)) {
+          const lines = new Set();
+          combo.forEach(u => live(u).forEach(p => lines.add(p[key])));
+          if (lines.size !== k) continue;
+          const mine = new Set(combo.map(idOf));
+          const targets = [];
+          lines.forEach(ln => live(axis + ln).forEach(p => { if (!mine.has(reg[p[0]][p[1]])) targets.push(p); }));
+          if (targets.length) {
+            return { kind: "regionSet", tier: 3, axis, lines: [...lines].sort((a, b) => a - b), regs: combo.map(idOf),
+              cells: combo.flatMap(u => live(u)), targets };
+          }
+        }
+        for (const combo of combinations(free(axis), k)) {
+          const gs = new Set();
+          combo.forEach(u => live(u).forEach(([r, c]) => gs.add(reg[r][c])));
+          if (gs.size !== k) continue;
+          const mine = new Set(combo);
+          const targets = [];
+          gs.forEach(g => live("g" + g).forEach(p => { if (!mine.has(axis + p[key])) targets.push(p); }));
+          if (targets.length) {
+            return { kind: "lineSet", tier: 3, axis, lines: combo.map(idOf), regs: [...gs].sort((a, b) => a - b),
+              cells: combo.flatMap(u => live(u)), targets };
+          }
+        }
+      }
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {   // 4) contradição: com um gato aqui, algo ficaria sem casa
+        if (!cand[r][c]) continue;
+        const z = zone(r, c);
+        const own = new Set(["r" + r, "c" + c, "g" + reg[r][c]]);
+        for (const u of units) {
+          if (done.has(u) || own.has(u)) continue;
+          const lv = live(u);
+          if (lv.length && lv.every(([a, b]) => z.has(a * n + b))) {
+            return { kind: "contradiction", tier: 4, unit: u, cells: [[r, c]], targets: [[r, c]] };
+          }
+        }
+      }
+      return null;
+    }
+
+    for (let guard = 0; guard < n * n * 4; guard++) {
+      const step = nextStep();
+      if (!step) return null;                                    // exigiria chute
+      if (step.kind === "single") return step;
+      const fresh = step.targets.filter(([r, c]) => marks[r][c] === 0);
+      for (const [r, c] of step.targets) cand[r][c] = false;
+      if (fresh.length) return { ...step, targets: fresh };      // dedução já aplicada pelo jogador: segue adiante
+    }
+    return null;
+  }
+
+  /* Um gato da solução que o jogador ainda não pôs: [r, c] ou null */
+  function pickRevealCat(n, solution, marks, rand = Math.random) {
+    const left = [];
+    for (let r = 0; r < n; r++) if (marks[r][solution[r]] !== 2) left.push([r, solution[r]]);
+    return left.length ? left[randInt(rand, left.length)] : null;
+  }
+
+  /* Até k casas vazias SEM gato na solução. Prioriza as que os gatos postos ainda não eliminam. */
+  function pickSafeCrosses(n, reg, solution, marks, k = 3, rand = Math.random) {
+    const blocked = new Set();
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (marks[r][c] !== 2) continue;
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        if (i === r || j === c || reg[i][j] === reg[r][c] || (Math.abs(i - r) <= 1 && Math.abs(j - c) <= 1)) blocked.add(i * n + j);
+      }
+    }
+    const useful = [], rest = [];
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (marks[r][c] !== 0 || solution[r] === c) continue;
+      (blocked.has(r * n + c) ? rest : useful).push([r, c]);
+    }
+    return shuffle(useful, rand).concat(shuffle(rest, rand)).slice(0, k);
+  }
+
   /* ---------- Níveis infinitos (10x10) ----------
    * O nível `id` sempre sai da mesma seed: reprodutível em qualquer dispositivo.
    * Se o mapa exigir chute (≈5%), passa-se à próxima tentativa (também determinística). */
@@ -450,7 +756,7 @@ function createEngine() {
 
   return { matrix, DIRS, mulberry32, hashSeed, rngFor, randInt, shuffle, placeCats, growRegions,
     countSolutions, regionStaysConnected, repairToUnique, generateUnique, gradeLevel,
-    INF_SIZE, encodeRegions, difficultyLabel, generateInfinite };
+    findHint, pickRevealCat, pickSafeCrosses, INF_SIZE, encodeRegions, difficultyLabel, generateInfinite };
 }
 
 /* Cria um Web Worker com o motor embutido; `handlerSrc` define `onmessage` usando `E`.
@@ -459,15 +765,20 @@ function spawnEngineWorker(handlerSrc) {
   const src = `const E = (${createEngine.toString()})();\n${handlerSrc}`;
   const url = URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
   const worker = new Worker(url);
+  // Revogação diferida: Safari/WebKit e Firefox mobile buscam o script do Worker de forma assíncrona;
+  // revogar na hora quebraria a inicialização. Idempotente (timer + terminate).
+  let revoked = false;
+  const revoke = () => { if (!revoked) { revoked = true; URL.revokeObjectURL(url); } };
+  const timer = setTimeout(revoke, 2000);
   const terminate = worker.terminate.bind(worker);
-  worker.terminate = () => { terminate(); URL.revokeObjectURL(url); };
+  worker.terminate = () => { terminate(); clearTimeout(timer); setTimeout(revoke, 2000); };
   return worker;
 }
 ```
 
 ## export-full-code.ps1
 
-- Last modified: 2026-10-17 01:08:55
+- Last modified: 2026-10-17 02:09:44
 
 ```ps1
 $ErrorActionPreference = 'Stop'
@@ -485,6 +796,8 @@ $excludedDirectories = @('.git', 'node_modules', 'dist', 'build', 'coverage')
 $utf8 = New-Object System.Text.UTF8Encoding($true)
 $builder = New-Object System.Text.StringBuilder
 
+[void]$builder.AppendLine('> Observacao: O projeto real nao esta estruturado em um unico arquivo; este documento reune os arquivos separados apenas para fornecer contexto a uma IA.')
+[void]$builder.AppendLine()
 [void]$builder.AppendLine('# MiauColor code export')
 [void]$builder.AppendLine()
 [void]$builder.AppendLine("Gerado em: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
@@ -541,7 +854,7 @@ Write-Output "Exportados $($files.Count) arquivos para $outputPath"
 
 ## index.html
 
-- Last modified: 2026-10-16 23:36:32
+- Last modified: 2026-10-17 16:20:12
 
 ```html
 <!DOCTYPE html>
@@ -586,6 +899,25 @@ Write-Output "Exportados $($files.Count) arquivos para $outputPath"
   <main>
     <!-- ===== ABA 1: JOGO ===== -->
     <section id="game" class="panel active">
+      <div class="game-side">
+      <div class="game-hud">
+        <div id="level-info" class="level-info" aria-live="polite" aria-atomic="true">
+          <span class="level-info-label">NÍVEL ATUAL</span>
+          <span id="level-value" class="level-info-value"></span>
+        </div>
+        <div id="score-info" class="level-info score-info">
+          <span class="level-info-label">PONTOS</span>
+          <span id="score-value" class="level-info-value">0</span>
+        </div>
+      </div>
+        <div class="powerups" id="powerups">
+          <div class="powerup-bar" role="group" aria-label="Power-ups">
+            <button type="button" class="pu-btn" data-item="hint" aria-label="Dica inteligente"><span class="pu-icon" aria-hidden="true">💡</span><span class="pu-label">Dica</span><span class="pu-badge" aria-hidden="true">3</span></button>
+            <button type="button" class="pu-btn" data-item="revealCat" aria-label="Revelar gato"><span class="pu-icon" aria-hidden="true">🐱</span><span class="pu-label">Revelar Gato</span><span class="pu-badge" aria-hidden="true">3</span></button>
+            <button type="button" class="pu-btn" data-item="safeCross" aria-label="3 X seguros"><span class="pu-icon" aria-hidden="true">✕</span><span class="pu-label">3x Seguros</span><span class="pu-badge" aria-hidden="true">3</span></button>
+          </div>
+          <div id="hint-msg" class="hint-msg" role="status" aria-live="polite" hidden></div>
+        </div>
       <aside class="sidebar">
       <div class="controls">
         <label>Tamanho:
@@ -599,7 +931,6 @@ Write-Output "Exportados $($files.Count) arquivos para $outputPath"
         <button id="sound-btn" type="button" aria-pressed="true">🔊 Som</button>
         <button id="haptics-btn" type="button" aria-pressed="true">📳 Vibração</button>
       </div>
-      <div id="level-info" class="level-info"></div>
       <div id="lives" class="lives" aria-label="Vidas"></div>
       <div id="status"></div>
       <div id="timer" class="timer" aria-label="Tempo">⏱ 00:00</div>
@@ -616,6 +947,7 @@ Write-Output "Exportados $($files.Count) arquivos para $outputPath"
         </div>
       </div>
       </aside>
+      </div>
       <div class="stage"><div id="board" aria-label="Tabuleiro"></div></div>
       <div id="modal" class="modal" role="dialog" aria-modal="true"></div>
     </section>
@@ -643,6 +975,7 @@ Write-Output "Exportados $($files.Count) arquivos para $outputPath"
         </div>
         <div class="palette-title">Paleta</div>
         <div id="palette" class="palette" role="radiogroup" aria-label="Paleta de cores"></div>
+        <p class="palette-hint">Toque em uma cor para selecioná-la; deslize para ver as demais.</p>
         <div id="s-status" class="s-status"></div>
         <button id="s-solve" class="solve-btn" hidden>🐱 Resolver nível</button>
         <p class="hint">Clique ou arraste para pintar o quadro com as cores do seu nível.</p>
@@ -882,12 +1215,15 @@ Write-Output "Exportados $($files.Count) arquivos para $outputPath"
     </section>
   </main>
 
+  <div id="ad-banner" class="ad-banner" role="complementary" aria-label="Publicidade"></div>
+
   <script src="engine.js"></script>
   <script src="infinite.js"></script>
   <script src="levels.js"></script>
   <script src="levels/manifest.js"></script>
   <script src="progress.js"></script>
   <script src="audio.js"></script>
+  <script src="ads.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
@@ -1203,46 +1539,167 @@ MiauLevels.register({"pack":5,"levels":[{"n":9,"tier":4,"score":38,"regions":"BB
 }
 ```
 
+## package.json
+
+- Last modified: 2026-10-17 15:38:45
+
+```json
+{
+  "name": "miaucolor",
+  "version": "1.0.0",
+  "description": "Jogo de puzzle de lógica MiauColor",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mateusesteves223/miaucolor.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/mateusesteves223/miaucolor/issues"
+  },
+  "homepage": "https://github.com/mateusesteves223/miaucolor#readme"
+}
+```
+
 ## progress.js
 
-- Last modified: 2026-10-16 22:19:35
+- Last modified: 2026-10-17 16:19:39
 
 ```js
 "use strict";
 
 /* Progresso do jogador em localStorage (versionado para não quebrar saves futuros).
- * { v, stars: {id: 1..3}, best: {id: segundos}, unlocked: id, inProgress: {id, marks, lives, elapsed} } */
+ * { v, stars: {id: 1..3}, best: {id: segundos}, unlocked: id, totalScore, inProgress: {id, marks, lives, elapsed, score},
+ *   items: {hint, revealCat, safeCross} } */
 const Progress = (() => {
+  // Chave fixa (independente da versão do formato): a versão fica em data.v.
   const KEY = "miaucolor:v1";
-  const defaults = () => ({ v: 1, stars: {}, best: {}, unlocked: 1, inProgress: null });
+  const isObj = o => o !== null && typeof o === "object" && !Array.isArray(o);
+
+  /* Migrações encadeadas: migrations[n] converte um save da versão n para n+1.
+   * Para evoluir o formato, adicione migrations[2] = d => ({ ...d, novoCampo: ... })
+   * e o CURRENT_VERSION passa a ser calculado automaticamente. Nunca descarte dados antigos. */
+  const migrations = {
+    1: d => ({ ...d, v: 2 }),                // v1 -> v2: formato idêntico; apenas marca a versão
+    2: d => ({ ...d, totalScore: Number.isFinite(d.totalScore) && d.totalScore >= 0 ? d.totalScore : 0, v: 3 }),   // v2 -> v3: placar geral
+    3: d => ({ ...d, items: { ...defaultItems(), ...(isObj(d.items) ? d.items : {}) }, v: 4 }),                   // v3 -> v4: inventário de power-ups
+  };
+  const CURRENT_VERSION = Math.max(...Object.keys(migrations).map(Number)) + 1;
+
+  const ITEM_KEYS = ["hint", "revealCat", "safeCross"];
+  const ITEM_START = 3;                      // estoque inicial (e de saves antigos) de cada item
+  const ITEM_MAX = 99;
+  function defaultItems() { return { hint: ITEM_START, revealCat: ITEM_START, safeCross: ITEM_START }; }
+
+  const defaults = () => ({ v: CURRENT_VERSION, stars: {}, best: {}, unlocked: 1, totalScore: 0, inProgress: null, items: defaultItems() });
+
+  function migrate(raw) {
+    let d = { ...raw };
+    let v = Number.isInteger(d.v) && d.v >= 1 ? d.v : 1;
+    while (v < CURRENT_VERSION) {
+      const fn = migrations[v];
+      if (!fn) break;                        // lacuna na cadeia: mantém o que há e sanitiza
+      d = fn(d);
+      v = d.v = v + 1;
+    }
+    d.v = CURRENT_VERSION;                   // saves de versão futura também são preservados (sanitizados)
+    return d;
+  }
+
+  // Garante os tipos esperados; valores inválidos caem nos padrões.
+  function sanitize(d) {
+    const out = defaults();
+    const num = (n, min) => typeof n === "number" && isFinite(n) && n >= min;
+    for (const k of ["stars", "best"]) {
+      if (!isObj(d[k])) continue;
+      for (const [id, val] of Object.entries(d[k])) {
+        if (k === "stars" ? Number.isInteger(val) && val >= 1 && val <= 3 : num(val, 0)) out[k][id] = val;
+      }
+    }
+    if (Number.isInteger(d.unlocked) && d.unlocked >= 1) out.unlocked = d.unlocked;
+    if (num(d.totalScore, 0)) out.totalScore = Math.floor(d.totalScore);
+    if (isObj(d.items)) {
+      for (const k of ITEM_KEYS) {
+        if (Number.isInteger(d.items[k]) && d.items[k] >= 0) out.items[k] = Math.min(d.items[k], ITEM_MAX);
+      }
+    }
+    const p = d.inProgress;
+    out.inProgress = isObj(p) && Number.isInteger(p.id) && p.id >= 1 ? p : null;
+    return out;
+  }
+
+  // Fallback em memória: usado quando localStorage lança (modo anônimo, bloqueio, cota).
+  let memoryStore = null;
+
+  function readRaw() {
+    try {
+      const s = localStorage.getItem(KEY);
+      if (s !== null) return JSON.parse(s);
+    } catch { /* storage indisponível ou JSON corrompido */ }
+    return memoryStore;
+  }
 
   function load() {
     try {
-      const d = JSON.parse(localStorage.getItem(KEY));
-      return d && d.v === 1 ? { ...defaults(), ...d } : defaults();
+      const raw = readRaw();
+      return isObj(raw) ? sanitize(migrate(raw)) : defaults();
     } catch {
-      return defaults();                     // JSON corrompido ou storage indisponível
+      return defaults();
     }
   }
 
-  let data = load();
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {} };
+  let data = load();                         // estado em memória é sempre a fonte da sessão
+  const save = () => {
+    try { memoryStore = JSON.parse(JSON.stringify(data)); } catch { /* ignora */ }
+    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* segue só em memória */ }
+  };
 
   return {
     get unlocked() { return data.unlocked; },
     stars: id => data.stars[id] || 0,
     best: id => data.best[id] || null,
     totalStars: () => Object.values(data.stars).reduce((a, b) => a + b, 0),
+    get totalScore() { return data.totalScore; },
+
+    /* 1234 -> "1.2k", 45800 -> "45.8k", 1250000 -> "1.2M" (truncado, nunca arredonda para cima) */
+    formatScore(num) {
+      const n = Math.max(0, Math.floor(Number(num) || 0));
+      const short = (tenths, s) => (tenths / 10).toString() + s;   // aritmética inteira evita 45.8 -> 45.7
+      if (n >= 1e6) return short(Math.floor(n / 1e5), "M");
+      if (n >= 1e3) return short(Math.floor(n / 100), "k");
+      return String(n);
+    },
 
     /* Nível para continuar: a partida em andamento ou o último desbloqueado */
     current: () => (data.inProgress ? data.inProgress.id : data.unlocked),
 
-    complete(id, stars, secs, totalLevels) {
+    complete(id, stars, secs, totalLevels, score = 0) {
+      if (Number.isFinite(score) && score > 0) data.totalScore += Math.floor(score);
       data.stars[id] = Math.max(data.stars[id] || 0, stars);
       if (!data.best[id] || secs < data.best[id]) data.best[id] = secs;
       if (id >= data.unlocked && id < totalLevels) data.unlocked = id + 1;
       data.inProgress = null;
       save();
+    },
+
+    /* Inventário de power-ups: hint | revealCat | safeCross */
+    item: key => data.items[key] || 0,
+    useItem(key) {                           // consome 1 unidade; false se não há estoque
+      if (!ITEM_KEYS.includes(key) || data.items[key] <= 0) return false;
+      data.items[key]--;
+      save();
+      return true;
+    },
+    addItem(key, n = 3) {                    // credita unidades (ex.: recompensa de anúncio); devolve o novo estoque
+      if (!ITEM_KEYS.includes(key) || !Number.isInteger(n) || n <= 0) return this.item(key);
+      data.items[key] = Math.min(ITEM_MAX, data.items[key] + n);
+      save();
+      return data.items[key];
     },
 
     saveProgress(p) { data.inProgress = p; save(); },
@@ -1254,7 +1711,7 @@ const Progress = (() => {
 
 ## script.js
 
-- Last modified: 2026-10-16 23:40:04
+- Last modified: 2026-10-17 16:21:33
 
 ```js
 "use strict";
@@ -1273,12 +1730,18 @@ const PALETTE = [
     "#8ed6f5", "#e0689a",
   ];
 const SYMBOLS = ["", "✕", "🐱"];
+const GameState = Object.freeze({
+  IDLE: "IDLE",
+  PLAYING: "PLAYING",
+  PAUSED: "PAUSED",
+  GAME_OVER: "GAME_OVER",
+  WON: "WON"
+});
 
 let N = 7;
 let solution = [];
 let regions = [];
 let marks = [];
-let solved = false;
 
 /* Ferramentas de desenvolvedor só aparecem com ?dev na URL (ex.: index.html?dev) */
 document.body.classList.toggle("dev-ui", new URLSearchParams(location.search).has("dev"));
@@ -1306,12 +1769,24 @@ function generateLevel(n) {
  * ===================================================================== */
 const MAX_LIVES = 3;
 const DOUBLE_TAP_MS = 300;
-let lives = MAX_LIVES;
-let lost = false;               // perdeu: só pode repetir o mesmo nível
-let over = false;                 // fim de jogo (vitória, derrota ou revelação)
+const game = {
+  state: GameState.IDLE,
+  lives: MAX_LIVES,
+  lost: false,
+  cheated: false,
+  devMode: false,
+  dragged: false,
+  generating: false,
+  drag: null,
+  dragStart: null,
+  lastTap: { cell: null, t: 0, prev: 0 },
+  score: 0,
+  combo: 0,
+  adHold: false                 // partida pausada enquanto o modal/anúncio de recarga está aberto
+};
 let cells = [];
-let devMode = false;
-let cheated = false;            // modo dev usado na partida: não conta para estrelas/progresso
+let cellSymbols = [];
+let heartNodes = [];
 let campaignId = null;          // id do nível da campanha (null = treino livre)
 let currentLevel = null;
 
@@ -1321,6 +1796,8 @@ const livesEl = document.getElementById("lives");
 const modalEl = document.getElementById("modal");
 const timerEl = document.getElementById("timer");
 const levelInfoEl = document.getElementById("level-info");
+const levelValueEl = document.getElementById("level-value");
+const scoreValueEl = document.getElementById("score-value");
 
 /* ---------- Cronômetro (pausa ao encerrar a partida ou ocultar a aba) ---------- */
 let elapsedMs = 0;
@@ -1333,76 +1810,205 @@ function timerPause() {
 }
 function timerReset(ms = 0) { tickStart = null; elapsedMs = ms; renderTimer(); }
 
+const allowedTransitions = Object.freeze({
+  [GameState.IDLE]: [GameState.PLAYING, GameState.PAUSED],
+  [GameState.PLAYING]: [GameState.PAUSED, GameState.IDLE, GameState.GAME_OVER, GameState.WON],
+  [GameState.PAUSED]: [GameState.PLAYING, GameState.IDLE, GameState.GAME_OVER, GameState.WON],
+  [GameState.GAME_OVER]: [GameState.IDLE, GameState.PLAYING, GameState.PAUSED],
+  [GameState.WON]: [GameState.IDLE, GameState.PLAYING, GameState.PAUSED]
+});
+
+function setGameState(next) {
+  if (game.state === next) {
+    if (next === GameState.PLAYING) timerStart();
+    return;
+  }
+  if (!allowedTransitions[game.state].includes(next)) {
+    throw new Error(`Transição de estado inválida: ${game.state} → ${next}`);
+  }
+  game.state = next;
+  if (next === GameState.PLAYING) timerStart();
+  else timerPause();
+}
+
+const isPlaying = () => game.state === GameState.PLAYING;
+const isTerminal = () => game.state === GameState.GAME_OVER || game.state === GameState.WON;
+const gameTabActive = () => !!document.querySelector('.tab[data-target="game"].active');
+
 function formatTime(secs) {
   return String(Math.floor(secs / 60)).padStart(2, "0") + ":" + String(secs % 60).padStart(2, "0");
 }
-function renderTimer() { timerEl.textContent = "⏱ " + formatTime(Math.floor(timerElapsed() / 1000)); }
+function renderTimer() {
+  const text = "⏱ " + formatTime(Math.floor(timerElapsed() / 1000));
+  if (timerEl.textContent !== text) timerEl.textContent = text;
+}
 setInterval(renderTimer, 500);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) { timerPause(); persist(); }
-  else if (!over) timerStart();
+  if (document.hidden) {
+    if (isPlaying()) setGameState(GameState.PAUSED);
+    persist();
+  } else if (game.state === GameState.PAUSED && gameTabActive() && !game.adHold) {
+    setGameState(GameState.PLAYING);
+  }
 });
 
 function renderLevelInfo() {
-  levelInfoEl.textContent = campaignId && currentLevel
-    ? `Nível ${campaignId} · ${currentLevel.diff} · ${N}×${N}`
-    : `Treino livre · ${N}×${N}`;
+  levelValueEl.textContent = campaignId ? String(campaignId) : "—";
+}
+
+/* ---------- Pontuação: pop-out na célula + contador animado na HUD ---------- */
+const POINTS_BASE = 100;
+const POINTS_COMBO_STEP = 25;      // bônus por acerto consecutivo sem errar
+const COMBO_CAP = 4;               // bônus máximo: +100
+const SCORE_ROLL_DELAY_MS = 200;   // deixa o "+N" aparecer antes de os pontos "entrarem" na HUD
+const POINT_POP_MS = 800;
+const scoreRollMs = delta => Math.min(1500, 800 + Math.abs(delta) * 2);   // +100 ≈ 1 s
+
+let scoreShown = 0;                // valor atualmente exibido (a animação parte dele)
+let scoreRaf = 0;
+
+function pointsFor(combo) { return POINTS_BASE + POINTS_COMBO_STEP * Math.min(combo, COMBO_CAP); }
+
+/* Rola os dígitos de `scoreShown` até `to` (ease-out suave); chamadas novas retomam do valor atual.
+ * Não depende de prefers-reduced-motion: é uma contagem, não um movimento de tela. */
+function setScoreDisplay(to, animate = true) {
+  cancelAnimationFrame(scoreRaf);
+  const from = scoreShown;
+  if (!animate || from === to) {
+    scoreShown = to;
+    scoreValueEl.textContent = String(to);
+    return;
+  }
+  const dur = scoreRollMs(to - from);
+  const t0 = performance.now() + SCORE_ROLL_DELAY_MS;
+  let bumped = false;
+  const step = now => {
+    const p = Math.min(1, Math.max(0, (now - t0) / dur));
+    if (p > 0 && !bumped) {                        // pulinho ao começar a subir
+      bumped = true;
+      scoreValueEl.classList.remove("bump");
+      void scoreValueEl.offsetWidth;
+      scoreValueEl.classList.add("bump");
+    }
+    scoreShown = Math.round(from + (to - from) * (1 - (1 - p) * (1 - p)));
+    scoreValueEl.textContent = String(scoreShown);
+    if (p < 1) scoreRaf = requestAnimationFrame(step);
+  };
+  scoreRaf = requestAnimationFrame(step);
+}
+
+function setScore(value, animate = true) {
+  game.score = value;
+  setScoreDisplay(value, animate);
+}
+
+/* Texto flutuante sobre a célula; é removido ao fim da animação (com fallback por timeout) */
+function showPointPop(r, c, points) {
+  const rect = cells[r][c].getBoundingClientRect();
+  const pop = document.createElement("div");
+  pop.className = "point-pop";
+  pop.textContent = `+${points}`;
+  pop.style.left = `${rect.left + rect.width / 2}px`;
+  pop.style.top = `${rect.top + rect.height / 2}px`;
+  pop.style.fontSize = `${Math.max(14, rect.width * 0.42)}px`;
+  document.body.appendChild(pop);
+  const remove = () => pop.remove();
+  pop.addEventListener("animationend", remove, { once: true });
+  setTimeout(remove, POINT_POP_MS + 150);
+}
+
+function awardPoints(r, c) {
+  const points = pointsFor(game.combo);
+  showPointPop(r, c, points);
+  Sound.point(game.combo);
+  game.combo++;
+  setScore(game.score + points);
 }
 
 /* Salva a partida em andamento (só campanha) para retomar após fechar o app */
 function persist() {
-  if (!campaignId || over || cheated) return;
-  Progress.saveProgress({ id: campaignId, marks, lives, elapsed: Math.round(timerElapsed()) });
+  if (!campaignId || isTerminal() || game.state === GameState.IDLE || game.cheated) return;
+  Progress.saveProgress({ id: campaignId, marks, lives: game.lives, elapsed: Math.round(timerElapsed()), score: game.score });
 }
 
-function updateCell(r, c) {
+function renderCell(r, c) {
   const el = cells[r][c];
+  const symbol = cellSymbols[r][c];
   const m = marks[r][c];
+  const cross = m === 1 || m === 3;
+
   el.dataset.mark = m;
   el.classList.toggle("has-cat", m === 2);
-  el.innerHTML = m === 1 || m === 3 ? '<span class="sym x' + (m === 3 ? ' wrong' : '') + '" aria-hidden="true"></span>'
-               : m === 2 ? '<span class="sym cat">🐱</span>' : "";
+  symbol.hidden = m === 0;
+  symbol.classList.toggle("x", cross);
+  symbol.classList.toggle("cat", m === 2);
+  symbol.classList.toggle("wrong", m === 3);
+  const text = m === 2 ? "🐱" : "";
+  if (symbol.textContent !== text) symbol.textContent = text;
 }
 
 function renderLives() {
-  livesEl.innerHTML = "";
+  if (heartNodes.length !== MAX_LIVES) {
+    const fragment = document.createDocumentFragment();
+    heartNodes = [];
+    for (let i = 0; i < MAX_LIVES; i++) {
+      const heart = document.createElement("span");
+      heart.className = "heart";
+      heartNodes.push(heart);
+      fragment.appendChild(heart);
+    }
+    livesEl.replaceChildren(fragment);
+  }
   for (let i = 0; i < MAX_LIVES; i++) {
-    const h = document.createElement("span");
-    h.className = "heart" + (i < lives ? "" : " lost");
-    h.textContent = i < lives ? "❤️" : "🖤";
-    livesEl.appendChild(h);
+    const heart = heartNodes[i];
+    const alive = i < game.lives;
+    heart.classList.toggle("lost", !alive);
+    const text = alive ? "❤️" : "🖤";
+    if (heart.textContent !== text) heart.textContent = text;
   }
 }
 
 function updateStatus() {
-  const placed = marks.flat().filter(m => m === 2).length;
-  statusEl.textContent = `Gatos: ${placed}/${N}`;
+  let placed = 0;
+  for (const row of marks) for (const mark of row) if (mark === 2) placed++;
+  const text = `Gatos: ${placed}/${N}`;
+  if (statusEl.textContent !== text) statusEl.textContent = text;
 }
 
 function buildBoard() {
   boardEl.style.setProperty("--size", N);
-  boardEl.innerHTML = "";
   boardEl.classList.remove("locked");
-  cells = matrix(N, null);
+  if (cells.length !== N) {
+    cells = matrix(N, null);
+    cellSymbols = matrix(N, null);
+    const fragment = document.createDocumentFragment();
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const cell = document.createElement("div");
+        const symbol = document.createElement("span");
+        cell.className = "cell";
+        cell.dataset.r = r; cell.dataset.c = c;
+        symbol.className = "sym";
+        symbol.setAttribute("aria-hidden", "true");
+        symbol.hidden = true;
+        cell.appendChild(symbol);
+        cells[r][c] = cell;
+        cellSymbols[r][c] = symbol;
+        fragment.appendChild(cell);
+      }
+    }
+    boardEl.replaceChildren(fragment);
+  }
 
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
-      const el = document.createElement("div");
-      el.className = "cell";
-      el.style.background = PALETTE[regions[r][c] % PALETTE.length];
-
-      el.dataset.r = r; el.dataset.c = c;
-      cells[r][c] = el;
-      boardEl.appendChild(el);
+      cells[r][c].style.background = PALETTE[regions[r][c] % PALETTE.length];
+      renderCell(r, c);
     }
   }
 }
 
 /* Clique e arraste: o primeiro quadrado define se o gesto pinta ✕ ou apaga ✕ */
-let drag = null;     // { mode: 1 | 0 } enquanto o ponteiro está pressionado
-let dragStart = null;
-let dragged = false;
-
 function cellAt(x, y) {
   const el = document.elementFromPoint(x, y);
   const cell = el && el.closest ? el.closest(".cell") : null;
@@ -1412,58 +2018,61 @@ function cellAt(x, y) {
 function dragApply(cell) {
   const r = +cell.dataset.r, c = +cell.dataset.c;
   const m = marks[r][c];
-  if (m >= 2 || m === drag.mode) return;
-  marks[r][c] = drag.mode;
-  updateCell(r, c);
+  if (m >= 2 || m === game.drag.mode) return;
+  marks[r][c] = game.drag.mode;
+  renderCell(r, c);
+  Sound.click();
 }
 
 boardEl.addEventListener("pointerdown", e => {
-  dragged = false;
-  if (over || e.button !== 0) return;
+  game.dragged = false;
+  if (!isPlaying() || e.button !== 0) return;
   const cell = cellAt(e.clientX, e.clientY);
   if (!cell) return;
   const m = marks[+cell.dataset.r][+cell.dataset.c];
   if (m >= 2) return;
-  dragStart = cell;
-  drag = { mode: m === 1 ? 0 : 1 };
+  game.dragStart = cell;
+  game.drag = { mode: m === 1 ? 0 : 1 };
 });
 
 boardEl.addEventListener("pointermove", e => {
-  if (!drag) return;
+  if (!isPlaying() || !game.drag) return;
   const cell = cellAt(e.clientX, e.clientY);
   if (!cell) return;
-  if (!dragged) {
-    if (cell === dragStart) return;
-    dragged = true;
-    dragApply(dragStart);
+  if (!game.dragged) {
+    if (cell === game.dragStart) return;
+    game.dragged = true;
+    dragApply(game.dragStart);
   }
   dragApply(cell);
 });
 
 /* Toque simples alterna ✕ na hora; segundo toque na mesma célula confirma o gato */
-let lastTap = { cell: null, t: 0, prev: 0 };
-
 boardEl.addEventListener("pointerup", e => {
-  const cell = dragStart;                       // célula do pointerdown (null se inválido)
-  if (!cell || dragged || over) return;
+  const cell = game.dragStart;                  // célula do pointerdown (null se inválido)
+  if (!cell || game.dragged || !isPlaying()) return;
   const r = +cell.dataset.r, c = +cell.dataset.c;
   if (marks[r][c] >= 2) return;
   const now = performance.now();
-  if (lastTap.cell === cell && now - lastTap.t <= DOUBLE_TAP_MS) {
-    marks[r][c] = lastTap.prev;                 // desfaz o ✕ do primeiro toque
-    updateCell(r, c);
-    lastTap = { cell: null, t: 0, prev: 0 };
+  if (game.lastTap.cell === cell && now - game.lastTap.t <= DOUBLE_TAP_MS) {
+    marks[r][c] = game.lastTap.prev;            // desfaz o ✕ do primeiro toque
+    renderCell(r, c);
+    game.lastTap = { cell: null, t: 0, prev: 0 };
     tryCat(r, c);
     return;
   }
-  lastTap = { cell, t: now, prev: marks[r][c] };
+  game.lastTap = { cell, t: now, prev: marks[r][c] };
   marks[r][c] = marks[r][c] === 1 ? 0 : 1;
-  updateCell(r, c);
-  Sound.tap();
+  renderCell(r, c);
+  Sound.click();
   persist();
 });
 
-const endDrag = () => { if (dragged) persist(); drag = null; dragStart = null; };
+const endDrag = () => {
+  if (game.dragged) persist();
+  game.drag = null;
+  game.dragStart = null;
+};
 window.addEventListener("pointerup", endDrag);
 window.addEventListener("pointercancel", endDrag);
 
@@ -1473,7 +2082,7 @@ function autoCross(r, c) {
     const near = Math.abs(i - r) <= 1 && Math.abs(j - c) <= 1;
     if ((i === r || j === c || near) && marks[i][j] === 0) {
       marks[i][j] = 1;
-      updateCell(i, j);
+      renderCell(i, j);
     }
   }
 }
@@ -1484,31 +2093,39 @@ function autoCrossRegion(r, c) {
   for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
     if (regions[i][j] === id && marks[i][j] === 0) {
       marks[i][j] = 1;
-      updateCell(i, j);
+      renderCell(i, j);
     }
   }
 }
 
+/* Põe o gato `(r, c)` (já validado) e confere a vitória. `award`: false nos gatos revelados por power-up. */
+function commitCat(r, c, award) {
+  marks[r][c] = 2;
+  if (game.devMode && autoXEl.checked) autoCross(r, c);
+  if (game.devMode && autoColorEl.checked) autoCrossRegion(r, c);
+  renderCell(r, c);
+  updateStatus();
+  Sound.cat();
+  if (award) awardPoints(r, c);
+  persist();
+  if (marks.flat().filter(m => m === 2).length === N) win();
+}
+
 function tryCat(r, c) {
+  if (!isPlaying()) return;
   if (solution[r] === c) {
-    marks[r][c] = 2;
-    if (devMode && autoXEl.checked) autoCross(r, c);
-    if (devMode && autoColorEl.checked) autoCrossRegion(r, c);
-    updateCell(r, c);
-    updateStatus();
-    Sound.cat();
-    persist();
-    if (marks.flat().filter(m => m === 2).length === N) win();
+    commitCat(r, c, true);
     return;
   }
   marks[r][c] = 3;                 // erro: ✕ vinho fixo
-  updateCell(r, c);
+  game.combo = 0;
+  renderCell(r, c);
   shake(cells[r][c]);
   Sound.error();
-  if (devMode) return;             // modo dev: vidas infinitas
-  lives--;
+  if (game.devMode) return;             // modo dev: vidas infinitas
+  game.lives--;
   renderLives();
-  if (lives <= 0) gameOver();
+  if (game.lives <= 0) gameOver();
   else persist();
 }
 
@@ -1521,10 +2138,10 @@ function shake(el) {
   }
 }
 
-function lockBoard() {
-  over = true;
+function lockBoard(nextState) {
+  setGameState(nextState);
   boardEl.classList.add("locked");
-  timerPause();
+  clearHints();
   renderTimer();
   Progress.clearProgress();
 }
@@ -1553,29 +2170,31 @@ const starsFor = errors => Math.max(1, 3 - errors);
 const starText = n => "★".repeat(n) + "☆".repeat(3 - n);
 
 function win() {
-  lockBoard();
+  if (!isPlaying()) return;
+  lockBoard(GameState.WON);
   setTimeout(() => Sound.win(), 350);               // depois do "miau" do último gato
   statusEl.textContent = "🎉 Todos os gatos estão em paz!";
-  if (!campaignId || cheated) {
+  if (!campaignId || game.cheated) {
     setTimeout(() => showModal("🏆", "Parabéns!", "Você resolveu o MiauColor!", "Jogar novamente", newGame), 500);
     return;
   }
   const id = campaignId;
   const secs = Math.round(timerElapsed() / 1000);
-  const stars = starsFor(MAX_LIVES - lives);
+  const stars = starsFor(MAX_LIVES - game.lives);
   const prevBest = Progress.best(id);
-  Progress.complete(id, stars, secs, Infinity);     // a campanha não tem fim
+  Progress.complete(id, stars, secs, Infinity, game.score);     // a campanha não tem fim
   prefetchInfinite(id);
   const record = prevBest && secs < prevBest ? " 🏅 Novo recorde!" : "";
-  const text = `<span class="modal-stars">${starText(stars)}</span><br>Tempo: ${formatTime(secs)}${record}`;
+  const text = `<span class="modal-stars">${starText(stars)}</span><br>Pontos: ${Progress.formatScore(game.score)}<br>Tempo: ${formatTime(secs)}${record}`;
   setTimeout(() => showModal("🏆", "Nível concluído!", text, "Próximo nível",
-    () => playLevel(id + 1).then(ok => { if (!ok && !generating) showLevels(); }),
+    () => playLevel(id + 1).then(ok => { if (!ok && !game.generating) showLevels(); }),
     ["Níveis", showLevels]), 500);
 }
 
 function gameOver() {
-  if (!campaignId) lost = true;      // trava "mesmo nível" só no treino livre
-  lockBoard();
+  if (!isPlaying()) return;
+  if (!campaignId) game.lost = true;      // trava "mesmo nível" só no treino livre
+  lockBoard(GameState.GAME_OVER);
   setTimeout(() => Sound.lose(), 250);
   statusEl.textContent = "💀 Game over";
   setTimeout(() => showModal("😿", "Fim de jogo", "Suas vidas acabaram. Tente novamente o mesmo nível!",
@@ -1584,32 +2203,42 @@ function gameOver() {
 
 function resetBoard() {
   marks = matrix(N, 0);
-  lives = MAX_LIVES;
-  over = false;
-  cheated = devMode;
+  game.lives = MAX_LIVES;
+  game.cheated = game.devMode;
+  game.adHold = false;
+  clearHints();
   modalEl.classList.remove("open");
   buildBoard();
   renderLives();
   updateStatus();
   renderLevelInfo();
+  setScore(0, false);
+  game.combo = 0;
   timerReset();
-  timerStart();
+  setGameState(!document.hidden && gameTabActive() ? GameState.PLAYING : GameState.PAUSED);
 }
 
 function retryLevel() {
-  lost = false;
+  game.lost = false;
   resetBoard();
 }
 
 /* Gera em Web Worker (tamanhos grandes levam segundos e travariam a página). */
 const ASYNC_FROM = 9;
+let activeGenWorker = null;   // referência ao Worker de geração em andamento
+function cancelActiveGenWorker() {
+  if (activeGenWorker) { activeGenWorker.terminate(); activeGenWorker = null; }
+}
 function generateLevelAsync(n) {
+  cancelActiveGenWorker();    // encerra Worker anterior antes de iniciar outro
   return new Promise(resolve => {
     const fallback = () => { generateLevel(n); resolve(); };   // sem Worker: thread principal
     try {
       const worker = spawnEngineWorker("onmessage = e => postMessage(E.generateUnique(e.data, Math.random));");
-      worker.onmessage = e => { solution = e.data.cols; regions = e.data.reg; worker.terminate(); resolve(); };
-      worker.onerror = () => { worker.terminate(); fallback(); };
+      activeGenWorker = worker;
+      const release = () => { worker.terminate(); if (activeGenWorker === worker) activeGenWorker = null; };
+      worker.onmessage = e => { solution = e.data.cols; regions = e.data.reg; release(); resolve(); };
+      worker.onerror = () => { release(); fallback(); };
       worker.postMessage(n);
     } catch {
       fallback();
@@ -1617,11 +2246,10 @@ function generateLevelAsync(n) {
   });
 }
 
-let generating = false;
 async function newGame() {
-  if (generating) return;
+  if (game.generating) return;
   const sizeEl = document.getElementById("size");
-  if (lost) {                       // após derrota, o nível não muda
+  if (game.lost) {                       // após derrota, o nível não muda
     sizeEl.value = N;
     retryLevel();
     return;
@@ -1630,12 +2258,12 @@ async function newGame() {
   campaignId = null;                // sair da campanha: a partida salva continua guardada
   currentLevel = null;
   if (n >= ASYNC_FROM) {
-    generating = true;
-    over = true;
+    game.generating = true;
+    setGameState(GameState.IDLE);
     boardEl.classList.add("locked");
     statusEl.textContent = "⏳ Gerando nível…";
     await generateLevelAsync(n);
-    generating = false;
+    game.generating = false;
   } else {
     generateLevel(n);
   }
@@ -1652,18 +2280,17 @@ function prefetchInfinite(id) {
 
 /* Carrega um nível da campanha (packs ou infinito), retomando a partida salva se houver */
 async function playLevel(id, resume = true) {
-  if (generating) return false;
+  if (game.generating) return false;
   const slow = MiauLevels.needsGeneration(id);     // nível infinito ainda não salvo
   if (slow) {
-    generating = true;
-    over = true;
+    game.generating = true;
+    setGameState(GameState.IDLE);
     modalEl.classList.remove("open");
     boardEl.classList.add("locked");
-    timerPause();
     statusEl.textContent = "⏳ Gerando nível…";
   }
   const lv = await MiauLevels.get(id);
-  if (slow) generating = false;
+  if (slow) game.generating = false;
   if (!lv) {
     if (slow) statusEl.textContent = "Não foi possível gerar o nível";
     return false;
@@ -1673,37 +2300,42 @@ async function playLevel(id, resume = true) {
   N = lv.n;
   solution = lv.solution;
   regions = lv.regions;
-  lost = false;
+  game.lost = false;
   document.getElementById("size").value = N;
   resetBoard();
   prefetchInfinite(id);
 
-  const saved = resume && !cheated && Progress.getProgress(id);
+  const saved = resume && !game.cheated && Progress.getProgress(id);
   if (saved && saved.marks.length === N) {
     marks = saved.marks;
-    lives = saved.lives;
-    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) updateCell(r, c);
+    game.lives = saved.lives;
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
     renderLives();
     updateStatus();
+    const placed = marks.flat().filter(m => m === 2).length;
+    setScore(Number.isFinite(saved.score) && saved.score >= 0 ? saved.score : placed * POINTS_BASE, false);   // saves antigos não têm score
     timerReset(saved.elapsed);
-    timerStart();
+    if (!document.hidden && gameTabActive()) setGameState(GameState.PLAYING);
   }
   return true;
 }
 
 function clearBoard() {
-  if (over) return;
+  if (!isPlaying()) return;
   marks = matrix(N, 0);          // gatos já fixados também voltam ao vazio, vidas são mantidas
-  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) updateCell(r, c);
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
+  setScore(0);                   // sem gatos no tabuleiro, sem pontos (evita farmar limpando e recolocando)
+  game.combo = 0;
   updateStatus();
   persist();
 }
 
 function showSolution() {
+  if (!isPlaying()) return;
   marks = matrix(N, 0);
   solution.forEach((c, r) => (marks[r][c] = 2));
-  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) updateCell(r, c);
-  lockBoard();
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
+  lockBoard(GameState.GAME_OVER);
   updateStatus();
   statusEl.textContent = "Solução revelada";
 }
@@ -1715,15 +2347,15 @@ const autoColorEl = document.getElementById("auto-color");
 const autoColorWrap = document.getElementById("auto-color-wrap");
 const findCatBtn = document.getElementById("find-cat");
 devEl.addEventListener("change", () => {
-  devMode = devEl.checked;
-  if (devMode) cheated = true;      // trapaça: a partida não gera estrelas nem progresso
-  findCatBtn.hidden = !devMode;
-  autoXWrap.hidden = !devMode;
-  document.getElementById("dev-note").hidden = !devMode;
-  autoColorWrap.hidden = !devMode;
+  game.devMode = devEl.checked;
+  if (game.devMode) game.cheated = true;      // trapaça: a partida não gera estrelas nem progresso
+  findCatBtn.hidden = !game.devMode;
+  autoXWrap.hidden = !game.devMode;
+  document.getElementById("dev-note").hidden = !game.devMode;
+  autoColorWrap.hidden = !game.devMode;
 });
 findCatBtn.addEventListener("click", () => {
-  if (over) return;
+  if (!isPlaying()) return;
   const left = solution.map((c, r) => [r, c]).filter(([r, c]) => marks[r][c] !== 2);
   if (!left.length) return;
   const [r, c] = left[Math.floor(Math.random() * left.length)];
@@ -1750,6 +2382,176 @@ bindToggle("haptics-btn", "📳 Vibração", () => Sound.haptics, v => Sound.set
 window.addEventListener("pointerdown", () => Sound.unlock(), { once: true });   // áudio só após um gesto
 document.getElementById("reveal").addEventListener("click", showSolution);
 document.getElementById("size").addEventListener("change", newGame);
+
+/* =====================================================================
+ * 5b) POWER-UPS: Dica, Revelar Gato e 3x ✕ Seguros (estoque em Progress.items).
+ * Com estoque 0 o botão oferece recarga (+3) via anúncio recompensado (ads.js).
+ * Os ✕ e gatos postos aqui nunca dão pontos nem combo.
+ * ===================================================================== */
+const COLOR_NAMES = [
+  "Azul-gelo", "Roxo", "Laranja", "Amarelo", "Verde", "Azul",
+  "Turquesa", "Rosa", "Marrom", "Vermelho", "Azul-céu", "Magenta",
+];                                                   // mesma ordem de PALETTE
+const colorName = id => COLOR_NAMES[id % COLOR_NAMES.length];
+const REWARD_UNITS = 3;
+const HINT_CELLS_MS = 5000;
+const HINT_TEXT_MS = 9000;
+
+const hudMsgEl = document.getElementById("hint-msg");
+const itemUi = {};
+document.querySelectorAll(".pu-btn").forEach(btn => {
+  itemUi[btn.dataset.item] = { btn, badge: btn.querySelector(".pu-badge") };
+  btn.addEventListener("click", () => usePowerUp(btn.dataset.item));
+});
+const ITEM_LABELS = { hint: "💡 Dica", revealCat: "🐱 Revelar Gato", safeCross: "✕ 3x Seguros" };
+
+function renderItems() {
+  for (const [key, { btn, badge }] of Object.entries(itemUi)) {
+    const n = Progress.item(key);
+    const text = n > 0 ? String(n) : `🎬 +${REWARD_UNITS}`;
+    if (badge.textContent !== text) badge.textContent = text;
+    btn.classList.toggle("empty", n === 0);
+    btn.setAttribute("aria-label", n > 0
+      ? `${ITEM_LABELS[key]}: ${n} restantes`
+      : `${ITEM_LABELS[key]}: esgotado. Assistir vídeo para ganhar +${REWARD_UNITS}`);
+  }
+}
+
+/* Caixa de mensagem sobre a barra de power-ups: some sozinha ou ao toque */
+let hudMsgTimer = 0;
+function hideHudMessage() { clearTimeout(hudMsgTimer); hudMsgEl.hidden = true; }
+function showHudMessage(text, ms = HINT_TEXT_MS) {
+  clearTimeout(hudMsgTimer);
+  hudMsgEl.textContent = text;
+  hudMsgEl.hidden = false;
+  hudMsgTimer = setTimeout(hideHudMessage, ms);
+}
+hudMsgEl.addEventListener("click", hideHudMessage);
+
+/* Realce temporário: `glow` = casas que explicam a dica; `target` = casas a marcar */
+let hintEls = [];
+let hintTimer = 0;
+function clearHighlights() {
+  clearTimeout(hintTimer);
+  for (const [el, cls] of hintEls) el.classList.remove(cls);
+  hintEls = [];
+}
+function clearHints() { clearHighlights(); hideHudMessage(); }
+function highlightCells(glow, target, ms = HINT_CELLS_MS) {
+  clearHighlights();
+  const add = (list, cls) => list.forEach(([r, c]) => { cells[r][c].classList.add(cls); hintEls.push([cells[r][c], cls]); });
+  add(glow, "hint-glow");
+  add(target, "hint-target");
+  hintTimer = setTimeout(clearHighlights, ms);
+}
+
+const listText = list => (list.length < 2 ? list.join("") : `${list.slice(0, -1).join(", ")} e ${list[list.length - 1]}`);
+function unitText(u) {
+  const id = +u.slice(1);
+  return u[0] === "g" ? `a cor ${colorName(id)}` : u[0] === "r" ? `a linha ${id + 1}` : `a coluna ${id + 1}`;
+}
+
+function hintMessage(h) {
+  const word = h.axis === "r" ? "linha" : "coluna";
+  const Word = word[0].toUpperCase() + word.slice(1);
+  const regs = (h.regs || []).map(colorName);
+  const lines = (h.lines || []).map(v => v + 1);
+  switch (h.kind) {
+    case "single": {
+      const [r, c] = h.cells[0];
+      const who = unitText(h.unit);
+      return `${who[0].toUpperCase() + who.slice(1)} só tem uma casa válida: linha ${r + 1}, coluna ${c + 1}. Dê dois toques para pôr o gato.`;
+    }
+    case "regionLine":
+      return `A cor ${regs[0]} só possui casas válidas na ${Word} ${lines[0]}. Marque ✕ nas casas das outras cores dessa ${word}.`;
+    case "lineRegion":
+      return `Na ${Word} ${lines[0]}, só a cor ${regs[0]} tem casas válidas. Marque ✕ nas demais casas dessa cor.`;
+    case "regionSet":
+      return `As cores ${listText(regs)} só possuem casas válidas nas ${Word}s ${listText(lines)}. Nenhuma outra cor pode ter gato nelas: marque ✕.`;
+    case "lineSet":
+      return `As ${Word}s ${listText(lines)} só possuem casas válidas nas cores ${listText(regs)}. Essas cores não podem ter gato fora delas: marque ✕.`;
+    default: {
+      const [r, c] = h.cells[0];
+      return `Se houvesse um gato na linha ${r + 1}, coluna ${c + 1}, ${unitText(h.unit)} ficaria sem nenhuma casa válida. Marque ✕ aqui.`;
+    }
+  }
+}
+
+function useHint() {
+  const h = E.findHint(N, regions, marks);
+  if (!h) {                                          // sem dedução simples: não gasta o item
+    showHudMessage("Sem dedução simples no momento. Tente Revelar Gato.", 4000);
+    return;
+  }
+  if (!Progress.useItem("hint")) return;
+  renderItems();
+  Sound.click();
+  highlightCells(h.cells, h.targets);
+  showHudMessage(hintMessage(h));
+}
+
+function useRevealCat() {
+  const pick = E.pickRevealCat(N, solution, marks);
+  if (!pick || !Progress.useItem("revealCat")) return;
+  renderItems();
+  commitCat(pick[0], pick[1], false);
+  if (isPlaying()) highlightCells([pick], [], 1500);
+}
+
+function useSafeCross() {
+  const picks = E.pickSafeCrosses(N, regions, solution, marks, 3);
+  if (!picks.length) {
+    showHudMessage("Não há mais casas livres sem gato para marcar.", 4000);
+    return;
+  }
+  if (!Progress.useItem("safeCross")) return;
+  renderItems();
+  for (const [r, c] of picks) { marks[r][c] = 1; renderCell(r, c); }
+  Sound.click();
+  highlightCells(picks, [], 1500);
+  persist();
+}
+
+const ITEM_ACTIONS = { hint: useHint, revealCat: useRevealCat, safeCross: useSafeCross };
+
+function usePowerUp(key) {
+  if (!isPlaying()) return;
+  if (Progress.item(key) <= 0) offerRecharge(key);
+  else ITEM_ACTIONS[key]();
+}
+
+/* Recarga: pausa a partida, mostra o convite e, após o anúncio, credita +3 do item */
+function offerRecharge(key) {
+  if (game.adHold) return;
+  game.adHold = true;
+  setGameState(GameState.PAUSED);
+  showModal("🎬", "Itens esgotados",
+    `Seus itens deste tipo acabaram! Assista a um vídeo curto para recarregar +${REWARD_UNITS} unidades`,
+    `🎬 Assistir vídeo (+${REWARD_UNITS})`, () => watchForItem(key), ["Agora não", closeRecharge]);
+}
+
+function closeRecharge() {
+  modalEl.classList.remove("open");
+  game.adHold = false;
+  if (game.state === GameState.PAUSED && !document.hidden && gameTabActive()) setGameState(GameState.PLAYING);
+}
+
+async function watchForItem(key) {
+  const watchBtn = document.getElementById("modal-btn");
+  if (watchBtn) watchBtn.disabled = true;            // evita toques repetidos durante o anúncio
+  const res = await Ads.showRewarded();
+  if (res.rewarded) {
+    Progress.addItem(key, REWARD_UNITS);
+    renderItems();
+    Sound.point();
+  }
+  closeRecharge();
+  if (res.rewarded) showHudMessage(`+${REWARD_UNITS} de ${ITEM_LABELS[key]} recarregados!`, 3000);
+  else if (res.reason === "offline") showHudMessage("Sem conexão: não foi possível carregar o vídeo. Tente novamente online.", 4000);
+}
+
+renderItems();
+Ads.init();
 
 
 /* =====================================================================
@@ -1788,9 +2590,14 @@ function buildPalette() {
     const b = document.createElement("button");
     b.type = "button"; b.className = "swatch" + (i === sColor ? " active" : "");
     b.style.background = PALETTE[i]; b.setAttribute("aria-label", "Cor " + (i + 1));
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-checked", String(i === sColor));
     b.addEventListener("click", () => {
       sColor = i;
-      paletteEl.querySelectorAll(".swatch").forEach((s, k) => s.classList.toggle("active", k === i));
+      paletteEl.querySelectorAll(".swatch").forEach((swatch, k) => {
+        swatch.classList.toggle("active", k === i);
+        swatch.setAttribute("aria-checked", String(k === i));
+      });
     });
     paletteEl.appendChild(b);
   }
@@ -1876,8 +2683,14 @@ document.querySelectorAll(".tab").forEach(btn =>
     document.querySelectorAll(".panel").forEach(p =>
       p.classList.toggle("active", p.id === btn.dataset.target));
     if (btn.dataset.target === "levels") renderLevelMap();
-    if (btn.dataset.target === "game") { if (!over) timerStart(); }
-    else { timerPause(); persist(); }            // o tempo só corre na aba do jogo
+    if (btn.dataset.target === "game") {
+      if (game.state === GameState.PAUSED && !document.hidden && !game.adHold) setGameState(GameState.PLAYING);
+    } else if (isPlaying()) {
+      setGameState(GameState.PAUSED);
+      persist();
+    } else if (game.state === GameState.PAUSED) {
+      persist();
+    }
   }));
 
 /* ---------- Mapa de níveis ---------- */
@@ -1915,7 +2728,7 @@ function levelGroup(title, hint) {
 
 async function renderLevelMap() {
   const all = await MiauLevels.loadAll();
-  levelsTotalEl.textContent = `★ ${Progress.totalStars()}`;
+  levelsTotalEl.textContent = `★ ${Progress.totalStars()} · 🏆 ${Progress.formatScore(Progress.totalScore)} pts`;
   levelMapEl.innerHTML = "";
   let section = null;
   let lastN = 0;
@@ -1992,7 +2805,7 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 
 ## style.css
 
-- Last modified: 2026-10-16 23:40:04
+- Last modified: 2026-10-17 16:20:27
 
 ```css
 :root {
@@ -2190,6 +3003,9 @@ header p { font-size: .9rem; line-height: 1.3; }
 main { flex: 1; min-height: 0; width: 100%; max-width: none; overflow-y: auto; padding: 0 1rem 1rem; }
 .doc { max-width: 900px; margin: 0 auto; }
 #game.active, #solver.active { display: flex; gap: 1.5rem; height: 100%; }
+/* Coluna lateral (HUD + painel): o tabuleiro continua ocupando toda a altura à direita */
+.game-side { flex: 0 0 204px; display: flex; flex-direction: column; gap: .6rem; min-width: 0; min-height: 0; align-self: center; max-height: 100%; }
+.game-side .sidebar { flex: 0 1 auto; width: 100%; align-self: stretch; min-height: 0; }
 .sidebar {
   flex: 0 0 220px; display: flex; flex-direction: column; gap: .8rem;
   background: var(--panel); border-radius: 16px; padding: 1.2rem; align-self: stretch; overflow-y: auto;
@@ -2282,6 +3098,10 @@ body.compact .menu-drop.open {
 
 body.compact main { padding: .6rem; }
 body.compact #game.active, body.compact #solver.active { flex-direction: column; align-items: stretch; gap: .5rem; }
+body.compact .game-side { flex: 0 0 auto; align-self: stretch; max-height: none; gap: .5rem; }
+body.compact .game-hud { min-height: 52px; }
+body.compact .level-info { padding: .35rem 1rem .35rem .9rem; }
+body.compact .level-info-value { font-size: 1.6rem; }
 body.compact .sidebar {
   flex: 0 0 auto; align-self: stretch; flex-direction: row; align-items: center; justify-content: space-between;
   max-height: none; padding: .35rem .8rem; border-radius: 12px; overflow: visible;
@@ -2322,6 +3142,7 @@ body.compact .doc nav ul { columns: 1; }.menu-drop .controls select, .menu-drop 
 .swatch { aspect-ratio: 1; border: 2px solid transparent; border-radius: 8px; cursor: pointer; padding: 0; transition: transform .12s, border-color .12s; }
 .swatch:hover { transform: scale(1.08); }
 .swatch.active { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
+.palette-hint { display: none; }
 .s-status { color: var(--muted); font-size: .85rem; text-align: center; line-height: 1.4; }
 .s-status.ok { color: #9be39b; }
 .s-status.bad { color: #ff9aa8; }
@@ -2331,10 +3152,109 @@ body.compact .doc nav ul { columns: 1; }.menu-drop .controls select, .menu-drop 
 #sboard .sym.cat { animation: pop .3s ease-out; }
 
 /* ---------- Campanha: info do nível, cronômetro, mapa e modal ---------- */
-.level-info { color: var(--accent); font-weight: 700; font-size: .85rem; text-align: center; }
+.game-hud {
+  display: flex; align-items: stretch; flex: 0 0 auto; width: 100%; min-height: 64px; overflow: hidden;
+  border-radius: 14px; background: linear-gradient(135deg, #ffb17f 0%, #ff8d5c 100%); color: #27170f;
+  box-shadow: 0 4px 14px rgba(255, 143, 92, .25), inset 0 1px 0 rgba(255, 255, 255, .35);
+}
+.level-info {
+  position: relative; display: flex; flex: 0 0 auto; flex-direction: column; justify-content: center; gap: .05rem;
+  padding: .45rem 1.1rem .45rem .95rem; text-align: left;
+}
+.level-info::after {                              /* traço vertical que fecha o bloco do nível */
+  content: ""; position: absolute; right: 0; top: 18%; bottom: 18%; width: 2px; border-radius: 2px;
+  background: rgba(39, 23, 15, .35);
+}
+.level-info-label { font-size: .62rem; font-weight: 800; letter-spacing: .14em; line-height: 1.2; opacity: .8; }
+.level-info-value { font-size: 1.9rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.score-info { min-width: 5.2rem; }
+.score-info .level-info-value { display: inline-block; transform-origin: left center; }
+.score-info .level-info-value.bump { animation: scoreBump .35s ease-out; }
+@keyframes scoreBump { 40% { transform: scale(1.18); } }
+
+/* Pop-out de pontos: fixo na viewport (o tabuleiro tem overflow:hidden) e sem capturar toques */
+.point-pop {
+  position: fixed; z-index: 5; pointer-events: none; transform: translate(-50%, -50%);
+  font-weight: 900; line-height: 1; white-space: nowrap; color: #fff3b0;
+  text-shadow: 0 0 3px #7a4a00, 0 1px 0 #7a4a00, 0 -1px 0 #7a4a00, 1px 0 0 #7a4a00, -1px 0 0 #7a4a00, 0 2px 8px rgba(0,0,0,.45);
+  animation: floatUp .8s ease-out forwards;
+}
+@keyframes floatUp {
+  0%   { opacity: 0; transform: translate(-50%, -30%) scale(.6); }
+  15%  { opacity: 1; transform: translate(-50%, -60%) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -190%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .point-pop { animation: fadeOnly .8s linear forwards; }
+  .score-info .level-info-value.bump { animation: none; }
+}
+@keyframes fadeOnly { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+/* ---------- Power-ups (barra abaixo da HUD) ---------- */
+.powerups { position: relative; flex: 0 0 auto; width: 100%; }
+.powerup-bar { display: flex; gap: .4rem; }
+.pu-btn {
+  position: relative; flex: 1 1 0; min-width: 44px; min-height: 52px; padding: .3rem .15rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .05rem;
+  border: 2px solid #443f66; border-radius: 12px; background: #231f38; color: var(--text);
+  font: inherit; cursor: pointer; touch-action: manipulation;
+}
+.pu-btn:active { transform: scale(.96); }
+.pu-icon { font-size: 1.25rem; line-height: 1; }
+.pu-label { max-width: 100%; font-size: .6rem; line-height: 1.1; text-align: center; color: var(--muted); overflow-wrap: anywhere; }
+.pu-badge {
+  position: absolute; top: -7px; right: -5px; min-width: 20px; padding: 0 .35rem; border-radius: 999px;
+  background: var(--accent); color: #2a1a10; font-size: .7rem; font-weight: 800; line-height: 20px; text-align: center;
+  font-variant-numeric: tabular-nums; box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
+}
+.pu-btn.empty { border-style: dashed; }
+.pu-btn.empty .pu-icon { opacity: .55; }
+.pu-btn.empty .pu-badge { background: #ffd15c; white-space: nowrap; }
+@media (hover: hover) { .pu-btn:hover { border-color: var(--accent); } }
+
+/* Mensagem da dica: cobre a barra (sem empurrar o tabuleiro); toque para fechar */
+.hint-msg {
+  position: absolute; z-index: 3; top: 0; left: 0; right: 0; min-height: 100%; display: flex; align-items: center;
+  padding: .4rem .7rem; border-radius: 12px; background: #fff3d6; color: #2a1a10; border: 2px solid var(--accent);
+  font-size: .78rem; line-height: 1.3; cursor: pointer; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); animation: fade .2s;
+}
+.hint-msg[hidden] { display: none; }
+
+/* Realce temporário das casas (usa ::before: ::after já serve ao gato e ao erro) */
+.cell.hint-glow::before, .cell.hint-target::before {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; border-radius: inherit;
+  animation: hintPulse .8s ease-in-out infinite alternate;
+}
+.cell.hint-glow::before { border: 3px solid #ffd15c; background: rgba(255, 209, 92, .35); }
+.cell.hint-target::before { border: 3px solid #fff; background: rgba(255, 255, 255, .5); }
+@keyframes hintPulse { from { opacity: .45; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .cell.hint-glow::before, .cell.hint-target::before, .hint-msg { animation: none; }
+}
+
+/* ---------- Anúncios: banner fixo de rodapé (altura reservada) e vídeo recompensado ---------- */
+:root { --ad-h: 50px; }
+.ad-banner {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
+  height: calc(var(--ad-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: #17142a; border-top: 1px solid #443f66; contain: strict;
+}
+.ad-banner-label { color: var(--muted); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; opacity: .6; }
+.ad-overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(10, 8, 25, .92); }
+.ad-overlay-card {
+  display: flex; flex-direction: column; align-items: center; gap: .8rem; max-width: 90vw;
+  padding: 1.6rem 2rem; border-radius: 16px; background: var(--panel); text-align: center;
+}
+.ad-overlay-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.ad-overlay-card .modal-actions button {
+  min-height: 44px; padding: .6rem 1.4rem; border: none; border-radius: 999px; background: var(--accent);
+  color: #2a1a10; font-weight: 700; font-size: 1rem; cursor: pointer;
+}
+.ad-overlay-card .modal-actions button.secondary { background: transparent; color: var(--text); border: 2px solid #4a4568; }
+.ad-overlay-card .modal-actions button[hidden] { display: none; }
 .timer { color: var(--muted); font-variant-numeric: tabular-nums; text-align: center; font-size: .95rem; }
 body.compact .sidebar { flex-wrap: wrap; gap: .1rem .8rem; }
-body.compact .sidebar .level-info { flex: 1 0 100%; text-align: left; font-size: .8rem; }
 body.compact .sidebar .timer { font-size: .85rem; }
 
 .modal-actions { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; }
@@ -2373,13 +3293,29 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 body {
   touch-action: manipulation;                    /* sem zoom por duplo toque fora do tabuleiro */
   -webkit-tap-highlight-color: transparent;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(var(--ad-h) + env(safe-area-inset-bottom)) env(safe-area-inset-left);
+}
+
+@media (max-width: 700px) {
+  #palette {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 44px; grid-template-columns: none;
+    gap: .55rem; width: 100%; min-width: 0; padding: .35rem .2rem .65rem;
+    overflow-x: auto; overscroll-behavior-x: contain; touch-action: pan-x;
+    scrollbar-width: thin; scrollbar-color: #77708f transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+  #palette .swatch { width: 44px; height: 44px; min-width: 44px; aspect-ratio: auto; }
+  #palette .swatch.active {
+    border: 3px solid #fff; outline: 2px solid var(--accent); outline-offset: 1px;
+    box-shadow: 0 0 0 3px rgba(255, 159, 107, .35);
+  }
+  .palette-hint { display: block; margin: -.35rem 0 0; color: var(--muted); font-size: .75rem; line-height: 1.35; }
 }
 ```
 
 ## sw.js
 
-- Last modified: 2026-10-16 23:40:22
+- Last modified: 2026-10-17 16:20:12
 
 ```js
 "use strict";
@@ -2389,9 +3325,13 @@ body {
  * - Depois: responde do cache e atualiza em segundo plano (stale-while-revalidate),
  *   então uma nova versão publicada aparece na visita seguinte.
  * Ao alterar a lista abaixo (ou para forçar atualização), incremente CACHE. */
-const CACHE = "miaucolor-v2";
+const CACHE = "miaucolor-v4";
 
-const PRECACHE = [
+// Diretório onde o sw.js está hospedado (ex.: "/repo/miaucolor/"), independente do subdiretório.
+const BASE = self.location.pathname.replace(/[^/]*$/, "");
+const toAbs = p => new URL(BASE + p.replace(/^\.\//, ""), self.location.origin).href;
+
+const PRECACHE_PATHS = [
   "./",
   "index.html",
   "style.css",
@@ -2401,6 +3341,7 @@ const PRECACHE = [
   "levels.js",
   "progress.js",
   "audio.js",
+  "ads.js",
   "manifest.webmanifest",
   "levels/manifest.js",
   "levels/pack-01.js",
@@ -2412,6 +3353,7 @@ const PRECACHE = [
   "icons/icon-512.png",
   "icons/apple-touch-icon.png",
 ];
+const PRECACHE = PRECACHE_PATHS.map(toAbs);   // URLs absolutas já resolvidas sob BASE
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -2431,7 +3373,9 @@ self.addEventListener("fetch", event => {
 
   event.respondWith(
     caches.open(CACHE).then(async cache => {
-      const cached = await cache.match(req, { ignoreSearch: true });   // ?dev usa o mesmo cache
+      let cached = await cache.match(req, { ignoreSearch: true });   // ?dev usa o mesmo cache
+      // Navegação (ex.: "/repo/miaucolor" sem barra final ou com query): cai no index sob BASE.
+      if (!cached && req.mode === "navigate") cached = await cache.match(toAbs("index.html"));
       const network = fetch(req)
         .then(res => { if (res && res.ok) cache.put(req, res.clone()); return res; })
         .catch(() => null);
@@ -2444,7 +3388,7 @@ self.addEventListener("fetch", event => {
 
 ## tests.html
 
-- Last modified: 2026-10-16 23:35:03
+- Last modified: 2026-10-17 16:22:07
 
 ```html
 <!DOCTYPE html>
@@ -2609,6 +3553,76 @@ self.addEventListener("fetch", event => {
       Progress.complete(2, 3, 12, Infinity);
       eq([Progress.stars(2)], [3]);
       assert(JSON.parse(localStorage.getItem("miaucolor:v1")).stars[2] === 3, "não gravou");
+    });
+
+    test("Progress: totalScore acumula e formatScore abrevia", () => {
+      const before = Progress.totalScore;
+      Progress.complete(3, 3, 10, Infinity, 450);
+      Progress.complete(3, 3, 10, Infinity);
+      eq([Progress.totalScore - before], [450], "soma só a pontuação informada");
+      eq([0, 999, 1000, 1234, 45800, 999999, 1250000].map(Progress.formatScore),
+        ["0", "999", "1k", "1.2k", "45.8k", "999.9k", "1.2M"], "formatScore");
+    });
+
+    /* ---------- Power-ups ---------- */
+    test("findHint: dicas sempre corretas e resolvem o nível passo a passo (6x6..8x8 com solução lógica)", () => {
+      let solved = 0;
+      for (let i = 0; i < 12; i++) {
+        const n = 6 + (i % 3);
+        const { cols, reg } = E.generateUnique(n, E.rngFor("hint" + i));
+        if (!E.gradeLevel(n, reg, cols)) continue;
+        const marks = E.matrix(n, 0);
+        let guard = 0;
+        for (; guard < 400; guard++) {
+          const h = E.findHint(n, reg, marks);
+          if (!h) break;
+          if (h.kind === "single") {
+            const [r, c] = h.cells[0];
+            assert(cols[r] === c, `gato errado na dica (${r},${c})`);
+            marks[r][c] = 2;
+          } else {
+            assert(h.targets.length > 0 && h.cells.length > 0, "dica sem casas");
+            for (const [r, c] of h.targets) {
+              assert(cols[r] !== c && marks[r][c] === 0, `✕ inválido (${r},${c}) em ${h.kind}`);
+              marks[r][c] = 1;
+            }
+          }
+        }
+        if (marks.flat().filter(m => m === 2).length === n) solved++;
+      }
+      assert(solved >= 1, "nenhum nível foi resolvido só com dicas");
+    });
+    test("findHint: ignora ✕ errados do jogador e devolve null quando tudo está posto", () => {
+      const { cols, reg } = E.generateUnique(6, E.rngFor("hint-x"));
+      const marks = E.matrix(6, 0);
+      cols.forEach((c, r) => (marks[r][c] = 3));         // ✕ errado sobre todos os gatos
+      const h = E.findHint(6, reg, marks);
+      assert(h && h.cells.every(([r, c]) => cols[r] === c || h.kind !== "single"), "dica inconsistente");
+      cols.forEach((c, r) => (marks[r][c] = 2));
+      assert(E.findHint(6, reg, marks) === null, "sem dica quando resolvido");
+    });
+    test("pickRevealCat / pickSafeCrosses: só casas da solução / só casas sem gato e vazias", () => {
+      const n = 7;
+      const { cols, reg } = E.generateUnique(n, E.rngFor("pick"));
+      const marks = E.matrix(n, 0);
+      marks[0][cols[0]] = 2; marks[1][cols[1] === 0 ? 1 : 0] = 1;
+      const [r, c] = E.pickRevealCat(n, cols, marks, E.rngFor("a"));
+      assert(cols[r] === c && marks[r][c] !== 2, "gato revelado inválido");
+      const picks = E.pickSafeCrosses(n, reg, cols, marks, 3, E.rngFor("b"));
+      eq([picks.length, new Set(picks.map(p => p.join())).size], [3, 3], "3 casas distintas");
+      assert(picks.every(([r, c]) => cols[r] !== c && marks[r][c] === 0), "✕ seguro em casa inválida");
+      cols.forEach((c, r) => (marks[r][c] = 2));
+      assert(E.pickRevealCat(n, cols, marks) === null, "sem gatos a revelar");
+      const left = E.matrix(n, 1); cols.forEach((c, r) => (left[r][c] = 0));
+      eq([E.pickSafeCrosses(n, reg, cols, left, 3).length], [0], "sem casas livres sem gato");
+    });
+    test("Progress: inventário de itens (estoque inicial 3, consumo, recarga e limite)", () => {
+      eq([Progress.item("hint"), Progress.item("revealCat"), Progress.item("safeCross")], [3, 3, 3], "estoque inicial");
+      eq([Progress.useItem("hint"), Progress.useItem("hint"), Progress.useItem("hint"), Progress.useItem("hint")], [true, true, true, false], "consumo até zerar");
+      eq([Progress.item("hint"), Progress.item("revealCat")], [0, 3], "itens independentes");
+      eq([Progress.addItem("hint", 3), Progress.addItem("hint", 0), Progress.addItem("nope", 3)], [3, 3, 0], "recarga +3; valores inválidos ignorados");
+      assert(JSON.parse(localStorage.getItem("miaucolor:v1")).items.hint === 3, "inventário não persistiu");
+      eq([Progress.addItem("hint", 500)], [99], "teto de estoque");
     });
 
     /* ---------- Runner ---------- */

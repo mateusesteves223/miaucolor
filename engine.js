@@ -340,6 +340,158 @@ function createEngine() {
     return { tier, score: steps[1] + 3 * steps[2] + 8 * steps[3] + 15 * steps[4], steps, opening };
   }
 
+  /* ---------- Power-ups: dica, revelar gato e ✕ seguros ----------
+   * `marks[r][c]`: 0 vazio | 1 ✕ | 2 gato | 3 ✕ errado. Na dedução só os gatos entram (são sempre
+   * certos); os ✕ do jogador podem estar errados e servem apenas para pular dicas já aplicadas. */
+
+  /* Procura a dedução lógica mais simples que ainda traga algo NOVO ao jogador.
+   * Devolve { kind, tier, axis?, lines?, regs?, unit?, cells, targets } ou null (sem dedução sem chute).
+   *   cells   = casas que justificam a dedução; targets = casas que podem receber ✕ (vazio em "single").
+   * kind: single | regionLine | lineRegion | regionSet | lineSet | contradiction */
+  function findHint(n, reg, marks) {
+    const cells = {};
+    for (let i = 0; i < n; i++) cells["r" + i] = [];
+    for (let i = 0; i < n; i++) cells["c" + i] = [];
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const g = "g" + reg[i][j];
+      (cells[g] = cells[g] || []).push([i, j]);
+      cells["r" + i].push([i, j]);
+      cells["c" + j].push([i, j]);
+    }
+    const units = Object.keys(cells);
+    const cand = matrix(n, true);
+    const done = new Set();
+    const kindOf = u => u[0];
+    const idOf = u => +u.slice(1);
+    const live = u => cells[u].filter(([r, c]) => cand[r][c]);
+    const inUnit = (u, [r, c]) => (kindOf(u) === "r" ? r === idOf(u) : kindOf(u) === "c" ? c === idOf(u) : reg[r][c] === idOf(u));
+    const free = k => units.filter(u => kindOf(u) === k && !done.has(u));
+
+    function zone(r, c) {
+      const z = new Set();
+      for (let a = Math.max(0, r - 1); a < Math.min(n, r + 2); a++)
+        for (let b = Math.max(0, c - 1); b < Math.min(n, c + 2); b++) z.add(a * n + b);
+      for (const u of ["r" + r, "c" + c, "g" + reg[r][c]]) for (const [a, b] of cells[u]) z.add(a * n + b);
+      return z;
+    }
+    function put(r, c) {
+      for (const idx of zone(r, c)) cand[Math.floor(idx / n)][idx % n] = false;
+      done.add("r" + r); done.add("c" + c); done.add("g" + reg[r][c]);
+    }
+    const combinations = (arr, k) => {
+      const out = [];
+      (function rec(start, cur) {
+        if (cur.length === k) { out.push(cur.slice()); return; }
+        for (let i = start; i < arr.length; i++) { cur.push(arr[i]); rec(i + 1, cur); cur.pop(); }
+      })(0, []);
+      return out;
+    };
+
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (marks[r][c] === 2) put(r, c);
+
+    // Próxima dedução (das técnicas mais simples às mais complexas) que elimina ao menos uma casa viva.
+    function nextStep() {
+      for (const u of units) {                                   // 1) única casa possível
+        if (done.has(u)) continue;
+        const lv = live(u);
+        if (!lv.length) return null;                             // inconsistente: não deveria ocorrer
+        if (lv.length === 1) return { kind: "single", tier: 1, unit: u, cells: lv, targets: [] };
+      }
+      for (const u of units) {                                   // 2) região presa a uma linha/coluna (e o inverso)
+        if (done.has(u)) continue;
+        const lv = live(u);
+        if (kindOf(u) === "g") {
+          for (const [axis, key] of [["r", 0], ["c", 1]]) {
+            const vals = new Set(lv.map(p => p[key]));
+            if (vals.size !== 1) continue;
+            const v = [...vals][0];
+            const targets = live(axis + v).filter(p => reg[p[0]][p[1]] !== idOf(u));
+            if (targets.length) return { kind: "regionLine", tier: 2, axis, lines: [v], regs: [idOf(u)], cells: lv, targets };
+          }
+        } else {
+          const gs = new Set(lv.map(([r, c]) => reg[r][c]));
+          if (gs.size !== 1) continue;
+          const g = [...gs][0];
+          const targets = live("g" + g).filter(p => !inUnit(u, p));
+          if (targets.length) return { kind: "lineRegion", tier: 2, axis: kindOf(u), lines: [idOf(u)], regs: [g], cells: lv, targets };
+        }
+      }
+      for (const k of [2, 3]) for (const [axis, key] of [["r", 0], ["c", 1]]) {   // 3) k regiões em k linhas/colunas (e o inverso)
+        for (const combo of combinations(free("g"), k)) {
+          const lines = new Set();
+          combo.forEach(u => live(u).forEach(p => lines.add(p[key])));
+          if (lines.size !== k) continue;
+          const mine = new Set(combo.map(idOf));
+          const targets = [];
+          lines.forEach(ln => live(axis + ln).forEach(p => { if (!mine.has(reg[p[0]][p[1]])) targets.push(p); }));
+          if (targets.length) {
+            return { kind: "regionSet", tier: 3, axis, lines: [...lines].sort((a, b) => a - b), regs: combo.map(idOf),
+              cells: combo.flatMap(u => live(u)), targets };
+          }
+        }
+        for (const combo of combinations(free(axis), k)) {
+          const gs = new Set();
+          combo.forEach(u => live(u).forEach(([r, c]) => gs.add(reg[r][c])));
+          if (gs.size !== k) continue;
+          const mine = new Set(combo);
+          const targets = [];
+          gs.forEach(g => live("g" + g).forEach(p => { if (!mine.has(axis + p[key])) targets.push(p); }));
+          if (targets.length) {
+            return { kind: "lineSet", tier: 3, axis, lines: combo.map(idOf), regs: [...gs].sort((a, b) => a - b),
+              cells: combo.flatMap(u => live(u)), targets };
+          }
+        }
+      }
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {   // 4) contradição: com um gato aqui, algo ficaria sem casa
+        if (!cand[r][c]) continue;
+        const z = zone(r, c);
+        const own = new Set(["r" + r, "c" + c, "g" + reg[r][c]]);
+        for (const u of units) {
+          if (done.has(u) || own.has(u)) continue;
+          const lv = live(u);
+          if (lv.length && lv.every(([a, b]) => z.has(a * n + b))) {
+            return { kind: "contradiction", tier: 4, unit: u, cells: [[r, c]], targets: [[r, c]] };
+          }
+        }
+      }
+      return null;
+    }
+
+    for (let guard = 0; guard < n * n * 4; guard++) {
+      const step = nextStep();
+      if (!step) return null;                                    // exigiria chute
+      if (step.kind === "single") return step;
+      const fresh = step.targets.filter(([r, c]) => marks[r][c] === 0);
+      for (const [r, c] of step.targets) cand[r][c] = false;
+      if (fresh.length) return { ...step, targets: fresh };      // dedução já aplicada pelo jogador: segue adiante
+    }
+    return null;
+  }
+
+  /* Um gato da solução que o jogador ainda não pôs: [r, c] ou null */
+  function pickRevealCat(n, solution, marks, rand = Math.random) {
+    const left = [];
+    for (let r = 0; r < n; r++) if (marks[r][solution[r]] !== 2) left.push([r, solution[r]]);
+    return left.length ? left[randInt(rand, left.length)] : null;
+  }
+
+  /* Até k casas vazias SEM gato na solução. Prioriza as que os gatos postos ainda não eliminam. */
+  function pickSafeCrosses(n, reg, solution, marks, k = 3, rand = Math.random) {
+    const blocked = new Set();
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (marks[r][c] !== 2) continue;
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        if (i === r || j === c || reg[i][j] === reg[r][c] || (Math.abs(i - r) <= 1 && Math.abs(j - c) <= 1)) blocked.add(i * n + j);
+      }
+    }
+    const useful = [], rest = [];
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (marks[r][c] !== 0 || solution[r] === c) continue;
+      (blocked.has(r * n + c) ? rest : useful).push([r, c]);
+    }
+    return shuffle(useful, rand).concat(shuffle(rest, rand)).slice(0, k);
+  }
+
   /* ---------- Níveis infinitos (10x10) ----------
    * O nível `id` sempre sai da mesma seed: reprodutível em qualquer dispositivo.
    * Se o mapa exigir chute (≈5%), passa-se à próxima tentativa (também determinística). */
@@ -366,7 +518,7 @@ function createEngine() {
 
   return { matrix, DIRS, mulberry32, hashSeed, rngFor, randInt, shuffle, placeCats, growRegions,
     countSolutions, regionStaysConnected, repairToUnique, generateUnique, gradeLevel,
-    INF_SIZE, encodeRegions, difficultyLabel, generateInfinite };
+    findHint, pickRevealCat, pickSafeCrosses, INF_SIZE, encodeRegions, difficultyLabel, generateInfinite };
 }
 
 /* Cria um Web Worker com o motor embutido; `handlerSrc` define `onmessage` usando `E`.

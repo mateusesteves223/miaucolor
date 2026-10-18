@@ -1,7 +1,8 @@
 "use strict";
 
 /* Progresso do jogador em localStorage (versionado para não quebrar saves futuros).
- * { v, stars: {id: 1..3}, best: {id: segundos}, unlocked: id, totalScore, inProgress: {id, marks, lives, elapsed, score} } */
+ * { v, stars: {id: 1..3}, best: {id: segundos}, unlocked: id, totalScore, inProgress: {id, marks, lives, elapsed, score},
+ *   items: {hint, revealCat, safeCross} } */
 const Progress = (() => {
   // Chave fixa (independente da versão do formato): a versão fica em data.v.
   const KEY = "miaucolor:v1";
@@ -13,10 +14,16 @@ const Progress = (() => {
   const migrations = {
     1: d => ({ ...d, v: 2 }),                // v1 -> v2: formato idêntico; apenas marca a versão
     2: d => ({ ...d, totalScore: Number.isFinite(d.totalScore) && d.totalScore >= 0 ? d.totalScore : 0, v: 3 }),   // v2 -> v3: placar geral
+    3: d => ({ ...d, items: { ...defaultItems(), ...(isObj(d.items) ? d.items : {}) }, v: 4 }),                   // v3 -> v4: inventário de power-ups
   };
   const CURRENT_VERSION = Math.max(...Object.keys(migrations).map(Number)) + 1;
 
-  const defaults = () => ({ v: CURRENT_VERSION, stars: {}, best: {}, unlocked: 1, totalScore: 0, inProgress: null });
+  const ITEM_KEYS = ["hint", "revealCat", "safeCross"];
+  const ITEM_START = 3;                      // estoque inicial (e de saves antigos) de cada item
+  const ITEM_MAX = 99;
+  function defaultItems() { return { hint: ITEM_START, revealCat: ITEM_START, safeCross: ITEM_START }; }
+
+  const defaults = () => ({ v: CURRENT_VERSION, stars: {}, best: {}, unlocked: 1, totalScore: 0, inProgress: null, items: defaultItems() });
 
   function migrate(raw) {
     let d = { ...raw };
@@ -43,6 +50,11 @@ const Progress = (() => {
     }
     if (Number.isInteger(d.unlocked) && d.unlocked >= 1) out.unlocked = d.unlocked;
     if (num(d.totalScore, 0)) out.totalScore = Math.floor(d.totalScore);
+    if (isObj(d.items)) {
+      for (const k of ITEM_KEYS) {
+        if (Number.isInteger(d.items[k]) && d.items[k] >= 0) out.items[k] = Math.min(d.items[k], ITEM_MAX);
+      }
+    }
     const p = d.inProgress;
     out.inProgress = isObj(p) && Number.isInteger(p.id) && p.id >= 1 ? p : null;
     return out;
@@ -100,6 +112,21 @@ const Progress = (() => {
       if (id >= data.unlocked && id < totalLevels) data.unlocked = id + 1;
       data.inProgress = null;
       save();
+    },
+
+    /* Inventário de power-ups: hint | revealCat | safeCross */
+    item: key => data.items[key] || 0,
+    useItem(key) {                           // consome 1 unidade; false se não há estoque
+      if (!ITEM_KEYS.includes(key) || data.items[key] <= 0) return false;
+      data.items[key]--;
+      save();
+      return true;
+    },
+    addItem(key, n = 3) {                    // credita unidades (ex.: recompensa de anúncio); devolve o novo estoque
+      if (!ITEM_KEYS.includes(key) || !Number.isInteger(n) || n <= 0) return this.item(key);
+      data.items[key] = Math.min(ITEM_MAX, data.items[key] + n);
+      save();
+      return data.items[key];
     },
 
     saveProgress(p) { data.inProgress = p; save(); },

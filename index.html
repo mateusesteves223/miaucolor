@@ -50,8 +50,15 @@
           <span class="level-info-label">PONTOS</span>
           <span id="score-value" class="level-info-value">0</span>
         </div>
-        <div class="powerup-space" aria-hidden="true"></div>
       </div>
+        <div class="powerups" id="powerups">
+          <div class="powerup-bar" role="group" aria-label="Power-ups">
+            <button type="button" class="pu-btn" data-item="hint" aria-label="Dica inteligente"><span class="pu-icon" aria-hidden="true">💡</span><span class="pu-label">Dica</span><span class="pu-badge" aria-hidden="true">3</span></button>
+            <button type="button" class="pu-btn" data-item="revealCat" aria-label="Revelar gato"><span class="pu-icon" aria-hidden="true">🐱</span><span class="pu-label">Revelar Gato</span><span class="pu-badge" aria-hidden="true">3</span></button>
+            <button type="button" class="pu-btn" data-item="safeCross" aria-label="3 X seguros"><span class="pu-icon" aria-hidden="true">✕</span><span class="pu-label">3x Seguros</span><span class="pu-badge" aria-hidden="true">3</span></button>
+          </div>
+          <div id="hint-msg" class="hint-msg" role="status" aria-live="polite" hidden></div>
+        </div>
       <aside class="sidebar">
       <div class="controls">
         <label>Tamanho:
@@ -349,12 +356,15 @@
     </section>
   </main>
 
+  <div id="ad-banner" class="ad-banner" role="complementary" aria-label="Publicidade"></div>
+
   <script src="engine.js"></script>
   <script src="infinite.js"></script>
   <script src="levels.js"></script>
   <script src="levels/manifest.js"></script>
   <script src="progress.js"></script>
   <script src="audio.js"></script>
+  <script src="ads.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

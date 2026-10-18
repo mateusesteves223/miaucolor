@@ -13,6 +13,8 @@ $excludedDirectories = @('.git', 'node_modules', 'dist', 'build', 'coverage')
 $utf8 = New-Object System.Text.UTF8Encoding($true)
 $builder = New-Object System.Text.StringBuilder
 
+[void]$builder.AppendLine('> Observacao: O projeto real nao esta estruturado em um unico arquivo; este documento reune os arquivos separados apenas para fornecer contexto a uma IA.')
+[void]$builder.AppendLine()
 [void]$builder.AppendLine('# MiauColor code export')
 [void]$builder.AppendLine()
 [void]$builder.AppendLine("Gerado em: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")

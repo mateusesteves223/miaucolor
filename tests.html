@@ -171,6 +171,67 @@
         ["0", "999", "1k", "1.2k", "45.8k", "999.9k", "1.2M"], "formatScore");
     });
 
+    /* ---------- Power-ups ---------- */
+    test("findHint: dicas sempre corretas e resolvem o nível passo a passo (6x6..8x8 com solução lógica)", () => {
+      let solved = 0;
+      for (let i = 0; i < 12; i++) {
+        const n = 6 + (i % 3);
+        const { cols, reg } = E.generateUnique(n, E.rngFor("hint" + i));
+        if (!E.gradeLevel(n, reg, cols)) continue;
+        const marks = E.matrix(n, 0);
+        let guard = 0;
+        for (; guard < 400; guard++) {
+          const h = E.findHint(n, reg, marks);
+          if (!h) break;
+          if (h.kind === "single") {
+            const [r, c] = h.cells[0];
+            assert(cols[r] === c, `gato errado na dica (${r},${c})`);
+            marks[r][c] = 2;
+          } else {
+            assert(h.targets.length > 0 && h.cells.length > 0, "dica sem casas");
+            for (const [r, c] of h.targets) {
+              assert(cols[r] !== c && marks[r][c] === 0, `✕ inválido (${r},${c}) em ${h.kind}`);
+              marks[r][c] = 1;
+            }
+          }
+        }
+        if (marks.flat().filter(m => m === 2).length === n) solved++;
+      }
+      assert(solved >= 1, "nenhum nível foi resolvido só com dicas");
+    });
+    test("findHint: ignora ✕ errados do jogador e devolve null quando tudo está posto", () => {
+      const { cols, reg } = E.generateUnique(6, E.rngFor("hint-x"));
+      const marks = E.matrix(6, 0);
+      cols.forEach((c, r) => (marks[r][c] = 3));         // ✕ errado sobre todos os gatos
+      const h = E.findHint(6, reg, marks);
+      assert(h && h.cells.every(([r, c]) => cols[r] === c || h.kind !== "single"), "dica inconsistente");
+      cols.forEach((c, r) => (marks[r][c] = 2));
+      assert(E.findHint(6, reg, marks) === null, "sem dica quando resolvido");
+    });
+    test("pickRevealCat / pickSafeCrosses: só casas da solução / só casas sem gato e vazias", () => {
+      const n = 7;
+      const { cols, reg } = E.generateUnique(n, E.rngFor("pick"));
+      const marks = E.matrix(n, 0);
+      marks[0][cols[0]] = 2; marks[1][cols[1] === 0 ? 1 : 0] = 1;
+      const [r, c] = E.pickRevealCat(n, cols, marks, E.rngFor("a"));
+      assert(cols[r] === c && marks[r][c] !== 2, "gato revelado inválido");
+      const picks = E.pickSafeCrosses(n, reg, cols, marks, 3, E.rngFor("b"));
+      eq([picks.length, new Set(picks.map(p => p.join())).size], [3, 3], "3 casas distintas");
+      assert(picks.every(([r, c]) => cols[r] !== c && marks[r][c] === 0), "✕ seguro em casa inválida");
+      cols.forEach((c, r) => (marks[r][c] = 2));
+      assert(E.pickRevealCat(n, cols, marks) === null, "sem gatos a revelar");
+      const left = E.matrix(n, 1); cols.forEach((c, r) => (left[r][c] = 0));
+      eq([E.pickSafeCrosses(n, reg, cols, left, 3).length], [0], "sem casas livres sem gato");
+    });
+    test("Progress: inventário de itens (estoque inicial 3, consumo, recarga e limite)", () => {
+      eq([Progress.item("hint"), Progress.item("revealCat"), Progress.item("safeCross")], [3, 3, 3], "estoque inicial");
+      eq([Progress.useItem("hint"), Progress.useItem("hint"), Progress.useItem("hint"), Progress.useItem("hint")], [true, true, true, false], "consumo até zerar");
+      eq([Progress.item("hint"), Progress.item("revealCat")], [0, 3], "itens independentes");
+      eq([Progress.addItem("hint", 3), Progress.addItem("hint", 0), Progress.addItem("nope", 3)], [3, 3, 0], "recarga +3; valores inválidos ignorados");
+      assert(JSON.parse(localStorage.getItem("miaucolor:v1")).items.hint === 3, "inventário não persistiu");
+      eq([Progress.addItem("hint", 500)], [99], "teto de estoque");
+    });
+
     /* ---------- Runner ---------- */
     (async () => {
       const results = document.getElementById("results");

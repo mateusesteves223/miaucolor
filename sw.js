@@ -5,7 +5,7 @@
  * - Depois: responde do cache e atualiza em segundo plano (stale-while-revalidate),
  *   então uma nova versão publicada aparece na visita seguinte.
  * Ao alterar a lista abaixo (ou para forçar atualização), incremente CACHE. */
-const CACHE = "miaucolor-v3";
+const CACHE = "miaucolor-v4";
 
 // Diretório onde o sw.js está hospedado (ex.: "/repo/miaucolor/"), independente do subdiretório.
 const BASE = self.location.pathname.replace(/[^/]*$/, "");
@@ -21,6 +21,7 @@ const PRECACHE_PATHS = [
   "levels.js",
   "progress.js",
   "audio.js",
+  "ads.js",
   "manifest.webmanifest",
   "levels/manifest.js",
   "levels/pack-01.js",

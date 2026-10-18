@@ -65,7 +65,8 @@ const game = {
   dragStart: null,
   lastTap: { cell: null, t: 0, prev: 0 },
   score: 0,
-  combo: 0
+  combo: 0,
+  adHold: false                 // partida pausada enquanto o modal/anúncio de recarga está aberto
 };
 let cells = [];
 let cellSymbols = [];
@@ -130,7 +131,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     if (isPlaying()) setGameState(GameState.PAUSED);
     persist();
-  } else if (game.state === GameState.PAUSED && gameTabActive()) {
+  } else if (game.state === GameState.PAUSED && gameTabActive() && !game.adHold) {
     setGameState(GameState.PLAYING);
   }
 });
@@ -381,18 +382,23 @@ function autoCrossRegion(r, c) {
   }
 }
 
+/* Põe o gato `(r, c)` (já validado) e confere a vitória. `award`: false nos gatos revelados por power-up. */
+function commitCat(r, c, award) {
+  marks[r][c] = 2;
+  if (game.devMode && autoXEl.checked) autoCross(r, c);
+  if (game.devMode && autoColorEl.checked) autoCrossRegion(r, c);
+  renderCell(r, c);
+  updateStatus();
+  Sound.cat();
+  if (award) awardPoints(r, c);
+  persist();
+  if (marks.flat().filter(m => m === 2).length === N) win();
+}
+
 function tryCat(r, c) {
   if (!isPlaying()) return;
   if (solution[r] === c) {
-    marks[r][c] = 2;
-    if (game.devMode && autoXEl.checked) autoCross(r, c);
-    if (game.devMode && autoColorEl.checked) autoCrossRegion(r, c);
-    renderCell(r, c);
-    updateStatus();
-    Sound.cat();
-    awardPoints(r, c);
-    persist();
-    if (marks.flat().filter(m => m === 2).length === N) win();
+    commitCat(r, c, true);
     return;
   }
   marks[r][c] = 3;                 // erro: ✕ vinho fixo
@@ -419,6 +425,7 @@ function shake(el) {
 function lockBoard(nextState) {
   setGameState(nextState);
   boardEl.classList.add("locked");
+  clearHints();
   renderTimer();
   Progress.clearProgress();
 }
@@ -482,6 +489,8 @@ function resetBoard() {
   marks = matrix(N, 0);
   game.lives = MAX_LIVES;
   game.cheated = game.devMode;
+  game.adHold = false;
+  clearHints();
   modalEl.classList.remove("open");
   buildBoard();
   renderLives();
@@ -658,6 +667,176 @@ window.addEventListener("pointerdown", () => Sound.unlock(), { once: true });   
 document.getElementById("reveal").addEventListener("click", showSolution);
 document.getElementById("size").addEventListener("change", newGame);
 
+/* =====================================================================
+ * 5b) POWER-UPS: Dica, Revelar Gato e 3x ✕ Seguros (estoque em Progress.items).
+ * Com estoque 0 o botão oferece recarga (+3) via anúncio recompensado (ads.js).
+ * Os ✕ e gatos postos aqui nunca dão pontos nem combo.
+ * ===================================================================== */
+const COLOR_NAMES = [
+  "Azul-gelo", "Roxo", "Laranja", "Amarelo", "Verde", "Azul",
+  "Turquesa", "Rosa", "Marrom", "Vermelho", "Azul-céu", "Magenta",
+];                                                   // mesma ordem de PALETTE
+const colorName = id => COLOR_NAMES[id % COLOR_NAMES.length];
+const REWARD_UNITS = 3;
+const HINT_CELLS_MS = 5000;
+const HINT_TEXT_MS = 9000;
+
+const hudMsgEl = document.getElementById("hint-msg");
+const itemUi = {};
+document.querySelectorAll(".pu-btn").forEach(btn => {
+  itemUi[btn.dataset.item] = { btn, badge: btn.querySelector(".pu-badge") };
+  btn.addEventListener("click", () => usePowerUp(btn.dataset.item));
+});
+const ITEM_LABELS = { hint: "💡 Dica", revealCat: "🐱 Revelar Gato", safeCross: "✕ 3x Seguros" };
+
+function renderItems() {
+  for (const [key, { btn, badge }] of Object.entries(itemUi)) {
+    const n = Progress.item(key);
+    const text = n > 0 ? String(n) : `🎬 +${REWARD_UNITS}`;
+    if (badge.textContent !== text) badge.textContent = text;
+    btn.classList.toggle("empty", n === 0);
+    btn.setAttribute("aria-label", n > 0
+      ? `${ITEM_LABELS[key]}: ${n} restantes`
+      : `${ITEM_LABELS[key]}: esgotado. Assistir vídeo para ganhar +${REWARD_UNITS}`);
+  }
+}
+
+/* Caixa de mensagem sobre a barra de power-ups: some sozinha ou ao toque */
+let hudMsgTimer = 0;
+function hideHudMessage() { clearTimeout(hudMsgTimer); hudMsgEl.hidden = true; }
+function showHudMessage(text, ms = HINT_TEXT_MS) {
+  clearTimeout(hudMsgTimer);
+  hudMsgEl.textContent = text;
+  hudMsgEl.hidden = false;
+  hudMsgTimer = setTimeout(hideHudMessage, ms);
+}
+hudMsgEl.addEventListener("click", hideHudMessage);
+
+/* Realce temporário: `glow` = casas que explicam a dica; `target` = casas a marcar */
+let hintEls = [];
+let hintTimer = 0;
+function clearHighlights() {
+  clearTimeout(hintTimer);
+  for (const [el, cls] of hintEls) el.classList.remove(cls);
+  hintEls = [];
+}
+function clearHints() { clearHighlights(); hideHudMessage(); }
+function highlightCells(glow, target, ms = HINT_CELLS_MS) {
+  clearHighlights();
+  const add = (list, cls) => list.forEach(([r, c]) => { cells[r][c].classList.add(cls); hintEls.push([cells[r][c], cls]); });
+  add(glow, "hint-glow");
+  add(target, "hint-target");
+  hintTimer = setTimeout(clearHighlights, ms);
+}
+
+const listText = list => (list.length < 2 ? list.join("") : `${list.slice(0, -1).join(", ")} e ${list[list.length - 1]}`);
+function unitText(u) {
+  const id = +u.slice(1);
+  return u[0] === "g" ? `a cor ${colorName(id)}` : u[0] === "r" ? `a linha ${id + 1}` : `a coluna ${id + 1}`;
+}
+
+function hintMessage(h) {
+  const word = h.axis === "r" ? "linha" : "coluna";
+  const Word = word[0].toUpperCase() + word.slice(1);
+  const regs = (h.regs || []).map(colorName);
+  const lines = (h.lines || []).map(v => v + 1);
+  switch (h.kind) {
+    case "single": {
+      const [r, c] = h.cells[0];
+      const who = unitText(h.unit);
+      return `${who[0].toUpperCase() + who.slice(1)} só tem uma casa válida: linha ${r + 1}, coluna ${c + 1}. Dê dois toques para pôr o gato.`;
+    }
+    case "regionLine":
+      return `A cor ${regs[0]} só possui casas válidas na ${Word} ${lines[0]}. Marque ✕ nas casas das outras cores dessa ${word}.`;
+    case "lineRegion":
+      return `Na ${Word} ${lines[0]}, só a cor ${regs[0]} tem casas válidas. Marque ✕ nas demais casas dessa cor.`;
+    case "regionSet":
+      return `As cores ${listText(regs)} só possuem casas válidas nas ${Word}s ${listText(lines)}. Nenhuma outra cor pode ter gato nelas: marque ✕.`;
+    case "lineSet":
+      return `As ${Word}s ${listText(lines)} só possuem casas válidas nas cores ${listText(regs)}. Essas cores não podem ter gato fora delas: marque ✕.`;
+    default: {
+      const [r, c] = h.cells[0];
+      return `Se houvesse um gato na linha ${r + 1}, coluna ${c + 1}, ${unitText(h.unit)} ficaria sem nenhuma casa válida. Marque ✕ aqui.`;
+    }
+  }
+}
+
+function useHint() {
+  const h = E.findHint(N, regions, marks);
+  if (!h) {                                          // sem dedução simples: não gasta o item
+    showHudMessage("Sem dedução simples no momento. Tente Revelar Gato.", 4000);
+    return;
+  }
+  if (!Progress.useItem("hint")) return;
+  renderItems();
+  Sound.click();
+  highlightCells(h.cells, h.targets);
+  showHudMessage(hintMessage(h));
+}
+
+function useRevealCat() {
+  const pick = E.pickRevealCat(N, solution, marks);
+  if (!pick || !Progress.useItem("revealCat")) return;
+  renderItems();
+  commitCat(pick[0], pick[1], false);
+  if (isPlaying()) highlightCells([pick], [], 1500);
+}
+
+function useSafeCross() {
+  const picks = E.pickSafeCrosses(N, regions, solution, marks, 3);
+  if (!picks.length) {
+    showHudMessage("Não há mais casas livres sem gato para marcar.", 4000);
+    return;
+  }
+  if (!Progress.useItem("safeCross")) return;
+  renderItems();
+  for (const [r, c] of picks) { marks[r][c] = 1; renderCell(r, c); }
+  Sound.click();
+  highlightCells(picks, [], 1500);
+  persist();
+}
+
+const ITEM_ACTIONS = { hint: useHint, revealCat: useRevealCat, safeCross: useSafeCross };
+
+function usePowerUp(key) {
+  if (!isPlaying()) return;
+  if (Progress.item(key) <= 0) offerRecharge(key);
+  else ITEM_ACTIONS[key]();
+}
+
+/* Recarga: pausa a partida, mostra o convite e, após o anúncio, credita +3 do item */
+function offerRecharge(key) {
+  if (game.adHold) return;
+  game.adHold = true;
+  setGameState(GameState.PAUSED);
+  showModal("🎬", "Itens esgotados",
+    `Seus itens deste tipo acabaram! Assista a um vídeo curto para recarregar +${REWARD_UNITS} unidades`,
+    `🎬 Assistir vídeo (+${REWARD_UNITS})`, () => watchForItem(key), ["Agora não", closeRecharge]);
+}
+
+function closeRecharge() {
+  modalEl.classList.remove("open");
+  game.adHold = false;
+  if (game.state === GameState.PAUSED && !document.hidden && gameTabActive()) setGameState(GameState.PLAYING);
+}
+
+async function watchForItem(key) {
+  const watchBtn = document.getElementById("modal-btn");
+  if (watchBtn) watchBtn.disabled = true;            // evita toques repetidos durante o anúncio
+  const res = await Ads.showRewarded();
+  if (res.rewarded) {
+    Progress.addItem(key, REWARD_UNITS);
+    renderItems();
+    Sound.point();
+  }
+  closeRecharge();
+  if (res.rewarded) showHudMessage(`+${REWARD_UNITS} de ${ITEM_LABELS[key]} recarregados!`, 3000);
+  else if (res.reason === "offline") showHudMessage("Sem conexão: não foi possível carregar o vídeo. Tente novamente online.", 4000);
+}
+
+renderItems();
+Ads.init();
+
 
 /* =====================================================================
  * 6) RESOLVE NÍVEL: o usuário pinta um mapa existente e o backtracking
@@ -789,7 +968,7 @@ document.querySelectorAll(".tab").forEach(btn =>
       p.classList.toggle("active", p.id === btn.dataset.target));
     if (btn.dataset.target === "levels") renderLevelMap();
     if (btn.dataset.target === "game") {
-      if (game.state === GameState.PAUSED && !document.hidden) setGameState(GameState.PLAYING);
+      if (game.state === GameState.PAUSED && !document.hidden && !game.adHold) setGameState(GameState.PLAYING);
     } else if (isPlaying()) {
       setGameState(GameState.PAUSED);
       persist();
