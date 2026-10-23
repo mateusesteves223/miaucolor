@@ -1,188 +1,137 @@
 "use strict";
 
-/* Anúncios: banner fixo de rodapé + anúncios recompensados (rewarded).
- * Por padrão usa uma SIMULAÇÃO (sem rede, sem SDK). Para integrar uma rede real, chame
- * Ads.setProvider({ showBanner(el), showRewarded() }) antes de Ads.init():
- *   showBanner(el)   -> renderiza o banner dentro de `el` (pode ser assíncrono);
- *   showRewarded()   -> Promise<boolean> (true = o usuário assistiu até o fim).
- * Nenhuma função daqui lança exceção: falhas (offline, SDK ausente) viram um resultado.
- *
- * Google AdSense: troque as duas constantes abaixo pelos IDs reais da sua conta (e use o mesmo
- * publisher em ads.txt). Enquanto forem os valores de teste (zeros), nada é baixado do Google e a
- * simulação continua ativa. Com IDs reais, o banner passa a ser um bloco AdSense; o AdSense para
- * sites não tem vídeo recompensado, então o rewarded segue na simulação até haver um provedor próprio. */
+/* Anúncios via Poki SDK (único provedor; a versão com AdSense está na tag git `pre-poki`).
+ * Ordem exigida pela Poki: init() -> gameLoadingFinished() -> gameplayStart()/gameplayStop().
+ * As chamadas de gameplay feitas antes disso só registram o estado desejado e são aplicadas depois.
+ * commercialBreak (entre níveis) e rewardedBreak (power-ups) pausam o gameplay e silenciam o som.
+ * Sem SDK (bloqueador, offline, file://) nada quebra: os breaks resolvem na hora. Com ?dev na URL,
+ * o vídeo recompensado é simulado para testar o fluxo localmente.
+ * Nenhuma função daqui lança exceção: falhas viram um resultado. */
 const Ads = (() => {
-  const ADSENSE_CLIENT_ID = "ca-pub-0000000000000000";   // ID do publisher (ads.txt: pub-XXXXXXXXXXXXXXXX)
-  const ADSENSE_BANNER_SLOT = "0000000000";              // ID do bloco de anúncios do banner
-  const ADSENSE_SRC = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js";
-  const SIM_SECONDS = 3;                     // duração do vídeo simulado
-  let bannerEl = null;
-  let provider = null;
-  let busy = false;                          // um único anúncio recompensado por vez
-  let adsenseLoading = null;                 // Promise do <script> do AdSense (evita injetar duas vezes)
+  const SIM_SECONDS = 3;                     // duração do vídeo simulado (?dev)
+  const devSim = new URLSearchParams(location.search).has("dev");
+  const sdk = () => (typeof PokiSDK !== "undefined" ? PokiSDK : null);
 
-  const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
-  // Modo produção só com IDs reais (16 dígitos, não todos zeros); caso contrário, simulação
-  const isProduction = () => /^ca-pub-\d{16}$/.test(ADSENSE_CLIENT_ID) && !/^ca-pub-0+$/.test(ADSENSE_CLIENT_ID)
-    && /^\d{6,}$/.test(ADSENSE_BANNER_SLOT) && !/^0+$/.test(ADSENSE_BANNER_SLOT);
+  let initDone = false;                      // init() resolveu (ou falhou: bloqueador)
+  let adblock = false;
+  let loaded = false;                        // o jogo terminou de carregar (primeiro nível montado)
+  let ready = false;                         // gameLoadingFinished() já foi enviado
+  let wantGameplay = false;                  // estado pedido pelo jogo
+  let gameplayOn = false;                    // estado informado ao SDK
+  let busy = false;                          // um break por vez
 
-  /* Injeta a tag do AdSense sob demanda. Idempotente; em falha (offline/bloqueador) libera nova tentativa. */
-  function loadAdSense() {
-    if (adsenseLoading) return adsenseLoading;
-    adsenseLoading = new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.async = true;
-      s.crossOrigin = "anonymous";
-      s.src = `${ADSENSE_SRC}?client=${encodeURIComponent(ADSENSE_CLIENT_ID)}`;
-      s.addEventListener("load", () => resolve());
-      s.addEventListener("error", () => { s.remove(); adsenseLoading = null; reject(new Error("adsense")); });
-      document.head.appendChild(s);
-    });
-    return adsenseLoading;
+  const isOffline = () => navigator.onLine === false;
+  const call = (fn, ...args) => { try { return sdk()[fn](...args); } catch { return undefined; } };
+
+  function syncGameplay() {
+    if (!ready || wantGameplay === gameplayOn) return;
+    gameplayOn = wantGameplay;
+    call(gameplayOn ? "gameplayStart" : "gameplayStop");
   }
 
-  /* Provedor de simulação: banner de espaço reservado e vídeo com contagem regressiva */
-  const simulation = {
-    showBanner(el) {
-      const label = document.createElement("span");
-      label.className = "ad-banner-label";
-      label.dataset.i18n = "ads.banner";
-      label.textContent = I18n.t("ads.banner");
-      el.replaceChildren(label);
-    },
-    showRewarded() {
-      return new Promise(resolve => {
-        const overlay = document.createElement("div");
-        overlay.className = "ad-overlay";
-        overlay.setAttribute("role", "dialog");
-        overlay.setAttribute("aria-modal", "true");
-        overlay.dataset.i18nAttr = "aria-label:ads.video.aria";
-        overlay.setAttribute("aria-label", I18n.t("ads.video.aria"));
-        const box = document.createElement("div");
-        box.className = "ad-overlay-card";
-        const title = document.createElement("strong");
-        title.dataset.i18n = "ads.video.title";
-        title.textContent = I18n.t("ads.video.title");
-        const count = document.createElement("span");
-        count.className = "ad-overlay-count";
-        const actions = document.createElement("div");
-        actions.className = "modal-actions";
-        const claim = document.createElement("button");
-        claim.type = "button";
-        claim.dataset.i18n = "ads.video.claim";
-        claim.textContent = I18n.t("ads.video.claim");
-        claim.hidden = true;
-        const close = document.createElement("button");
-        close.type = "button";
-        close.className = "secondary";
-        close.dataset.i18n = "ads.video.close";
-        close.textContent = I18n.t("ads.video.close");
-        actions.append(claim, close);
-        box.append(title, count, actions);
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
+  function flushLoading() {
+    if (ready || !initDone || !loaded || !sdk()) return;
+    ready = true;
+    call("gameLoadingFinished");
+    syncGameplay();
+  }
 
-        let left = SIM_SECONDS;
-        let timer = 0;
-        const finish = ok => { clearInterval(timer); overlay.remove(); resolve(ok); };
-        const render = () => { count.textContent = left > 0 ? I18n.t("ads.video.wait", { n: left }) : I18n.t("ads.video.ready"); };
+  /* Simulação do vídeo recompensado (só com ?dev) */
+  function simulateRewarded() {
+    return new Promise(resolve => {
+      const overlay = document.createElement("div");
+      overlay.className = "ad-overlay";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.dataset.i18nAttr = "aria-label:ads.video.aria";
+      overlay.setAttribute("aria-label", I18n.t("ads.video.aria"));
+      const box = document.createElement("div");
+      box.className = "ad-overlay-card";
+      const title = document.createElement("strong");
+      title.dataset.i18n = "ads.video.title";
+      title.textContent = I18n.t("ads.video.title");
+      const count = document.createElement("span");
+      count.className = "ad-overlay-count";
+      const actions = document.createElement("div");
+      actions.className = "modal-actions";
+      const claim = document.createElement("button");
+      claim.type = "button";
+      claim.dataset.i18n = "ads.video.claim";
+      claim.textContent = I18n.t("ads.video.claim");
+      claim.hidden = true;
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "secondary";
+      close.dataset.i18n = "ads.video.close";
+      close.textContent = I18n.t("ads.video.close");
+      actions.append(claim, close);
+      box.append(title, count, actions);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      let left = SIM_SECONDS;
+      let timer = 0;
+      const finish = ok => { clearInterval(timer); overlay.remove(); resolve(ok); };
+      const render = () => { count.textContent = left > 0 ? I18n.t("ads.video.wait", { n: left }) : I18n.t("ads.video.ready"); };
+      render();
+      timer = setInterval(() => {
+        left--;
         render();
-        timer = setInterval(() => {
-          left--;
-          render();
-          if (left <= 0) { clearInterval(timer); claim.hidden = false; claim.focus(); }
-        }, 1000);
-        claim.addEventListener("click", () => finish(true));
-        close.addEventListener("click", () => finish(false));
-      });
-    },
-  };
-
-  /* Provedor AdSense: banner real; rewarded continua na simulação (AdSense não oferece vídeo recompensado) */
-  const adsenseProvider = {
-    async showBanner(el) {
-      await loadAdSense();
-      const ins = document.createElement("ins");
-      ins.className = "adsbygoogle";
-      ins.dataset.adClient = ADSENSE_CLIENT_ID;
-      ins.dataset.adSlot = ADSENSE_BANNER_SLOT;
-      ins.dataset.adFormat = "horizontal";
-      ins.dataset.fullWidthResponsive = "false";
-      el.replaceChildren(ins);
-      (window.adsbygoogle = window.adsbygoogle || []).push({});
-    },
-    showRewarded: () => simulation.showRewarded(),
-  };
-
-  /* Provedor Poki: comerciais são feitos por breaks (sem banner); rewarded via rewardedBreak */
-  const pokiProvider = {
-    showBanner(el) { el.replaceChildren(); },
-    async showRewarded() {
-      try { return !!(await PokiSDK.rewardedBreak()); } catch { return false; }
-    },
-  };
-  let pokiStarted = false;
-  let gameplayOn = false;                    // evita chamadas duplicadas de gameplayStart/Stop
-
-  function usePoki() {
-    if (pokiStarted || typeof PokiSDK === "undefined") return;
-    pokiStarted = true;
-    try {
-      PokiSDK.init().then(() => {
-        PokiSDK.gameLoadingFinished();
-        provider = pokiProvider;
-        loadBanner();
-      }).catch(() => { pokiStarted = false; /* bloqueado/offline: mantém a simulação */ });
-    } catch { pokiStarted = false; }
+        if (left <= 0) { clearInterval(timer); claim.hidden = false; claim.focus(); }
+      }, 1000);
+      claim.addEventListener("click", () => finish(true));
+      close.addEventListener("click", () => finish(false));
+    });
   }
 
-  function loadBanner() {
-    if (!bannerEl) return;
+  /* Executa um break: gameplay parado e som mudo só enquanto o anúncio roda (callback de início do SDK) */
+  async function runBreak(fn) {
+    busy = true;
+    wantGameplay = false;
+    syncGameplay();
     try {
-      const out = (provider || simulation).showBanner(bannerEl);
-      if (out && typeof out.catch === "function") out.catch(() => simulation.showBanner(bannerEl));
-    } catch { /* banner é opcional: o espaço reservado continua no lugar */ }
+      return await fn(() => Sound.mute(true));
+    } finally {
+      Sound.mute(false);
+      busy = false;
+    }
   }
 
   return {
-    /* Monta o banner no #ad-banner (altura fixa no CSS: sem salto de layout) e o recarrega ao voltar online */
     init() {
-      usePoki();
-      bannerEl = document.getElementById("ad-banner");
-      if (!bannerEl) return;
-      if (!provider && isProduction()) provider = adsenseProvider;
-      if (!isOffline()) loadBanner();
-      window.addEventListener("online", loadBanner);
+      const s = sdk();
+      if (!s) return;
+      const done = () => { initDone = true; flushLoading(); };
+      try {
+        s.init().then(done, () => { adblock = true; done(); });
+      } catch { adblock = true; done(); }
     },
 
-    setProvider(p) { provider = p && typeof p.showRewarded === "function" ? p : null; },
+    /* Chamado uma vez, quando o primeiro nível está montado e jogável */
+    loadingFinished() { loaded = true; flushLoading(); },
 
-    usePoki,
+    gameplayStart() { wantGameplay = true; syncGameplay(); },
+    gameplayStop() { wantGameplay = false; syncGameplay(); },
 
-    gameplayStart() {
-      if (gameplayOn || typeof PokiSDK === "undefined") return;
-      gameplayOn = true;
-      try { PokiSDK.gameplayStart(); } catch { /* SDK opcional */ }
+    /* Intersticial entre partidas. Resolve sempre (sem SDK: na hora). */
+    async commercialBreak() {
+      if (busy || !ready || adblock || isOffline()) return;
+      try {
+        await runBreak(onStart => sdk().commercialBreak(onStart));
+      } catch { /* sem anúncio: segue o jogo */ }
     },
 
-    gameplayStop() {
-      if (!gameplayOn || typeof PokiSDK === "undefined") return;
-      gameplayOn = false;
-      try { PokiSDK.gameplayStop(); } catch { /* SDK opcional */ }
-    },
-
-    /* Resolve sempre: { rewarded: boolean, reason?: "offline" | "busy" | "dismissed" | "error" } */
+    /* Resolve sempre: { rewarded: boolean, reason?: "offline" | "busy" | "dismissed" | "unavailable" } */
     async showRewarded() {
       if (busy) return { rewarded: false, reason: "busy" };
       if (isOffline()) return { rewarded: false, reason: "offline" };
-      busy = true;
+      const useSdk = ready && !adblock;
+      if (!useSdk && !devSim) return { rewarded: false, reason: "unavailable" };
       try {
-        const ok = await (provider || simulation).showRewarded();
+        const ok = await runBreak(onStart => (useSdk ? sdk().rewardedBreak(onStart) : simulateRewarded()));
         return ok ? { rewarded: true } : { rewarded: false, reason: "dismissed" };
       } catch {
-        return { rewarded: false, reason: "error" };
-      } finally {
-        busy = false;
+        return { rewarded: false, reason: "unavailable" };
       }
     },
   };

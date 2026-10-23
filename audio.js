@@ -10,6 +10,8 @@ const Sound = (() => {
   let ctx = null;
   let lastClickAt = 0;
   let clickStreak = 0;
+  let adMuted = false;                              // anúncio rodando (ads.js)
+  const held = () => adMuted || document.hidden;    // contexto deve ficar suspenso
 
   function load() {
     try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY)) }; } catch { return { ...defaults }; }
@@ -24,6 +26,7 @@ const Sound = (() => {
       if (!AC) return null;
       ctx = new AC();
     }
+    if (held()) return ctx;
     if (ctx.state === "suspended" || ctx.state === "interrupted") {   // "interrupted": iOS Safari
       try { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { /* ignora */ }
     }
@@ -40,8 +43,17 @@ const Sound = (() => {
   }
   UNLOCK_EVENTS.forEach(e => window.addEventListener(e, onGesture, true));
 
+  // Suspende durante anúncios e com a aba oculta (economiza bateria); retoma quando os dois liberam.
+  // Se o resume() falhar fora de um gesto (iOS), o próximo som tocado num toque o refaz via ensure().
+  function applyHold() {
+    if (!ctx) return;
+    if (!held()) { ensureAudioContext(); return; }
+    try { const p = ctx.suspend(); if (p && p.catch) p.catch(() => {}); } catch { /* ignora */ }
+  }
+  document.addEventListener("visibilitychange", applyHold);
+
   function tone({ freq, to = freq, dur = 0.12, type = "sine", gain = 0.1, delay = 0 }) {
-    if (!settings.sound) return;
+    if (!settings.sound || held()) return;
     const c = ensure();
     if (!c) return;
     const t0 = c.currentTime + delay;
@@ -69,6 +81,7 @@ const Sound = (() => {
 
   return {
     unlock: ensure,
+    mute(on) { adMuted = !!on; applyHold(); },     // não altera a preferência do usuário
     get sound() { return settings.sound; },
     get haptics() { return settings.haptics; },
     setSound(on) { settings.sound = on; save(); },

@@ -901,6 +901,7 @@ async function watchForItem(key) {
   closeRecharge();
   if (res.rewarded) showHudMessage(() => t("item.recharged", { n: REWARD_UNITS, label: itemLabel(key) }), 3000);
   else if (res.reason === "offline") showHudMessage(() => t("ads.offline"), 4000);
+  else if (res.reason === "unavailable") showHudMessage(() => t("ads.unavailable"), 4000);
 }
 
 renderItems();
