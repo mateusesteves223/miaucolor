@@ -61,8 +61,23 @@ const Progress = (() => {
         if (Number.isInteger(d.items[k]) && d.items[k] >= 0) out.items[k] = Math.min(d.items[k], ITEM_MAX);
       }
     }
-    const p = d.inProgress;
-    out.inProgress = isObj(p) && Number.isInteger(p.id) && p.id >= 1 ? p : null;
+    out.inProgress = sanitizeProgress(d.inProgress);
+    return out;
+  }
+
+  /* Partida salva: marks N×N com 0..3, vidas 1..LIVES_MAX; qualquer desvio descarta a partida (o nível continua liberado).
+   * O script ainda confere os gatos contra a solução ao retomar. */
+  const LIVES_MAX = 3;                       // espelha MAX_LIVES (script.js)
+  function sanitizeProgress(p) {
+    if (!isObj(p) || !Number.isInteger(p.id) || p.id < 1) return null;
+    const m = p.marks;
+    const n = Array.isArray(m) ? m.length : 0;
+    const cellOk = v => Number.isInteger(v) && v >= 0 && v <= 3;
+    if (n < 4 || n > 16 || !m.every(row => Array.isArray(row) && row.length === n && row.every(cellOk))) return null;
+    if (!Number.isInteger(p.lives) || p.lives < 1 || p.lives > LIVES_MAX) return null;
+    const out = { id: p.id, marks: m.map(row => row.slice()), lives: p.lives,
+      elapsed: typeof p.elapsed === "number" && isFinite(p.elapsed) && p.elapsed >= 0 ? p.elapsed : 0 };
+    if (typeof p.score === "number" && isFinite(p.score) && p.score >= 0) out.score = Math.floor(p.score);
     return out;
   }
 

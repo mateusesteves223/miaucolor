@@ -9,12 +9,26 @@ const InfiniteLevels = (() => {
   const KEEP = 300;               // quantos níveis gerados manter salvos
   const AHEAD = 3;                // quantos níveis à frente gerar em segundo plano
 
+  /* O cache vem do localStorage (não confiável): só entram entradas bem formadas. Uma entrada
+   * descartada não perde nada, o nível é regenerado igual a partir da seed. */
+  const DIFFS = ["Fácil", "Médio", "Difícil", "Expert"];   // rótulos de difficultyLabel (engine.js)
+  const validEntry = e => Array.isArray(e) && e.length === 5 &&
+    typeof e[0] === "string" && /^[A-J]{100}$/.test(e[0]) &&
+    typeof e[1] === "string" && /^\d{10}$/.test(e[1]) && new Set(e[1]).size === 10 &&
+    Number.isInteger(e[2]) && typeof e[3] === "number" && isFinite(e[3]) && DIFFS.includes(e[4]);
+
   let cache = loadCache();        // { id: [regions, solution (string), tier, score, diff] }
   let job = null;                 // { id, worker, promise, urgent }
   let aheadFrom = null;
 
   function loadCache() {
-    try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch { return {}; }
+    let raw;
+    try { raw = JSON.parse(localStorage.getItem(CACHE_KEY)); } catch { return {}; }
+    const out = {};
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      for (const [id, e] of Object.entries(raw)) if (/^[1-9]\d*$/.test(id) && validEntry(e)) out[id] = e;
+    }
+    return out;
   }
   function saveCache() {
     const ids = Object.keys(cache).map(Number).sort((a, b) => a - b);

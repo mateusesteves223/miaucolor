@@ -113,7 +113,8 @@ function setGameState(next) {
     return;
   }
   if (!allowedTransitions[game.state].includes(next)) {
-    throw new Error(`Transição de estado inválida: ${game.state} → ${next}`);
+    console.warn(`Transição de estado inválida ignorada: ${game.state} → ${next}`);   // não derruba o handler
+    return;
   }
   game.state = next;
   if (next === GameState.PLAYING) { timerStart(); Ads.gameplayStart(); }
@@ -453,20 +454,37 @@ function lockBoard(nextState) {
 }
 
 /* `build()` devolve { emoji, title, text, label, action, extra? } (extra = [rótulo, ação] de um botão secundário).
- * É uma função para que o modal aberto possa ser remontado ao trocar de idioma. */
+ * `text` é uma string ou uma lista de linhas; cada linha é uma string ou { cls, text } (vira <span class>).
+ * Tudo entra como textContent (nunca HTML). É uma função para que o modal aberto possa ser remontado ao trocar de idioma. */
 let modalBuild = null;
 let modalAfter = null;
+function node(tag, cls, text) {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
 function renderModal() {
   const { emoji, title, text, label, action, extra } = modalBuild();
-  modalEl.innerHTML =
-    `<div class="modal-card"><div class="modal-emoji">${emoji}</div>
-     <h2>${title}</h2><p>${text}</p>
-     <div class="modal-actions">
-       <button id="modal-btn">${label}</button>
-       ${extra ? `<button id="modal-btn2" class="secondary">${extra[0]}</button>` : ""}
-     </div></div>`;
-  document.getElementById("modal-btn").addEventListener("click", action);
-  if (extra) document.getElementById("modal-btn2").addEventListener("click", extra[1]);
+  const p = node("p");
+  (Array.isArray(text) ? text : [text]).forEach((line, i) => {
+    if (i) p.appendChild(node("br"));
+    p.append(typeof line === "string" ? line : node("span", line.cls, line.text));
+  });
+  const actions = node("div", "modal-actions");
+  const btn = node("button", "", label);
+  btn.id = "modal-btn";
+  btn.addEventListener("click", action);
+  actions.appendChild(btn);
+  if (extra) {
+    const btn2 = node("button", "secondary", extra[0]);
+    btn2.id = "modal-btn2";
+    btn2.addEventListener("click", extra[1]);
+    actions.appendChild(btn2);
+  }
+  const card = node("div", "modal-card");
+  card.append(node("div", "modal-emoji", emoji), node("h2", "", title), p, actions);
+  modalEl.replaceChildren(card);
   if (modalAfter) modalAfter();
 }
 function showModal(build, after = null) {
@@ -514,7 +532,11 @@ function win() {
     showModal(() => ({
       emoji: "🏆",
       title: t("modal.win.title"),
-      text: `<span class="modal-stars">${starText(stars)}</span><br>${t("modal.win.points", { n: Progress.formatScore(score) })}<br>${t("modal.win.time", { t: formatTime(secs) })}${isRecord ? " " + t("modal.win.record") : ""}`,
+      text: [
+        { cls: "modal-stars", text: starText(stars) },
+        t("modal.win.points", { n: Progress.formatScore(score) }),
+        t("modal.win.time", { t: formatTime(secs) }) + (isRecord ? " " + t("modal.win.record") : ""),
+      ],
       label: t("modal.win.next"),
       action: () => afterBreak(() => playLevel(id + 1).then(ok => { if (!ok && !game.generating) showLevels(); })),
       extra: [t("modal.levels"), showLevels],
@@ -650,8 +672,11 @@ async function playLevel(id, resume = true) {
   resetBoard();
   prefetchInfinite(id);
 
+  // Save só vale se bater com este nível: gato (2) só onde a solução tem gato, ✕ errado (3) só onde não tem
+  const fits = s => s.marks.length === N &&
+    s.marks.every((row, r) => row.every((m, c) => (m === 2 ? solution[r] === c : m === 3 ? solution[r] !== c : true)));
   const saved = resume && !game.cheated && Progress.getProgress(id);
-  if (saved && saved.marks.length === N) {
+  if (saved && fits(saved)) {
     marks = saved.marks;
     game.lives = saved.lives;
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
@@ -1090,9 +1115,8 @@ function levelButton(id, diff) {
     (id === Progress.unlocked && !stars ? " current" : "");
   b.disabled = locked;
   b.setAttribute("aria-label", t("level.aria", { id }) + (diff ? `, ${I18n.diffLabel(diff)}` : "") + ", " + (locked ? t("level.locked") : t("level.stars", { n: stars })));
-  b.innerHTML = `<span class="lv-num">${locked ? "🔒" : id}</span>` +
-    `<span class="lv-stars">${locked ? "" : starText(stars)}</span>` +
-    (diff && !locked ? `<span class="lv-diff">${I18n.diffLabel(diff)}</span>` : "");
+  b.append(node("span", "lv-num", locked ? "🔒" : String(id)), node("span", "lv-stars", locked ? "" : starText(stars)));
+  if (diff && !locked) b.appendChild(node("span", "lv-diff", I18n.diffLabel(diff)));
   b.addEventListener("click", () => startCampaign(id));
   return b;
 }

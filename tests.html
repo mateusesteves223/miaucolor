@@ -32,6 +32,21 @@
         clear: () => store.clear(),
       };
       Object.defineProperty(window, "localStorage", { value: mem, configurable: true });
+
+      // Dados adulterados/corrompidos, lidos pelos módulos na carga (ver "Dados não confiáveis")
+      const ok = ["ABCDEFGHIJ".repeat(10), "0246813579", 1, 5, "Fácil"];
+      mem.setItem("miaucolor:gen:v1", JSON.stringify({
+        101: ok,
+        102: [ok[0], ok[1], 1, 5, '<img src=x onerror="window.__xss=1">'],   // rótulo com HTML
+        103: ["Z".repeat(100), ok[1], 1, 5, "Fácil"],                         // região fora de A–J
+        104: [ok[0], "0000000000", 1, 5, "Fácil"],                            // solução repetida
+        105: "lixo",
+        abc: ok,                                                              // id não numérico
+      }));
+      mem.setItem("miaucolor:v1", JSON.stringify({
+        v: 6, unlocked: 1,
+        inProgress: { id: 5, marks: Array.from({ length: 5 }, () => [0, 0, 0, 0, 0]), lives: 99, elapsed: 1 },
+      }));
     })();
   </script>
   <script src="engine.js"></script>
@@ -139,6 +154,15 @@
     });
     test("generateInfinite: ids diferentes geram níveis diferentes", () => {
       assert(E.generateInfinite(102).regions !== E.generateInfinite(103).regions, "níveis iguais");
+    });
+
+    /* ---------- Dados não confiáveis (localStorage semeado no topo do arquivo) ---------- */
+    test("InfiniteLevels: cache só aceita entradas bem formadas (sem HTML no rótulo)", () => {
+      eq([101, 102, 103, 104, 105].map(InfiniteLevels.has), [true, false, false, false, false], "entradas aceitas");
+      eq([InfiniteLevels.info(101).diff, InfiniteLevels.has("abc")], ["Fácil", false], "rótulo e id");
+    });
+    test("Progress: partida salva com vidas fora de 1..3 é descartada na carga", () => {
+      eq([Progress.getProgress(5), Progress.current()], [null, 1]);
     });
 
     /* ---------- Progresso ---------- */

@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1e1b2e">
+  <!-- CSP: sem script inline (bloqueia XSS por onerror=/<script> injetado); domínios HTTPS ficam livres porque
+       o SDK de anúncios da Poki carrega recursos de várias origens. Workers do motor vêm de Blob. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' https: blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src https: http:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <title>MeowColor</title>
   <link rel="stylesheet" href="style.css">
