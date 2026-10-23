@@ -81,7 +81,7 @@ const Progress = (() => {
     return out;
   }
 
-  // Fallback em memória: usado quando localStorage lança (modo anônimo, bloqueio, cota).
+  // Fallback em memória (JSON da última gravação): usado quando localStorage lança (modo anônimo, bloqueio, cota).
   let memoryStore = null;
 
   function readRaw() {
@@ -89,7 +89,7 @@ const Progress = (() => {
       const s = localStorage.getItem(KEY);
       if (s !== null) return JSON.parse(s);
     } catch { /* storage indisponível ou JSON corrompido */ }
-    return memoryStore;
+    try { return memoryStore !== null ? JSON.parse(memoryStore) : null; } catch { return null; }
   }
 
   function load() {
@@ -102,9 +102,9 @@ const Progress = (() => {
   }
 
   let data = load();                         // estado em memória é sempre a fonte da sessão
-  const save = () => {
-    try { memoryStore = JSON.parse(JSON.stringify(data)); } catch { /* ignora */ }
-    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* segue só em memória */ }
+  const save = () => {                       // serializa uma vez só (roda a cada jogada salva)
+    try { memoryStore = JSON.stringify(data); } catch { return; }
+    try { localStorage.setItem(KEY, memoryStore); } catch { /* segue só em memória */ }
   };
 
   return {

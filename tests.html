@@ -107,6 +107,11 @@
         assert(validPlacement(n, reg, cols), `${n}x${n}: solução viola as regras`);
       }
     });
+    test("searchSolutions: conta como countSolutions e devolve a solução (única) do nível", () => {
+      const { cols, reg } = E.generateUnique(7, E.rngFor("busca"));
+      eq(E.searchSolutions(7, reg, 3), { count: 1, first: cols });
+      eq([E.searchSolutions(7, E.matrix(7, 0), 3).count], [0], "uma região só: sem solução");
+    });
     test("generateUnique é determinístico por seed", () => {
       eq(E.generateUnique(7, E.rngFor("det")), E.generateUnique(7, E.rngFor("det")));
     });

@@ -71,14 +71,24 @@ const InfiniteLevels = (() => {
         resolve(level);
         pump();
       };
-      try {
-        mine.worker = spawnEngineWorker("onmessage = e => postMessage(E.generateInfinite(e.data));");
-        mine.worker.onmessage = e => finish(e.data);
-        mine.worker.onerror = () => { mine.worker.terminate(); mine.worker = null; finish(createEngine().generateInfinite(id)); };
-        mine.worker.postMessage(id);
-      } catch {
-        finish(createEngine().generateInfinite(id));   // sem Worker: gera na thread principal
-      }
+      // Se o Worker falhar, tenta mais um; só então gera na thread principal (trava a UI por alguns segundos)
+      const mainThread = () => finish(createEngine().generateInfinite(id));
+      const start = retries => {
+        try {
+          mine.worker = spawnEngineWorker("onmessage = e => postMessage(E.generateInfinite(e.data));");
+          mine.worker.onmessage = e => finish(e.data);
+          mine.worker.onerror = () => {
+            mine.worker.terminate();
+            mine.worker = null;
+            if (job !== mine) return;                    // cancelado nesse meio-tempo
+            if (retries > 0) start(retries - 1); else mainThread();
+          };
+          mine.worker.postMessage(id);
+        } catch {
+          mainThread();                                  // sem suporte a Worker
+        }
+      };
+      start(1);
     });
     return mine.promise;
   }

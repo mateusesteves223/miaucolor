@@ -94,14 +94,17 @@ function createEngine() {
     return reg;
   }
 
-  /* ---------- 3) Unicidade ---------- */
-  function countSolutions(n, reg, limit = 2) {
+  /* ---------- 3) Unicidade ----------
+   * searchSolutions conta até `limit` soluções e guarda a primeira ({ count, first: cols[] | null }).
+   * Ids de região precisam caber na máscara de bits (< 31). */
+  const countSolutions = (n, reg, limit = 2) => searchSolutions(n, reg, limit).count;
+  function searchSolutions(n, reg, limit = 2) {
     const cols = Array(n).fill(-1);
     let usedCols = 0, usedRegs = 0;
-    let count = 0;
+    let count = 0, first = null;
     (function go(row) {
       if (count >= limit) return;
-      if (row === n) { count++; return; }
+      if (row === n) { if (!count) first = cols.slice(); count++; return; }
       for (let c = 0; c < n; c++) {
         const g = reg[row][c];
         const colBit = 1 << c, regBit = 1 << g;
@@ -116,7 +119,7 @@ function createEngine() {
         cols[row] = -1;
       }
     })(0);
-    return count;
+    return { count, first };
   }
 
   function regionStaysConnected(reg, n, id, skipR, skipC) {
@@ -517,7 +520,7 @@ function createEngine() {
   }
 
   return { matrix, DIRS, mulberry32, hashSeed, rngFor, randInt, shuffle, placeCats, growRegions,
-    countSolutions, regionStaysConnected, repairToUnique, generateUnique, gradeLevel,
+    countSolutions, searchSolutions, regionStaysConnected, repairToUnique, generateUnique, gradeLevel,
     findHint, pickRevealCat, pickSafeCrosses, INF_SIZE, encodeRegions, difficultyLabel, generateInfinite };
 }
 

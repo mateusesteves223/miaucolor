@@ -92,10 +92,18 @@ const scoreValueEl = document.getElementById("score-value");
 let elapsedMs = 0;
 let tickStart = null;
 
+let timerInterval = 0;             // o display só é atualizado enquanto o tempo corre
+
 const timerElapsed = () => elapsedMs + (tickStart !== null ? performance.now() - tickStart : 0);
-function timerStart() { if (tickStart === null) tickStart = performance.now(); }
+function timerStart() {
+  if (tickStart === null) tickStart = performance.now();
+  if (!timerInterval) timerInterval = setInterval(renderTimer, 500);
+}
 function timerPause() {
   if (tickStart !== null) { elapsedMs += performance.now() - tickStart; tickStart = null; }
+  clearInterval(timerInterval);
+  timerInterval = 0;
+  renderTimer();
 }
 function timerReset(ms = 0) { tickStart = null; elapsedMs = ms; renderTimer(); }
 
@@ -125,18 +133,20 @@ const isPlaying = () => game.state === GameState.PLAYING;
 const isTerminal = () => game.state === GameState.GAME_OVER || game.state === GameState.WON;
 const gameTabActive = () => !!document.querySelector('.tab[data-target="game"].active');
 
+/* mm:ss; a partir de 1 hora, h:mm:ss */
 function formatTime(secs) {
-  return String(Math.floor(secs / 60)).padStart(2, "0") + ":" + String(secs % 60).padStart(2, "0");
+  const two = v => String(v).padStart(2, "0");
+  const h = Math.floor(secs / 3600), m = Math.floor(secs / 60) % 60;
+  return (h ? `${h}:${two(m)}` : two(m)) + ":" + two(secs % 60);
 }
 function renderTimer() {
   const text = "⏱ " + formatTime(Math.floor(timerElapsed() / 1000));
   if (timerEl.textContent !== text) timerEl.textContent = text;
 }
-setInterval(renderTimer, 500);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     if (isPlaying()) setGameState(GameState.PAUSED);
-    persist();
+    persistNow();
   } else if (game.state === GameState.PAUSED && gameTabActive() && !game.adHold) {
     setGameState(GameState.PLAYING);
   }
@@ -215,11 +225,22 @@ function awardPoints(r, c) {
   setScore(game.score + points);
 }
 
-/* Salva a partida em andamento (só campanha) para retomar após fechar o app */
-function persist() {
+/* Salva a partida em andamento (só campanha) para retomar após fechar o app.
+ * Jogadas agendam a gravação (debounce: um arrasto vira uma escrita só); `persistNow` grava na hora
+ * (aba oculta, troca de aba). O estado é lido no momento da escrita, então nada fica para trás. */
+const PERSIST_DELAY_MS = 400;
+let persistTimer = 0;
+function persistNow() {
+  clearTimeout(persistTimer);
+  persistTimer = 0;
   if (!campaignId || isTerminal() || game.state === GameState.IDLE || game.cheated) return;
   Progress.saveProgress({ id: campaignId, marks, lives: game.lives, elapsed: Math.round(timerElapsed()), score: game.score });
 }
+function persist() {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(persistNow, PERSIST_DELAY_MS);
+}
+window.addEventListener("pagehide", persistNow);
 
 function renderCell(r, c) {
   const el = cells[r][c];
@@ -600,16 +621,19 @@ function generateLevelAsync(n) {
   cancelActiveGenWorker();    // encerra Worker anterior antes de iniciar outro
   return new Promise(resolve => {
     const fallback = () => { generateLevel(n); resolve(); };   // sem Worker: thread principal
-    try {
-      const worker = spawnEngineWorker("onmessage = e => postMessage(E.generateUnique(e.data, Math.random));");
-      activeGenWorker = worker;
-      const release = () => { worker.terminate(); if (activeGenWorker === worker) activeGenWorker = null; };
-      worker.onmessage = e => { solution = e.data.cols; regions = e.data.reg; release(); resolve(); };
-      worker.onerror = () => { release(); fallback(); };
-      worker.postMessage(n);
-    } catch {
-      fallback();
-    }
+    const start = retries => {                                 // um Worker que falha ganha mais uma tentativa
+      try {
+        const worker = spawnEngineWorker("onmessage = e => postMessage(E.generateUnique(e.data, Math.random));");
+        activeGenWorker = worker;
+        const release = () => { worker.terminate(); if (activeGenWorker === worker) activeGenWorker = null; };
+        worker.onmessage = e => { solution = e.data.cols; regions = e.data.reg; release(); resolve(); };
+        worker.onerror = () => { release(); if (retries > 0) start(retries - 1); else fallback(); };
+        worker.postMessage(n);
+      } catch {
+        fallback();
+      }
+    };
+    start(1);
   });
 }
 
@@ -963,24 +987,6 @@ const paletteEl = document.getElementById("palette");
 let sN = 7, sGrid = [], sCells = [], sColor = 0, sPaint = false;
 sSizeEl.value = sN;
 
-function findSolutions(n, reg, limit = 2) {
-  const cols = Array(n).fill(-1), usedCols = new Set(), usedRegs = new Set();
-  let count = 0, first = null;
-  (function go(row) {
-    if (count >= limit) return;
-    if (row === n) { if (!count) first = cols.slice(); count++; return; }
-    for (let c = 0; c < n; c++) {
-      const g = reg[row][c];
-      if (usedCols.has(c) || usedRegs.has(g)) continue;
-      if (row > 0 && Math.abs(cols[row - 1] - c) <= 1) continue;
-      cols[row] = c; usedCols.add(c); usedRegs.add(g);
-      go(row + 1);
-      usedCols.delete(c); usedRegs.delete(g); cols[row] = -1;
-    }
-  })(0);
-  return { count, first };
-}
-
 function buildPalette() {
   paletteEl.innerHTML = "";
   for (let i = 0; i < PALETTE.length; i++) {
@@ -1052,7 +1058,7 @@ function buildSolverBoard() {
 }
 
 function solveDrawn() {
-  const { count, first } = findSolutions(sN, sGrid);
+  const { count, first } = E.searchSolutions(sN, sGrid);
   clearCats();
   if (!count) {
     solverMsg = { key: "solver.none", cls: "bad" };
@@ -1094,9 +1100,9 @@ document.querySelectorAll(".tab").forEach(btn =>
       if (game.state === GameState.PAUSED && !document.hidden && !game.adHold) setGameState(GameState.PLAYING);
     } else if (isPlaying()) {
       setGameState(GameState.PAUSED);
-      persist();
+      persistNow();
     } else if (game.state === GameState.PAUSED) {
-      persist();
+      persistNow();
     }
   }));
 
