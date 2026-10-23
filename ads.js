@@ -114,6 +114,28 @@ const Ads = (() => {
     showRewarded: () => simulation.showRewarded(),
   };
 
+  /* Provedor Poki: comerciais são feitos por breaks (sem banner); rewarded via rewardedBreak */
+  const pokiProvider = {
+    showBanner(el) { el.replaceChildren(); },
+    async showRewarded() {
+      try { return !!(await PokiSDK.rewardedBreak()); } catch { return false; }
+    },
+  };
+  let pokiStarted = false;
+  let gameplayOn = false;                    // evita chamadas duplicadas de gameplayStart/Stop
+
+  function usePoki() {
+    if (pokiStarted || typeof PokiSDK === "undefined") return;
+    pokiStarted = true;
+    try {
+      PokiSDK.init().then(() => {
+        PokiSDK.gameLoadingFinished();
+        provider = pokiProvider;
+        loadBanner();
+      }).catch(() => { pokiStarted = false; /* bloqueado/offline: mantém a simulação */ });
+    } catch { pokiStarted = false; }
+  }
+
   function loadBanner() {
     if (!bannerEl) return;
     try {
@@ -125,6 +147,7 @@ const Ads = (() => {
   return {
     /* Monta o banner no #ad-banner (altura fixa no CSS: sem salto de layout) e o recarrega ao voltar online */
     init() {
+      usePoki();
       bannerEl = document.getElementById("ad-banner");
       if (!bannerEl) return;
       if (!provider && isProduction()) provider = adsenseProvider;
@@ -133,6 +156,20 @@ const Ads = (() => {
     },
 
     setProvider(p) { provider = p && typeof p.showRewarded === "function" ? p : null; },
+
+    usePoki,
+
+    gameplayStart() {
+      if (gameplayOn || typeof PokiSDK === "undefined") return;
+      gameplayOn = true;
+      try { PokiSDK.gameplayStart(); } catch { /* SDK opcional */ }
+    },
+
+    gameplayStop() {
+      if (!gameplayOn || typeof PokiSDK === "undefined") return;
+      gameplayOn = false;
+      try { PokiSDK.gameplayStop(); } catch { /* SDK opcional */ }
+    },
 
     /* Resolve sempre: { rewarded: boolean, reason?: "offline" | "busy" | "dismissed" | "error" } */
     async showRewarded() {

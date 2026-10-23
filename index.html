@@ -4,12 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1e1b2e">
-  <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>MeowColor</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://game-cdn.poki.com/scripts/v2/poki-sdk.js"></script>
 </head>
 <body>
   <nav class="sidenav">
@@ -39,16 +37,6 @@
   </div>
 
   <div id="menu-drop" class="menu-drop"></div>
-
-  <div class="pwa-install" hidden>
-    <button id="pwa-install-btn" class="pwa-install-btn" type="button" data-i18n="pwa.install">📲 Instalar App (Jogar Offline)</button>
-  </div>
-
-  <footer class="legal-links" aria-label="Informações legais" data-i18n-attr="aria-label:legal.aria">
-    <button type="button" class="legal-link" data-legal="privacy" aria-haspopup="dialog" data-i18n="legal.privacy.link">Política de Privacidade</button>
-    <button type="button" class="legal-link" data-legal="terms" aria-haspopup="dialog" data-i18n="legal.terms.link">Termos de Uso</button>
-    <button type="button" class="legal-link" data-legal="contact" aria-haspopup="dialog" data-i18n="legal.contact.link">Contato</button>
-  </footer>
 
   </nav>
 
@@ -370,41 +358,6 @@
       </article>
     </section>
   </main>
-
-  <div id="ad-banner" class="ad-banner" role="complementary" aria-label="Publicidade" data-i18n-attr="aria-label:ads.banner.aria"></div>
-
-  <!-- Páginas institucionais (modal nativo: foco preso, Esc fecha e o foco volta ao link de origem) -->
-  <dialog id="legal-dialog" class="legal-dialog" aria-labelledby="legal-title">
-    <div class="legal-head">
-      <h2 id="legal-title"></h2>
-      <button type="button" class="legal-close" id="legal-close" aria-label="Fechar" data-i18n-attr="aria-label:legal.close">✕</button>
-    </div>
-    <div class="legal-body">
-      <section data-legal="privacy" data-title-key="legal.privacy.title" data-i18n-html="legal.privacy.body" hidden></section>
-
-      <section data-legal="terms" data-title-key="legal.terms.title" data-i18n-html="legal.terms.body" hidden></section>
-
-      <section data-legal="contact" data-title-key="legal.contact.title" data-i18n-html="legal.contact.body" hidden></section>
-    </div>
-    <div class="legal-foot"><button type="button" class="secondary" data-legal-close data-i18n="legal.close">Fechar</button></div>
-  </dialog>
-
-  <!-- Instruções de instalação no iOS (Safari não tem beforeinstallprompt) -->
-  <dialog id="ios-install-dialog" class="legal-dialog install-dialog" aria-labelledby="ios-install-title">
-    <div class="legal-head">
-      <h2 id="ios-install-title" data-i18n="ios.title">📲 Instalar no iPhone/iPad</h2>
-      <button type="button" class="legal-close" aria-label="Fechar" data-install-close data-i18n-attr="aria-label:legal.close">✕</button>
-    </div>
-    <div class="legal-body">
-      <p data-i18n="ios.intro">Para instalar no seu iPhone/iPad:</p>
-      <ol class="install-steps">
-        <li><span class="install-step-icon" aria-hidden="true">📤</span><span data-i18n-html="ios.step1">Toque no botão <strong>Compartilhar</strong> no rodapé do Safari.</span></li>
-        <li><span class="install-step-icon" aria-hidden="true">➕</span><span data-i18n-html="ios.step2">Selecione <strong>“Adicionar à Tela de Início”</strong>.</span></li>
-      </ol>
-      <p><small data-i18n-html="ios.note"></small></p>
-    </div>
-    <div class="legal-foot"><button type="button" class="secondary" data-install-close data-i18n="ios.ok">Entendi</button></div>
-  </dialog>
 
   <script src="engine.js"></script>
   <script src="infinite.js"></script>

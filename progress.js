@@ -135,10 +135,6 @@ const Progress = (() => {
       return data.items[key];
     },
 
-    /* PWA instalado (appinstalled ou execução em modo standalone) */
-    get installed() { return data.installed; },
-    markInstalled() { if (!data.installed) { data.installed = true; save(); } },
-
     /* Idioma escolhido manualmente ("pt" | "en" | "es"); null = seguir o navegador */
     get language() { return data.language; },
     setLanguage(lang) {

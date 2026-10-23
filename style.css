@@ -432,18 +432,8 @@ body.compact .doc nav ul { columns: 1; }.menu-drop .controls select, .menu-drop 
   .cell.hint-glow::before, .cell.hint-target::before, .hint-msg { animation: none; }
 }
 
-/* ---------- Anúncios: banner fixo de rodapé (altura reservada) e vídeo recompensado ---------- */
-:root { --ad-h: 50px; }
-.ad-banner {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
-  height: calc(var(--ad-h) + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
-  display: flex; align-items: center; justify-content: center; overflow: hidden;
-  background: #17142a; border-top: 1px solid #443f66; contain: strict;
-}
 button:disabled, .pu-btn:disabled, .modal-card button:disabled { cursor: not-allowed; opacity: .6; }
-.ad-banner-label { color: var(--muted); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; opacity: .6; }
-.ad-banner .adsbygoogle { display: block; width: 100%; height: var(--ad-h); }
+/* Vídeo recompensado simulado (só com ?dev, ver ads.js) */
 .ad-overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(10, 8, 25, .92); }
 .ad-overlay-card {
   display: flex; flex-direction: column; align-items: center; gap: .8rem; max-width: 90vw;
@@ -464,68 +454,6 @@ body.compact .sidebar .timer { font-size: .85rem; }
 .modal-card button.secondary { background: transparent; color: var(--text); border: 2px solid #4a4568; }
 .modal-card button.secondary:hover { border-color: var(--accent); }
 .modal-stars { color: #ffd15c; font-size: 2rem; letter-spacing: .15em; }
-
-/* ---------- Páginas institucionais: links no menu lateral e modal com rolagem interna ---------- */
-.legal-links { margin-top: auto; display: flex; flex-wrap: wrap; gap: .2rem .9rem; padding-top: .75rem; border-top: 1px solid #443f66; }
-.legal-link {
-  padding: .3rem 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .8rem;
-  text-decoration: underline; cursor: pointer;
-}
-.legal-link:hover { color: var(--accent); }
-.menu-drop .legal-links { margin-top: 0; }
-
-.legal-dialog {
-  width: min(640px, calc(100vw - 2rem)); max-height: min(85dvh, 720px); padding: 0; border: 1px solid #443f66; border-radius: 16px;
-  background: var(--panel); color: var(--text); overflow: hidden;
-}
-.legal-dialog[open] { display: flex; flex-direction: column; animation: pop .25s ease-out; }
-.legal-dialog::backdrop { background: rgba(10, 8, 25, .75); }
-.legal-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 1.2rem; border-bottom: 1px solid #443f66; }
-.legal-head h2 { margin: 0; font-size: 1.2rem; color: var(--accent); }
-.legal-close {
-  flex: 0 0 auto; width: 2.4rem; height: 2.4rem; border: 0; border-radius: 50%; background: #231f38;
-  color: var(--text); font-size: 1rem; cursor: pointer;
-}
-.legal-close:hover { background: var(--accent); color: #2a1a10; }
-.legal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1rem 1.2rem; font-size: .92rem; line-height: 1.55; }
-.legal-body h3 { margin: 1.1rem 0 .3rem; font-size: 1rem; color: #ffd1b3; }
-.legal-body p, .legal-body ul { margin: .4rem 0; }
-.legal-body small { color: var(--muted); }
-.legal-foot { display: flex; justify-content: flex-end; padding: .7rem 1.2rem; border-top: 1px solid #443f66; }
-.legal-foot button {
-  min-height: 44px; padding: .5rem 1.4rem; border-radius: 999px; background: transparent; color: var(--text);
-  border: 2px solid #4a4568; font-size: 1rem; font-weight: 700; cursor: pointer;
-}
-.legal-foot button:hover { border-color: var(--accent); }
-
-/* ---------- Instalação do PWA (CTA no menu, card pós-vitória, passos do iOS) ---------- */
-.pwa-install[hidden], .pwa-promo[hidden] { display: none; }
-.pwa-install { margin-top: auto; padding-top: .75rem; animation: pwa-in .4s ease-out; }
-.pwa-install:not([hidden]) + .legal-links { margin-top: 0; }
-.pwa-install-btn {
-  width: 100%; min-height: 44px; padding: .65rem 1rem; border: 0; border-radius: 12px; cursor: pointer;
-  background: linear-gradient(135deg, var(--accent), #ffc36b); color: #2a1a10; font: inherit; font-weight: 800; line-height: 1.25;
-  box-shadow: 0 2px 10px rgba(255, 159, 107, .35); transition: transform .15s, box-shadow .15s;
-}
-@media (hover: hover) { .pwa-install-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(255, 159, 107, .5); } }
-.pwa-install-btn:active { transform: scale(.98); }
-.menu-drop .pwa-install { margin-top: 0; padding-top: 0; }
-
-.pwa-promo { margin: 1rem 0 .2rem; padding: .7rem .9rem; border: 1px solid #4a4568; border-radius: 12px; background: #231f38; text-align: left; animation: pwa-in .45s ease-out .15s backwards; }
-.pwa-promo-title { margin: 0 0 .3rem; font-size: .9rem; font-weight: 700; color: #ffd1b3; }
-.pwa-promo-list { margin: 0; padding: 0; list-style: none; font-size: .82rem; color: var(--muted); line-height: 1.5; }
-.modal-card .pwa-promo-btn { width: 100%; min-height: 44px; margin-top: .6rem; padding: .5rem 1rem; background: transparent; color: var(--accent); border: 2px solid var(--accent); }
-.modal-card .pwa-promo-btn:hover { background: var(--accent); color: #2a1a10; }
-
-.install-steps { margin: .6rem 0; padding: 0; list-style: none; display: grid; gap: .7rem; }
-.install-steps li { display: flex; align-items: center; gap: .8rem; padding: .7rem .8rem; border-radius: 12px; background: #231f38; }
-.install-step-icon { flex: 0 0 auto; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 12px; background: var(--accent); font-size: 1.4rem; }
-
-@keyframes pwa-in { from { opacity: 0; transform: translateY(8px); } }
-@media (prefers-reduced-motion: reduce) {
-  .pwa-install, .pwa-promo { animation: none; }
-  .pwa-install-btn { transition: none; }
-}
 
 .levels-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; max-width: 900px; margin: 0 auto; }
 .levels-head h2 { margin: .2rem 0 .6rem; color: var(--accent); }
@@ -558,11 +486,11 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 body {
   touch-action: manipulation;                    /* sem zoom por duplo toque fora do tabuleiro */
   -webkit-tap-highlight-color: transparent;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(var(--ad-h) + env(safe-area-inset-bottom)) env(safe-area-inset-left);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 @media (max-width: 700px) {
-  /* Folga entre os controles/tabuleiro e o banner fixo (50px reservados pelo padding do body) */
+  /* Folga entre os controles/tabuleiro e a borda inferior */
   main { padding-bottom: 1.25rem; }
   #game.active, #solver.active { margin-bottom: 20px; }
   .powerups { margin-bottom: 4px; }

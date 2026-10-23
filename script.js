@@ -116,8 +116,8 @@ function setGameState(next) {
     throw new Error(`Transição de estado inválida: ${game.state} → ${next}`);
   }
   game.state = next;
-  if (next === GameState.PLAYING) timerStart();
-  else timerPause();
+  if (next === GameState.PLAYING) { timerStart(); Ads.gameplayStart(); }
+  else { timerPause(); Ads.gameplayStop(); }
 }
 
 const isPlaying = () => game.state === GameState.PLAYING;
@@ -511,7 +511,7 @@ function win() {
       label: t("modal.win.next"),
       action: () => playLevel(id + 1).then(ok => { if (!ok && !game.generating) showLevels(); }),
       extra: [t("modal.levels"), showLevels],
-    }), () => PwaInstall.attachPromo(modalEl));
+    }));
   }, 500);
 }
 
@@ -1121,117 +1121,11 @@ async function startCampaign(id) {
   if (!(await playLevel(id))) newGame();
 }
 
-/* Páginas institucionais (Privacidade, Termos, Contato) em um único <dialog> nativo */
-const legalDialog = document.getElementById("legal-dialog");
-const legalTitle = document.getElementById("legal-title");
-const legalSections = legalDialog.querySelectorAll("section[data-legal]");
-
-function openLegal(key) {
-  let found = false;
-  for (const s of legalSections) {
-    const match = s.dataset.legal === key;
-    s.hidden = !match;
-    if (match) { legalTitle.textContent = t(s.dataset.titleKey); found = true; }
-  }
-  if (!found || legalDialog.open) return;
-  legalDialog.querySelector(".legal-body").scrollTop = 0;
-  legalDialog.showModal();
-}
-langHooks.push(() => {                          // título da página legal aberta acompanha o idioma
-  const open = [...legalSections].find(s => !s.hidden);
-  if (open) legalTitle.textContent = t(open.dataset.titleKey);
-});
-
-document.addEventListener("click", e => {
-  const link = e.target.closest("[data-legal]:is(button)");
-  if (link) openLegal(link.dataset.legal);
-});
-legalDialog.addEventListener("click", e => {
-  // Clique no próprio <dialog> (fora do cartão) = backdrop
-  if (e.target === legalDialog || e.target.closest("#legal-close, [data-legal-close]")) legalDialog.close();
-});
-
-/* PWA: captura beforeinstallprompt, CTA no menu / pós-vitória e instruções para iOS */
-const PwaInstall = (() => {
-  const wrap = document.querySelector(".pwa-install");
-  const dialog = document.getElementById("ios-install-dialog");
-  const standaloneMq = matchMedia("(display-mode: standalone)");
-  const isStandalone = () => standaloneMq.matches || window.navigator.standalone === true;
-  // iPadOS 13+ se identifica como Mac; o toque múltiplo o diferencia de um Mac real
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  let deferredPrompt = null;
-
-  // Android/desktop: o navegador decide a elegibilidade (deferredPrompt); iOS: sempre manual, até rodar instalado
-  const canInstall = () => !isStandalone() && (deferredPrompt !== null || (isIOS && !Progress.installed));
-
-  function refresh() {
-    const ok = canInstall();
-    wrap.hidden = !ok;
-    if (!ok) for (const el of document.querySelectorAll(".pwa-promo")) el.remove();
-  }
-
-  async function install() {
-    if (deferredPrompt) {
-      const promptEvent = deferredPrompt;
-      deferredPrompt = null;                 // o evento só pode ser usado uma vez
-      try {
-        await promptEvent.prompt();
-        await promptEvent.userChoice;        // "appinstalled" cuida do caso aceito
-      } catch { /* prompt recusado ou já consumido */ }
-      refresh();
-    } else if (isIOS && !dialog.open) {
-      dialog.showModal();
-    }
-  }
-
-  /* Card discreto com os benefícios, inserido antes dos botões do modal de vitória */
-  function attachPromo(modal) {
-    const actions = modal.querySelector(".modal-actions");
-    if (!actions || !canInstall()) return;
-    const card = document.createElement("div");
-    card.className = "pwa-promo";
-    card.innerHTML =
-      `<p class="pwa-promo-title">${t("pwa.promoTitle")}</p>
-       <ul class="pwa-promo-list">
-         <li>${t("pwa.promo1")}</li>
-         <li>${t("pwa.promo2")}</li>
-         <li>${t("pwa.promo3")}</li>
-       </ul>
-       <button type="button" class="pwa-promo-btn">${t("pwa.promoBtn")}</button>`;
-    card.querySelector("button").addEventListener("click", install);
-    actions.before(card);
-  }
-
-  window.addEventListener("beforeinstallprompt", e => {
-    e.preventDefault();                      // esconde a barra padrão; o CTA próprio assume
-    deferredPrompt = e;
-    refresh();
-  });
-  window.addEventListener("appinstalled", () => {
-    deferredPrompt = null;
-    Progress.markInstalled();
-    refresh();
-  });
-  standaloneMq.addEventListener("change", () => {
-    if (isStandalone()) Progress.markInstalled();
-    refresh();
-  });
-  document.getElementById("pwa-install-btn").addEventListener("click", install);
-  dialog.addEventListener("click", e => {
-    if (e.target === dialog || e.target.closest("[data-install-close]")) dialog.close();
-  });
-
-  if (isStandalone()) Progress.markInstalled();
-  refresh();
-  return { attachPromo };
-})();
-
 /* Menu compacto: em telas pequenas, abas, controles e regras vão para um menu suspenso */
 const compactMq = matchMedia("(max-width: 700px), (max-height: 520px)");
 const menuBtn = document.getElementById("menu-btn");
 const menuDrop = document.getElementById("menu-drop");
-const menuItems = [".tabs", ".controls", ".rules", ".hint", ".reveal-wrap", ".pwa-install", ".legal-links"].map(sel => {
+const menuItems = [".tabs", ".controls", ".rules", ".hint", ".reveal-wrap"].map(sel => {
   const el = document.querySelector(sel);
   const home = document.createComment(sel);   // marca o lugar original
   el.before(home);
@@ -1260,10 +1154,6 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => { if (e.key === "Escape") setMenu(false); });
 compactMq.addEventListener("change", applyLayout);
 applyLayout();
-/* PWA: registra o service worker (só em http/https; em file:// o navegador não permite) */
-if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
-}
 
 /* ---------- Idioma: seletor PT/EN/ES e atualização da interface sem recarregar ---------- */
 const langBtns = document.querySelectorAll(".lang-btn");

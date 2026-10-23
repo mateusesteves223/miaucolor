@@ -14,7 +14,7 @@
 * `progress.js`: Persistência de estado e progresso do jogador em `localStorage` sob a chave `"miaucolor:v1"`.
 * `infinite.js`: Gerador determinístico de níveis infinitos 10x10 baseados em seed (`"inf:N"`).
 * `levels.js`: Carregador dos pacotes de níveis pré-gerados (`levels/pack-01.js` a `pack-05.js`).
-* `sw.js` &amp; `manifest.webmanifest`: Service Worker (Cache-First offline) e manifesto de aplicativo PWA.
+* `sw.js`: apenas desinstala o Service Worker antigo (o build atual mira a Poki; a versão PWA está na tag `pre-poki`).
 * `tools/gen_levels.py` &amp; `tools/gen_icons.py`: Scripts utilitários Python para geração offline de níveis e ícones PNG.
 
 ---

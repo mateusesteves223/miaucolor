@@ -32,12 +32,6 @@ const I18n = (() => {
       "tab.levels": "Níveis",
       "tab.solver": "Resolve Nível",
       "tab.help": "Guia Help",
-      "pwa.install": "📲 Instalar App (Jogar Offline)",
-      "legal.aria": "Informações legais",
-      "legal.privacy.link": "Política de Privacidade",
-      "legal.terms.link": "Termos de Uso",
-      "legal.contact.link": "Contato",
-      "legal.close": "Fechar",
 
       "hud.level": "NÍVEL ATUAL",
       "hud.score": "PONTOS",
@@ -91,8 +85,6 @@ const I18n = (() => {
       "modal.recharge.watch": "🎬 Assistir vídeo (+{n})",
       "modal.recharge.later": "Agora não",
       "ads.offline": "Sem conexão: não foi possível carregar o vídeo. Tente novamente online.",
-      "ads.banner": "Publicidade",
-      "ads.banner.aria": "Publicidade",
       "ads.video.aria": "Anúncio em vídeo",
       "ads.video.title": "🎬 Anúncio (simulação)",
       "ads.video.wait": "Recompensa em {n}s…",
@@ -146,17 +138,6 @@ const I18n = (() => {
       "solver.multi": "Há mais de uma solução; mostrando a primeira.",
       "solver.unique": "Solução única encontrada!",
 
-      "pwa.promoTitle": "📲 Leve o {app} com você",
-      "pwa.promo1": "⚡ Acesso rápido na tela inicial",
-      "pwa.promo2": "📶 Economia de dados",
-      "pwa.promo3": "✈️ Funciona 100% offline",
-      "pwa.promoBtn": "Instalar grátis",
-      "ios.title": "📲 Instalar no iPhone/iPad",
-      "ios.intro": "Para instalar no seu iPhone/iPad:",
-      "ios.step1": "Toque no botão <strong>Compartilhar</strong> no rodapé do Safari.",
-      "ios.step2": "Selecione <strong>“Adicionar à Tela de Início”</strong>.",
-      "ios.note": "Depois é só abrir o {app} pelo ícone na tela inicial, mesmo sem internet.",
-      "ios.ok": "Entendi",
 
       "guide.title": "Guia de estratégias",
       "guide.intro": "Use as regras para eliminar possibilidades. Marque ✕ quando tiver certeza de que uma célula não pode receber gato; guarde seus palpites para quando a lógica não avançar.",
@@ -200,43 +181,6 @@ const I18n = (() => {
       "g6.p": "Conte as candidatas que ainda restam para cada cor. Tente deduzir primeiro a cor com menos opções: cada exclusão afeta linhas, colunas, regiões e vizinhanças. Isso é uma heurística, não uma garantia de que uma casa isolada seja mais provável.",
       "g6.note": "<strong>Importante:</strong> não escolha só pela aparência ou por “chance”. As candidatas não têm necessariamente probabilidades iguais; prefira uma dedução que respeite todas as regras.",
 
-      "legal.privacy.title": "Política de Privacidade",
-      "legal.terms.title": "Termos de Uso",
-      "legal.contact.title": "Contato",
-      "legal.privacy.body": `
-        <p><small>Última atualização: 18/10/2026</small></p>
-        <p>O <strong>{app}</strong> respeita a sua privacidade e foi feito para coletar o mínimo possível, em conformidade com a Lei Geral de Proteção de Dados (LGPD, Lei nº 13.709/2018).</p>
-        <h3>Armazenamento local</h3>
-        <p>O jogo usa o <code>localStorage</code> do seu navegador apenas para salvar o progresso neste aparelho: estrelas, pontos, níveis concluídos, itens (power-ups) e preferências de idioma, som e vibração. Esses dados <strong>não são enviados</strong> a nenhum servidor nosso e podem ser apagados a qualquer momento limpando os dados do site no navegador.</p>
-        <h3>Dados pessoais</h3>
-        <p>Não exigimos cadastro e <strong>não coletamos dados pessoais que identifiquem você diretamente</strong>, como nome, e-mail ou telefone. Só tratamos o e-mail se você nos escrever voluntariamente, e apenas para responder à sua mensagem.</p>
-        <h3>Publicidade e serviços de terceiros</h3>
-        <p>O jogo utiliza serviços de terceiros, como o <strong>Google AdSense</strong>, para exibir anúncios. O Google e seus parceiros podem usar <strong>cookies</strong> e identificadores semelhantes (e processar dados como endereço IP e informações do dispositivo) para veicular <strong>anúncios personalizados</strong> com base em suas visitas a este e a outros sites.</p>
-        <ul>
-          <li>Saiba como o Google usa dados: <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">policies.google.com/technologies/partner-sites</a>.</li>
-          <li>Você pode desativar a personalização de anúncios em <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">adssettings.google.com</a> ou em <a href="https://www.aboutads.info" target="_blank" rel="noopener noreferrer">aboutads.info</a>.</li>
-        </ul>
-        <h3>Seus direitos</h3>
-        <p>Nos termos do art. 18 da LGPD, você pode solicitar informações, correção ou eliminação de dados que porventura tratemos. Para isso, use o canal na seção <strong>Contato</strong>.</p>
-        <h3>Alterações</h3>
-        <p>Esta política pode ser atualizada. A data da última revisão fica indicada no topo desta página.</p>`,
-      "legal.terms.body": `
-        <p><small>Última atualização: 18/10/2026</small></p>
-        <p>Ao jogar o <strong>{app}</strong>, você concorda com os termos abaixo.</p>
-        <h3>Uso gratuito</h3>
-        <p>O jogo é <strong>gratuito</strong> e pode ser financiado por anúncios. Não há cobrança para jogar nem para obter itens.</p>
-        <h3>Fornecido "como está"</h3>
-        <p>O jogo é fornecido <strong>"como está"</strong> e "conforme disponível", sem garantias de qualquer tipo, expressas ou implícitas, incluindo funcionamento ininterrupto ou livre de erros. Não nos responsabilizamos por perdas de progresso, que fica salvo apenas no seu navegador.</p>
-        <h3>Bens virtuais</h3>
-        <p>Estrelas, pontos e itens (dicas, revelar gato, 3x seguros etc.) são <strong>bens virtuais sem valor monetário real</strong>: não podem ser trocados por dinheiro, vendidos ou transferidos.</p>
-        <h3>Uso adequado</h3>
-        <p>Não é permitido tentar prejudicar o funcionamento do jogo, nem usar o conteúdo para fins comerciais sem autorização.</p>
-        <h3>Alterações</h3>
-        <p>Podemos alterar, suspender o jogo ou atualizar estes termos a qualquer momento. O uso continuado após a atualização indica concordância.</p>`,
-      "legal.contact.body": `
-        <p>Tem feedback, uma dúvida, encontrou um problema ou quer exercer seus direitos de titular de dados? Fale com a gente:</p>
-        <p><a href="mailto:contato@meowcolor.example">contato@meowcolor.example</a></p>
-        <p><small>Respondemos assim que possível.</small></p>`,
     },
 
     en: {
@@ -257,12 +201,6 @@ const I18n = (() => {
       "tab.levels": "Levels",
       "tab.solver": "Solve Level",
       "tab.help": "Help Guide",
-      "pwa.install": "📲 Install App (Play Offline)",
-      "legal.aria": "Legal information",
-      "legal.privacy.link": "Privacy Policy",
-      "legal.terms.link": "Terms of Use",
-      "legal.contact.link": "Contact",
-      "legal.close": "Close",
 
       "hud.level": "CURRENT LEVEL",
       "hud.score": "SCORE",
@@ -316,8 +254,6 @@ const I18n = (() => {
       "modal.recharge.watch": "🎬 Watch video (+{n})",
       "modal.recharge.later": "Not now",
       "ads.offline": "No connection: the video could not be loaded. Try again when you are online.",
-      "ads.banner": "Advertisement",
-      "ads.banner.aria": "Advertisement",
       "ads.video.aria": "Video ad",
       "ads.video.title": "🎬 Ad (simulation)",
       "ads.video.wait": "Reward in {n}s…",
@@ -371,17 +307,6 @@ const I18n = (() => {
       "solver.multi": "There is more than one solution; showing the first.",
       "solver.unique": "Unique solution found!",
 
-      "pwa.promoTitle": "📲 Take {app} with you",
-      "pwa.promo1": "⚡ Quick access from your home screen",
-      "pwa.promo2": "📶 Saves data",
-      "pwa.promo3": "✈️ Works 100% offline",
-      "pwa.promoBtn": "Install for free",
-      "ios.title": "📲 Install on iPhone/iPad",
-      "ios.intro": "To install on your iPhone/iPad:",
-      "ios.step1": "Tap the <strong>Share</strong> button at the bottom of Safari.",
-      "ios.step2": "Select <strong>“Add to Home Screen”</strong>.",
-      "ios.note": "Then just open {app} from the icon on your home screen, even without internet.",
-      "ios.ok": "Got it",
 
       "guide.title": "Strategy guide",
       "guide.intro": "Use the rules to eliminate possibilities. Mark ✕ when you are sure a cell cannot hold a cat; save your guesses for when logic runs out.",
@@ -425,43 +350,6 @@ const I18n = (() => {
       "g6.p": "Count the candidates still left for each color. Try to deduce the color with the fewest options first: every elimination affects rows, columns, regions and neighbors. This is a heuristic, not a guarantee that a single cell is more likely.",
       "g6.note": "<strong>Important:</strong> do not choose just by appearance or by “chance”. Candidates do not necessarily have equal probabilities; prefer a deduction that respects all the rules.",
 
-      "legal.privacy.title": "Privacy Policy",
-      "legal.terms.title": "Terms of Use",
-      "legal.contact.title": "Contact",
-      "legal.privacy.body": `
-        <p><small>Last updated: October 18, 2026</small></p>
-        <p><strong>{app}</strong> respects your privacy and is designed to collect as little as possible, in compliance with Brazil's General Data Protection Law (LGPD, Law No. 13,709/2018).</p>
-        <h3>Local storage</h3>
-        <p>The game uses your browser's <code>localStorage</code> only to save progress on this device: stars, points, completed levels, items (power-ups) and language, sound and vibration preferences. This data is <strong>not sent</strong> to any server of ours and can be erased at any time by clearing the site data in your browser.</p>
-        <h3>Personal data</h3>
-        <p>We do not require sign-up and <strong>we do not collect personal data that directly identifies you</strong>, such as name, email or phone number. We only process your email if you write to us voluntarily, and only to reply to your message.</p>
-        <h3>Advertising and third-party services</h3>
-        <p>The game uses third-party services, such as <strong>Google AdSense</strong>, to display ads. Google and its partners may use <strong>cookies</strong> and similar identifiers (and process data such as IP address and device information) to serve <strong>personalized ads</strong> based on your visits to this and other sites.</p>
-        <ul>
-          <li>Learn how Google uses data: <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">policies.google.com/technologies/partner-sites</a>.</li>
-          <li>You can turn off ad personalization at <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">adssettings.google.com</a> or at <a href="https://www.aboutads.info" target="_blank" rel="noopener noreferrer">aboutads.info</a>.</li>
-        </ul>
-        <h3>Your rights</h3>
-        <p>Under Article 18 of the LGPD, you may request information about, correction of, or deletion of any data we may process. To do so, use the channel in the <strong>Contact</strong> section.</p>
-        <h3>Changes</h3>
-        <p>This policy may be updated. The date of the latest revision is shown at the top of this page.</p>`,
-      "legal.terms.body": `
-        <p><small>Last updated: October 18, 2026</small></p>
-        <p>By playing <strong>{app}</strong>, you agree to the terms below.</p>
-        <h3>Free to use</h3>
-        <p>The game is <strong>free</strong> and may be funded by ads. There is no charge to play or to obtain items.</p>
-        <h3>Provided "as is"</h3>
-        <p>The game is provided <strong>"as is"</strong> and "as available", without warranties of any kind, express or implied, including uninterrupted or error-free operation. We are not responsible for loss of progress, which is saved only in your browser.</p>
-        <h3>Virtual goods</h3>
-        <p>Stars, points and items (hints, reveal cat, 3 safe ✕, etc.) are <strong>virtual goods with no real monetary value</strong>: they cannot be exchanged for money, sold or transferred.</p>
-        <h3>Proper use</h3>
-        <p>You may not try to harm the operation of the game, nor use its content for commercial purposes without permission.</p>
-        <h3>Changes</h3>
-        <p>We may change or suspend the game, or update these terms, at any time. Continued use after an update means you accept it.</p>`,
-      "legal.contact.body": `
-        <p>Have feedback or a question, found a problem, or want to exercise your rights as a data subject? Get in touch:</p>
-        <p><a href="mailto:contato@meowcolor.example">contato@meowcolor.example</a></p>
-        <p><small>We reply as soon as possible.</small></p>`,
     },
 
     es: {
@@ -482,12 +370,6 @@ const I18n = (() => {
       "tab.levels": "Niveles",
       "tab.solver": "Resolver Nivel",
       "tab.help": "Guía de Ayuda",
-      "pwa.install": "📲 Instalar App (Jugar sin conexión)",
-      "legal.aria": "Información legal",
-      "legal.privacy.link": "Política de Privacidad",
-      "legal.terms.link": "Términos de Uso",
-      "legal.contact.link": "Contacto",
-      "legal.close": "Cerrar",
 
       "hud.level": "NIVEL ACTUAL",
       "hud.score": "PUNTOS",
@@ -541,8 +423,6 @@ const I18n = (() => {
       "modal.recharge.watch": "🎬 Ver video (+{n})",
       "modal.recharge.later": "Ahora no",
       "ads.offline": "Sin conexión: no se pudo cargar el video. Inténtalo de nuevo cuando estés en línea.",
-      "ads.banner": "Publicidad",
-      "ads.banner.aria": "Publicidad",
       "ads.video.aria": "Anuncio en video",
       "ads.video.title": "🎬 Anuncio (simulación)",
       "ads.video.wait": "Recompensa en {n}s…",
@@ -596,17 +476,6 @@ const I18n = (() => {
       "solver.multi": "Hay más de una solución; se muestra la primera.",
       "solver.unique": "¡Solución única encontrada!",
 
-      "pwa.promoTitle": "📲 Lleva {app} contigo",
-      "pwa.promo1": "⚡ Acceso rápido desde la pantalla de inicio",
-      "pwa.promo2": "📶 Ahorro de datos",
-      "pwa.promo3": "✈️ Funciona 100% sin conexión",
-      "pwa.promoBtn": "Instalar gratis",
-      "ios.title": "📲 Instalar en iPhone/iPad",
-      "ios.intro": "Para instalar en tu iPhone/iPad:",
-      "ios.step1": "Toca el botón <strong>Compartir</strong> en la parte inferior de Safari.",
-      "ios.step2": "Selecciona <strong>“Añadir a pantalla de inicio”</strong>.",
-      "ios.note": "Después solo abre {app} desde el icono de la pantalla de inicio, incluso sin internet.",
-      "ios.ok": "Entendido",
 
       "guide.title": "Guía de estrategias",
       "guide.intro": "Usa las reglas para eliminar posibilidades. Marca ✕ cuando estés seguro de que una casilla no puede recibir un gato; guarda tus corazonadas para cuando la lógica no avance.",
@@ -650,43 +519,6 @@ const I18n = (() => {
       "g6.p": "Cuenta las candidatas que aún quedan para cada color. Intenta deducir primero el color con menos opciones: cada exclusión afecta filas, columnas, regiones y vecindades. Esto es una heurística, no una garantía de que una casilla aislada sea más probable.",
       "g6.note": "<strong>Importante:</strong> no elijas solo por la apariencia o por “suerte”. Las candidatas no tienen necesariamente probabilidades iguales; prefiere una deducción que respete todas las reglas.",
 
-      "legal.privacy.title": "Política de Privacidad",
-      "legal.terms.title": "Términos de Uso",
-      "legal.contact.title": "Contacto",
-      "legal.privacy.body": `
-        <p><small>Última actualización: 18/10/2026</small></p>
-        <p><strong>{app}</strong> respeta tu privacidad y está hecho para recopilar lo mínimo posible, en conformidad con la Ley General de Protección de Datos de Brasil (LGPD, Ley n.º 13.709/2018).</p>
-        <h3>Almacenamiento local</h3>
-        <p>El juego usa el <code>localStorage</code> de tu navegador solo para guardar el progreso en este dispositivo: estrellas, puntos, niveles completados, objetos (power-ups) y preferencias de idioma, sonido y vibración. Estos datos <strong>no se envían</strong> a ningún servidor nuestro y pueden borrarse en cualquier momento limpiando los datos del sitio en el navegador.</p>
-        <h3>Datos personales</h3>
-        <p>No exigimos registro y <strong>no recopilamos datos personales que te identifiquen directamente</strong>, como nombre, correo electrónico o teléfono. Solo tratamos tu correo si nos escribes voluntariamente, y únicamente para responder a tu mensaje.</p>
-        <h3>Publicidad y servicios de terceros</h3>
-        <p>El juego utiliza servicios de terceros, como <strong>Google AdSense</strong>, para mostrar anuncios. Google y sus socios pueden usar <strong>cookies</strong> e identificadores similares (y procesar datos como la dirección IP y la información del dispositivo) para mostrar <strong>anuncios personalizados</strong> según tus visitas a este y a otros sitios.</p>
-        <ul>
-          <li>Conoce cómo Google usa los datos: <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">policies.google.com/technologies/partner-sites</a>.</li>
-          <li>Puedes desactivar la personalización de anuncios en <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">adssettings.google.com</a> o en <a href="https://www.aboutads.info" target="_blank" rel="noopener noreferrer">aboutads.info</a>.</li>
-        </ul>
-        <h3>Tus derechos</h3>
-        <p>Conforme al art. 18 de la LGPD, puedes solicitar información, corrección o eliminación de los datos que eventualmente tratemos. Para ello, usa el canal de la sección <strong>Contacto</strong>.</p>
-        <h3>Cambios</h3>
-        <p>Esta política puede actualizarse. La fecha de la última revisión se indica en la parte superior de esta página.</p>`,
-      "legal.terms.body": `
-        <p><small>Última actualización: 18/10/2026</small></p>
-        <p>Al jugar <strong>{app}</strong>, aceptas los términos siguientes.</p>
-        <h3>Uso gratuito</h3>
-        <p>El juego es <strong>gratuito</strong> y puede financiarse con anuncios. No hay ningún cobro por jugar ni por obtener objetos.</p>
-        <h3>Proporcionado «tal cual»</h3>
-        <p>El juego se proporciona <strong>«tal cual»</strong> y «según disponibilidad», sin garantías de ningún tipo, expresas o implícitas, incluido el funcionamiento ininterrumpido o libre de errores. No nos responsabilizamos por pérdidas de progreso, que se guarda solo en tu navegador.</p>
-        <h3>Bienes virtuales</h3>
-        <p>Las estrellas, los puntos y los objetos (pistas, revelar gato, 3 ✕ seguras, etc.) son <strong>bienes virtuales sin valor monetario real</strong>: no pueden canjearse por dinero, venderse ni transferirse.</p>
-        <h3>Uso adecuado</h3>
-        <p>No está permitido intentar perjudicar el funcionamiento del juego ni usar su contenido con fines comerciales sin autorización.</p>
-        <h3>Cambios</h3>
-        <p>Podemos modificar o suspender el juego, o actualizar estos términos, en cualquier momento. El uso continuado tras la actualización implica aceptación.</p>`,
-      "legal.contact.body": `
-        <p>¿Tienes comentarios o dudas, encontraste un problema o quieres ejercer tus derechos como titular de datos? Escríbenos:</p>
-        <p><a href="mailto:contato@meowcolor.example">contato@meowcolor.example</a></p>
-        <p><small>Respondemos lo antes posible.</small></p>`,
     },
   };
 

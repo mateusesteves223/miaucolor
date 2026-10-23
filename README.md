@@ -45,7 +45,7 @@ O tabuleiro e suas regiões são gerados em JavaScript. A interface é feita com
 - **Treino livre:** "Novo jogo" gera um tabuleiro aleatório (não conta para a campanha).
 - **Modo desenvolvedor:** abra `index.html?dev` para exibir o Modo Dev (vidas infinitas, auto-✕; não conta para a campanha), a aba "Resolve Nível" e a documentação algorítmica. Para o jogador comum essas ferramentas ficam ocultas.
 - **Som e vibração:** sons sintetizados (sem arquivos) e vibração no celular, com chaves "Som" e "Vibração" que ficam salvas.
-- **PWA / offline:** servido por http(s), o jogo registra um service worker, funciona offline e pode ser instalado. Ao publicar mudanças, incremente `CACHE` em `sw.js`.
+- **Poki:** os anúncios vêm só do Poki SDK (`ads.js`). A versão PWA/AdSense anterior está na tag git `pre-poki`; `sw.js` agora só desinstala o service worker antigo de quem já o tinha.
 - **Testes:** abra `tests.html` no navegador.
 
 Para regenerar os níveis dos packs: `python tools/gen_levels.py` (use `--verify` para só validar).
