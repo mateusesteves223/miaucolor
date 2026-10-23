@@ -323,6 +323,13 @@ function dragApply(cell) {
   Sound.click();
 }
 
+/* Dentro do iframe da Poki: espaço/setas não rolam a página-mãe e o toque longo não abre menu de contexto */
+const SCROLL_KEYS = new Set([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown"]);
+window.addEventListener("keydown", e => {
+  if (SCROLL_KEYS.has(e.key) && !(e.target.closest && e.target.closest("input, select, textarea, button"))) e.preventDefault();
+});
+for (const el of [boardEl, document.getElementById("sboard")]) el.addEventListener("contextmenu", e => e.preventDefault());
+
 boardEl.addEventListener("pointerdown", e => {
   game.dragged = false;
   if (!isPlaying() || e.button !== 0) return;
@@ -491,7 +498,7 @@ function win() {
   if (!campaignId || game.cheated) {
     setTimeout(() => showModal(() => ({
       emoji: "🏆", title: t("modal.free.title"), text: t("modal.free.text"),
-      label: t("modal.free.btn"), action: newGame,
+      label: t("modal.free.btn"), action: () => afterBreak(newGame),
     })), 500);
     return;
   }
@@ -509,7 +516,7 @@ function win() {
       title: t("modal.win.title"),
       text: `<span class="modal-stars">${starText(stars)}</span><br>${t("modal.win.points", { n: Progress.formatScore(score) })}<br>${t("modal.win.time", { t: formatTime(secs) })}${isRecord ? " " + t("modal.win.record") : ""}`,
       label: t("modal.win.next"),
-      action: () => playLevel(id + 1).then(ok => { if (!ok && !game.generating) showLevels(); }),
+      action: () => afterBreak(() => playLevel(id + 1).then(ok => { if (!ok && !game.generating) showLevels(); })),
       extra: [t("modal.levels"), showLevels],
     }));
   }, 500);
@@ -523,7 +530,7 @@ function gameOver() {
   setStatusKey("status.over");
   setTimeout(() => showModal(() => ({
     emoji: "😿", title: t("modal.over.title"), text: t("modal.over.text"),
-    label: t("modal.over.retry"), action: retryLevel,
+    label: t("modal.over.retry"), action: () => afterBreak(retryLevel),
     extra: campaignId ? [t("modal.levels"), showLevels] : null,
   })), 700);
 }
@@ -543,6 +550,17 @@ function resetBoard() {
   game.combo = 0;
   timerReset();
   setGameState(!document.hidden && gameTabActive() ? GameState.PLAYING : GameState.PAUSED);
+}
+
+/* Intersticial da Poki entre partidas (só nos botões dos modais de fim de jogo: nunca antes da 1ª partida).
+ * `adHold` mantém a partida pausada e bloqueia cliques repetidos enquanto o anúncio roda. */
+async function afterBreak(start) {
+  if (game.adHold) return;
+  game.adHold = true;
+  modalEl.classList.remove("open");
+  await Ads.commercialBreak();
+  game.adHold = false;
+  return start();
 }
 
 function retryLevel() {
@@ -1185,6 +1203,6 @@ updateLanguage();
 
 /* Abre direto na campanha (partida em andamento ou último nível liberado); sem packs, cai no treino livre */
 (async () => {
-  if (MiauLevels.total && await playLevel(Progress.current())) return;
-  newGame();
+  if (!(MiauLevels.total && await playLevel(Progress.current()))) await newGame();
+  Ads.loadingFinished();
 })();
