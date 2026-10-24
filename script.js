@@ -8,12 +8,14 @@
  *   marks[r][c]  = 0|1|2   -> jogador: vazio | X | gato
  * ===================================================================== */
 
-/* Paleta "almofada ao sol": a original com ~8% menos saturação; as mais claras escurecem um pouco
- * para não sumirem na moldura creme. A ordem é a mesma (I18n.colorName depende dela). */
+/* Paleta "colcha de retalhos": cada região é um tecido. As cores variam em claridade (claro / médio /
+ * escuro), não só em matiz, e cada índice tem também uma estampa própria no CSS (xadrez, poá, listras...),
+ * para distinguir as regiões mesmo com daltonismo. Escuros (5, 8, 11) recebem gato e ✕ bordados em creme.
+ * A ordem casa com I18n.colorName (color.0 ... color.11). Só os índices 0–9 aparecem no jogo (N ≤ 10). */
 const PALETTE = [
-  "#aecadd", "#a67bdc", "#fabb7c", "#f4c944", "#b5d87c",
-  "#4f85c4", "#34beae", "#f7aecf", "#c4814d", "#d95e5e",
-  "#92d4f1", "#db6d9b",
+  "#a3cbee", "#a088d6", "#ef9560", "#f5dd7a", "#bfe0a2",
+  "#4a69ab", "#4fae9f", "#f5bad0", "#7c5036", "#e06a62",
+  "#f6e7b8", "#7d4e7c",
 ];
 const SYMBOLS = ["", "✕", "🐱"];
 const GameState = Object.freeze({
@@ -269,7 +271,9 @@ function catSvg(cls) {
 /* ✕ em dois traços levemente curvos (giz de cera); pathLength=1 permite desenhá-los com stroke-dashoffset */
 function crossSvg() {
   const svg = svgEl("sym-x");
-  for (const [cls, d] of [["x1", "M6.4 6.6Q12.3 11.7 17.6 17.5"], ["x2", "M17.5 6.4Q11.6 12.2 6.5 17.6"]]) {
+  // ponto-cruz: cada traço é uma linha grossa + um fio de brilho por cima
+  for (const [cls, d] of [["x1", "M6.4 6.6Q12.3 11.7 17.6 17.5"], ["x1 thread", "M6.4 6.6Q12.3 11.7 17.6 17.5"],
+                          ["x2", "M17.5 6.4Q11.6 12.2 6.5 17.6"], ["x2 thread", "M17.5 6.4Q11.6 12.2 6.5 17.6"]]) {
     const path = document.createElementNS(SVG_NS, "path");
     path.setAttribute("class", cls);
     path.setAttribute("d", d);
@@ -407,7 +411,7 @@ function buildBoard() {
         symbol.setAttribute("aria-hidden", "true");
         symbol.hidden = true;
         symbol.append(crossSvg(), catSvg("sym-cat"));
-        cell.appendChild(symbol);
+        cell.append(node("span", "patch"), symbol);     // .patch = o retalho de tecido (cor, estampa, costura)
         cells[r][c] = cell;
         cellSymbols[r][c] = symbol;
         fragment.appendChild(cell);
@@ -419,7 +423,19 @@ function buildBoard() {
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
       const cell = cells[r][c];
-      cell.style.backgroundColor = PALETTE[regions[r][c] % PALETTE.length];   // só a cor: o "inchaço" é background-image no CSS
+      const id = regions[r][c];
+      const fabric = id % PALETTE.length;
+      cell.style.setProperty("--fab", PALETTE[fabric]);
+      cell.dataset.f = fabric;                             // estampa e tom (claro/escuro) no CSS
+      // bordas de região: o retalho recua e ganha costura só nos lados que encostam em outra região
+      const edge = (i, j) => i < 0 || j < 0 || i >= N || j >= N || regions[i][j] !== id;
+      cell.classList.toggle("et", edge(r - 1, c));
+      cell.classList.toggle("er", edge(r, c + 1));
+      cell.classList.toggle("eb", edge(r + 1, c));
+      cell.classList.toggle("el", edge(r, c - 1));
+      // canto côncavo (os dois vizinhos são da região, a diagonal não): o pesponto faz a curva por dentro
+      for (const [cls, dr, dc] of [["ctl", -1, -1], ["ctr", -1, 1], ["cbr", 1, 1], ["cbl", 1, -1]])
+        cell.classList.toggle(cls, !edge(r + dr, c) && !edge(r, c + dc) && edge(r + dr, c + dc));
       cell.classList.remove(...PULSES);
       delete cell.dataset.mark;                            // tabuleiro novo: sem animação de entrada
       renderCell(r, c);

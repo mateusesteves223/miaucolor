@@ -116,9 +116,9 @@ const I18n = (() => {
       "hint.none": "Sem dedução simples no momento. Tente Revelar Gato.",
       "hint.noSafe": "Não há mais casas livres sem gato para marcar.",
 
-      "color.0": "Azul-gelo", "color.1": "Roxo", "color.2": "Laranja", "color.3": "Amarelo",
-      "color.4": "Verde", "color.5": "Azul", "color.6": "Turquesa", "color.7": "Rosa",
-      "color.8": "Marrom", "color.9": "Vermelho", "color.10": "Azul-céu", "color.11": "Magenta",
+      "color.0": "Azul-claro", "color.1": "Lilás", "color.2": "Laranja", "color.3": "Amarelo",
+      "color.4": "Verde-claro", "color.5": "Azul", "color.6": "Verde-água", "color.7": "Rosa",
+      "color.8": "Marrom", "color.9": "Vermelho", "color.10": "Creme", "color.11": "Ameixa",
       "diff.easy": "Fácil", "diff.medium": "Médio", "diff.hard": "Difícil", "diff.expert": "Expert",
 
       "levels.title": "Níveis",
@@ -292,9 +292,9 @@ const I18n = (() => {
       "hint.none": "No simple deduction right now. Try Reveal Cat.",
       "hint.noSafe": "There are no more free cells without a cat to mark.",
 
-      "color.0": "Ice blue", "color.1": "Purple", "color.2": "Orange", "color.3": "Yellow",
-      "color.4": "Green", "color.5": "Blue", "color.6": "Turquoise", "color.7": "Pink",
-      "color.8": "Brown", "color.9": "Red", "color.10": "Sky blue", "color.11": "Magenta",
+      "color.0": "Light blue", "color.1": "Lilac", "color.2": "Orange", "color.3": "Yellow",
+      "color.4": "Light green", "color.5": "Blue", "color.6": "Aqua", "color.7": "Pink",
+      "color.8": "Brown", "color.9": "Red", "color.10": "Cream", "color.11": "Plum",
       "diff.easy": "Easy", "diff.medium": "Medium", "diff.hard": "Hard", "diff.expert": "Expert",
 
       "levels.title": "Levels",
@@ -468,9 +468,9 @@ const I18n = (() => {
       "hint.none": "No hay una deducción simple por ahora. Prueba Revelar Gato.",
       "hint.noSafe": "No quedan casillas libres sin gato para marcar.",
 
-      "color.0": "Azul hielo", "color.1": "Morado", "color.2": "Naranja", "color.3": "Amarillo",
-      "color.4": "Verde", "color.5": "Azul", "color.6": "Turquesa", "color.7": "Rosa",
-      "color.8": "Marrón", "color.9": "Rojo", "color.10": "Celeste", "color.11": "Magenta",
+      "color.0": "Celeste", "color.1": "Lila", "color.2": "Naranja", "color.3": "Amarillo",
+      "color.4": "Verde claro", "color.5": "Azul", "color.6": "Aguamarina", "color.7": "Rosa",
+      "color.8": "Marrón", "color.9": "Rojo", "color.10": "Crema", "color.11": "Ciruela",
       "diff.easy": "Fácil", "diff.medium": "Medio", "diff.hard": "Difícil", "diff.expert": "Experto",
 
       "levels.title": "Niveles",
