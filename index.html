@@ -3,99 +3,124 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#1e1b2e">
+  <meta name="theme-color" content="#f6efe6">
   <!-- CSP: sem script inline (bloqueia XSS por onerror=/<script> injetado); domínios HTTPS ficam livres porque
        o SDK de anúncios da Poki carrega recursos de várias origens. Workers do motor vêm de Blob. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' https: blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src https: http:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <title>MeowColor</title>
+  <link rel="preload" href="fonts/quicksand-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
   <script src="https://game-cdn.poki.com/scripts/v2/poki-sdk.js"></script>
 </head>
-<body>
-  <nav class="sidenav">
-  <header>
-    <h1>🐱 <span data-i18n="app.name">MeowColor</span></h1>
-    <div class="lang-switch" role="group" data-i18n-attr="aria-label:lang.group" aria-label="Idioma">
-      <button type="button" class="lang-btn" data-lang="pt" lang="pt" data-i18n-attr="aria-label:lang.pt;title:lang.pt" aria-label="Português" title="Português">PT</button>
-      <button type="button" class="lang-btn" data-lang="en" lang="en" data-i18n-attr="aria-label:lang.en;title:lang.en" aria-label="English" title="English">EN</button>
-      <button type="button" class="lang-btn" data-lang="es" lang="es" data-i18n-attr="aria-label:lang.es;title:lang.es" aria-label="Español" title="Español">ES</button>
-    </div>
-    <button id="menu-btn" class="menu-btn" type="button" aria-label="Abrir menu" data-i18n-attr="aria-label:menu.open" aria-expanded="false" aria-controls="menu-drop">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
-    <ul class="rules">
-      <li data-i18n="rules.color">Um gato por cor</li>
-      <li data-i18n="rules.line">Um gato por linha e coluna</li>
-      <li data-i18n="rules.touch">Os gatos não podem se encostar</li>
-    </ul>
-  </header>
+<body data-panel="game">
+  <!-- ===== Sprite SVG (gato, patinha e ícones). Cores via currentColor e variáveis CSS. ===== -->
+  <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <!-- Gato sentado (viewBox 64): orelhas, corpo, olhos abertos e olhos felizes ficam separados para animar -->
+      <symbol id="cat-ears" viewBox="0 0 64 64">
+        <path d="M17.6 25.5 18.4 10.6c.1-1.9 2.2-2.8 3.6-1.6l9 8.4zM46.4 25.5 45.6 10.6c-.1-1.9-2.2-2.8-3.6-1.6l-9 8.4z"/>
+        <path style="fill:var(--cat-inner)" d="M21 19.8 21.5 13.4l4.6 4.3zM43 19.8 42.5 13.4l-4.6 4.3z"/>
+      </symbol>
+      <symbol id="cat-body" viewBox="0 0 64 64">
+        <path d="M47.5 59.5c6.8-.6 10.4-5.4 9.7-10.3-.5-3.3-3.3-5.4-6.1-4.4" fill="none" stroke="currentColor" stroke-width="4.6" stroke-linecap="round"/>
+        <path d="M32 37.5c-10.3 0-16.6 9.4-16.6 18.6 0 3.6 1.9 5.4 5.6 5.4h22c3.7 0 5.6-1.8 5.6-5.4 0-9.2-6.3-18.6-16.6-18.6z"/>
+        <ellipse cx="32" cy="27.6" rx="16.2" ry="13.6"/>
+        <ellipse style="fill:var(--cat-blush)" cx="22.2" cy="32.4" rx="3.1" ry="2"/>
+        <ellipse style="fill:var(--cat-blush)" cx="41.8" cy="32.4" rx="3.1" ry="2"/>
+        <path style="fill:var(--cat-blush)" d="M30.2 31.3h3.6c.6 0 .9.7.5 1.1l-1.8 1.6c-.3.3-.7.3-1 0l-1.8-1.6c-.4-.4-.1-1.1.5-1.1z"/>
+      </symbol>
+      <symbol id="cat-eyes" viewBox="0 0 64 64">
+        <ellipse style="fill:var(--cat-eye)" cx="25.6" cy="27.4" rx="2.3" ry="2.9"/>
+        <ellipse style="fill:var(--cat-eye)" cx="38.4" cy="27.4" rx="2.3" ry="2.9"/>
+      </symbol>
+      <symbol id="cat-happy" viewBox="0 0 64 64">
+        <path style="stroke:var(--cat-eye)" d="M22.6 28.6q3-3.8 6 0M35.4 28.6q3-3.8 6 0" fill="none" stroke-width="2.2" stroke-linecap="round"/>
+      </symbol>
+      <symbol id="cat-sleepy" viewBox="0 0 64 64">
+        <path style="stroke:var(--cat-eye)" d="M22.6 27q3 3.2 6 0M35.4 27q3 3.2 6 0" fill="none" stroke-width="2.2" stroke-linecap="round"/>
+      </symbol>
+      <!-- Patinha (vidas): sem fill/stroke próprios, herda do <use> -->
+      <symbol id="i-paw" viewBox="0 0 24 24">
+        <path d="M12 21.2c-3.4 0-6.1-1.8-6.1-4.3 0-2.8 2.9-5.6 6.1-5.6s6.1 2.8 6.1 5.6c0 2.5-2.7 4.3-6.1 4.3z"/>
+        <ellipse cx="4.8" cy="10.6" rx="2.1" ry="2.5" transform="rotate(-18 4.8 10.6)"/>
+        <ellipse cx="9.3" cy="6.4" rx="2.2" ry="2.7" transform="rotate(-6 9.3 6.4)"/>
+        <ellipse cx="14.7" cy="6.4" rx="2.2" ry="2.7" transform="rotate(6 14.7 6.4)"/>
+        <ellipse cx="19.2" cy="10.6" rx="2.1" ry="2.5" transform="rotate(18 19.2 10.6)"/>
+      </symbol>
+      <!-- Ícones de traço (24px, stroke = currentColor) -->
+      <symbol id="i-bulb" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.2 17.6h5.6M10.2 21h3.6"/><path d="M12 3.2a6.1 6.1 0 0 0-3.7 11c.7.6 1 1.3 1 2.2v1.2h5.4v-1.2c0-.9.3-1.6 1-2.2A6.1 6.1 0 0 0 12 3.2z"/><path d="M12 6.8a2.8 2.8 0 0 0-2.6 1.9" opacity=".7"/></g></symbol>
+      <symbol id="i-catface" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.4 10.4 5.2 4.6c0-.7.8-1.1 1.4-.6l3.1 2.6M18.6 10.4l.2-5.8c0-.7-.8-1.1-1.4-.6l-3.1 2.6"/><path d="M12 6.2c4.6 0 7.6 2.9 7.6 6.6 0 4-3.3 6.9-7.6 6.9s-7.6-2.9-7.6-6.9c0-3.7 3-6.6 7.6-6.6z"/></g><g fill="currentColor"><circle cx="9.3" cy="12.6" r="1.15"/><circle cx="14.7" cy="12.6" r="1.15"/><path d="M11 15.2h2l-1 1z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></g></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 19 6v5.2c0 4.3-2.9 7.7-7 9.6-4.1-1.9-7-5.3-7-9.6V6z"/><path d="M9.6 9.6l4.8 4.8M14.4 9.6l-4.8 4.8"/></g></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="5.5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18.5" cy="12" r="2"/></g></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 5.5 8 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12.5" r="8"/><path d="M12 8.4v4.3l2.8 1.8"/></g></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2.8c.5 0 .8.3.9.8l.8 3.6c.3 1.5 1.5 2.7 3 3l3.6.8c.5.1.8.4.8.9s-.3.8-.8.9l-3.6.8c-1.5.3-2.7 1.5-3 3l-.8 3.6c-.1.5-.4.8-.9.8s-.8-.3-.9-.8l-.8-3.6c-.3-1.5-1.5-2.7-3-3l-3.6-.8c-.5-.1-.8-.4-.8-.9s.3-.8.8-.9l3.6-.8c1.5-.3 2.7-1.5 3-3l.8-3.6c.1-.5.4-.8.9-.8z"/></symbol>
+      <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.9l2.6 5.6 6.1.7c.6.1.9.9.4 1.3l-4.5 4.2 1.2 6c.1.6-.6 1.1-1.1.8L12 18.4l-5.4 3.1c-.5.3-1.2-.2-1.1-.8l1.2-6-4.5-4.2c-.5-.4-.2-1.2.4-1.3l6.1-.7z"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="3"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></g></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.6v12.8c0 .8.9 1.3 1.6.9l10-6.4c.6-.4.6-1.3 0-1.7l-10-6.4C8.9 4.3 8 4.8 8 5.6z"/></symbol>
+      <symbol id="i-sound" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.2L12 5.6v12.8l-4.8-3.9H4z"/><path d="M15.6 9.3a4 4 0 0 1 0 5.4M18.2 6.8a7.6 7.6 0 0 1 0 10.4"/></g></symbol>
+      <symbol id="i-sound-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.2L12 5.6v12.8l-4.8-3.9H4z"/><path d="M15.8 9.6l4.8 4.8M20.6 9.6l-4.8 4.8"/></g></symbol>
+      <symbol id="i-vibrate" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7.5" y="3.5" width="9" height="17" rx="2.4"/><path d="M4 9v6M20 9v6"/></g></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="2"/></g></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.6C10.3 5 7.9 4.4 4.5 4.6v13.3c3.4-.2 5.8.4 7.5 2 1.7-1.6 4.1-2.2 7.5-2V4.6c-3.4-.2-5.8.4-7.5 2zM12 6.6v13.3"/></g></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.2 12a7.2 7.2 0 1 1-2.1-5.1"/><path d="M19.4 4.6v3.6h-3.6"/></g></symbol>
+      <symbol id="i-eraser" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.4 19.5 4.6 14.7a1.6 1.6 0 0 1 0-2.3l7.8-7.8a1.6 1.6 0 0 1 2.3 0l4.7 4.7a1.6 1.6 0 0 1 0 2.3l-7.9 7.9zM20 19.5H9.4M8 10.9l5.1 5.1"/></g></symbol>
+    </defs>
+  </svg>
 
-  <div class="tabs" role="tablist">
-    <button class="tab active" data-target="game" data-i18n="tab.game">Jogar</button>
-    <button class="tab" data-target="levels" data-i18n="tab.levels">Níveis</button>
-    <button class="tab" data-target="solver" data-dev data-i18n="tab.solver">Resolve Nível</button>
-    <button class="tab" data-target="help" data-i18n="tab.help">Guia Help</button>
-    <button class="tab" data-target="wiki" data-dev>Documentação Algorítmica</button>
+  <!-- Barra das páginas (Níveis, Ajuda...): voltar ao jogo + menu. Escondida durante a partida. -->
+  <div class="page-bar">
+    <button type="button" class="pill-btn back-btn" data-go="game">
+      <svg class="ic" aria-hidden="true"><use href="#i-back"/></svg><span data-i18n="menu.back">Voltar ao jogo</span>
+    </button>
+    <span class="brand brand-small"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 64 64"><use href="#cat-ears"/><use href="#cat-body"/><use href="#cat-eyes"/></svg><span data-i18n="app.name">MeowColor</span></span>
+    <button type="button" class="icon-btn" data-menu-toggle aria-label="Abrir menu" data-i18n-attr="aria-label:menu.open" aria-expanded="false" aria-controls="menu-drop">
+      <svg class="ic" aria-hidden="true"><use href="#i-more"/></svg>
+    </button>
   </div>
 
-  <div id="menu-drop" class="menu-drop"></div>
-
-  </nav>
-
   <main>
-    <!-- ===== ABA 1: JOGO ===== -->
+    <!-- ===== ABA 1: JOGO =====
+         Paisagem: trilho esquerdo (HUD) | tabuleiro | trilho direito (menu + power-ups).
+         Retrato: HUD no topo, tabuleiro, dock com power-ups embaixo. -->
     <section id="game" class="panel active">
-      <div class="game-side">
-      <div class="game-hud">
-        <div id="level-info" class="level-info" aria-live="polite" aria-atomic="true">
-          <span class="level-info-label" data-i18n="hud.level">NÍVEL ATUAL</span>
-          <span id="level-value" class="level-info-value"></span>
+      <div class="side side-l">
+        <div class="brand"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 64 64"><use href="#cat-ears"/><use href="#cat-body"/><use href="#cat-eyes"/></svg><span data-i18n="app.name">MeowColor</span></div>
+        <div class="hud">
+          <div id="level-info" class="hud-item level-info" aria-live="polite" aria-atomic="true">
+            <span class="level-info-label" data-i18n="hud.level">Nível</span>
+            <span id="level-value" class="level-info-value"></span>
+          </div>
+          <div id="timer" class="hud-item timer" role="timer" aria-label="Tempo" data-i18n-attr="aria-label:ctrl.timer">
+            <svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span id="timer-text">00:00</span>
+          </div>
+          <div id="lives" class="hud-item lives" aria-label="Vidas" data-i18n-attr="aria-label:ctrl.lives"></div>
+          <div id="score-info" class="hud-item score-info">
+            <span class="level-info-label" data-i18n="hud.score">Pontos</span>
+            <span class="score-line"><svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg><span id="score-value" class="level-info-value">0</span></span>
+          </div>
         </div>
-        <div id="score-info" class="level-info score-info">
-          <span class="level-info-label" data-i18n="hud.score">PONTOS</span>
-          <span id="score-value" class="level-info-value">0</span>
-        </div>
+        <div id="status" class="status"></div>
       </div>
+
+      <div class="stage"><div id="board" aria-label="Tabuleiro" data-i18n-attr="aria-label:ctrl.board"></div></div>
+
+      <div class="side side-r">
+        <button id="menu-btn" type="button" class="icon-btn menu-btn" data-menu-toggle aria-label="Abrir menu" data-i18n-attr="aria-label:menu.open" aria-expanded="false" aria-controls="menu-drop">
+          <svg class="ic" aria-hidden="true"><use href="#i-more"/></svg>
+        </button>
         <div class="powerups" id="powerups">
           <div class="powerup-bar" role="group" aria-label="Power-ups" data-i18n-attr="aria-label:item.group">
-            <button type="button" class="pu-btn" data-item="hint" aria-label="Dica inteligente"><span class="pu-icon" aria-hidden="true">💡</span><span class="pu-label" data-i18n="item.hint.label">Dica</span><span class="pu-badge" aria-hidden="true">3</span></button>
-            <button type="button" class="pu-btn" data-item="revealCat" aria-label="Revelar gato"><span class="pu-icon" aria-hidden="true">🐱</span><span class="pu-label" data-i18n="item.revealCat.label">Revelar Gato</span><span class="pu-badge" aria-hidden="true">3</span></button>
-            <button type="button" class="pu-btn" data-item="safeCross" aria-label="3 X seguros"><span class="pu-icon" aria-hidden="true">✕</span><span class="pu-label" data-i18n="item.safeCross.label">3x Seguros</span><span class="pu-badge" aria-hidden="true">3</span></button>
-          </div>
-          <div id="hint-msg" class="hint-msg" role="status" aria-live="polite" hidden></div>
-        </div>
-      <aside class="sidebar">
-      <div class="controls">
-        <label><span data-i18n="ctrl.size">Tamanho:</span>
-          <select id="size">
-            <option>5</option><option>6</option><option selected>7</option>
-            <option>8</option><option>9</option><option>10</option>
-          </select>
-        </label>
-        <button id="new" data-i18n="ctrl.new">Novo jogo</button>
-        <button id="clear" data-i18n="ctrl.clear">Limpar</button>
-        <button id="sound-btn" type="button" aria-pressed="true">🔊 Som</button>
-        <button id="haptics-btn" type="button" aria-pressed="true">📳 Vibração</button>
-      </div>
-      <div id="lives" class="lives" aria-label="Vidas" data-i18n-attr="aria-label:ctrl.lives"></div>
-      <div id="status"></div>
-      <div id="timer" class="timer" aria-label="Tempo" data-i18n-attr="aria-label:ctrl.timer">⏱ 00:00</div>
-      <p class="hint" data-i18n-html="ctrl.tapHint">Clique: marca ✕<br>Duplo clique: coloca 🐱</p>
-      <div class="reveal-wrap"><button id="reveal" class="link-btn" data-i18n="ctrl.reveal">Revelar solução</button>
-        <div class="dev-card" data-dev>
-          <label class="dev-head"><span>🛠️ Modo Dev</span><input type="checkbox" id="dev" class="switch" aria-label="Modo Dev"></label>
-          <div class="dev-body">
-            <p class="dev-note" id="dev-note" hidden>♾️ Vidas infinitas</p>
-            <label class="dev-opt" id="auto-x-wrap" hidden><span>✕ ao redor do gato</span><input type="checkbox" id="auto-x" class="switch" checked></label>
-            <label class="dev-opt" id="auto-color-wrap" hidden><span>✕ na cor do gato</span><input type="checkbox" id="auto-color" class="switch" checked></label>
-            <button id="find-cat" class="dev-btn" hidden>🔎 Achar um gato</button>
+            <button type="button" class="pu-btn" data-item="hint" aria-label="Dica inteligente"><span class="pu-disc"><svg class="pu-icon" aria-hidden="true"><use href="#i-bulb"/></svg><span class="pu-badge" aria-hidden="true">3</span></span><span class="pu-label" data-i18n="item.hint.label">Dica</span></button>
+            <button type="button" class="pu-btn" data-item="revealCat" aria-label="Revelar gato"><span class="pu-disc"><svg class="pu-icon" aria-hidden="true"><use href="#i-catface"/></svg><span class="pu-badge" aria-hidden="true">3</span></span><span class="pu-label" data-i18n="item.revealCat.label">Revelar Gato</span></button>
+            <button type="button" class="pu-btn" data-item="safeCross" aria-label="3 X seguros"><span class="pu-disc"><svg class="pu-icon" aria-hidden="true"><use href="#i-shield"/></svg><span class="pu-badge" aria-hidden="true">3</span></span><span class="pu-label" data-i18n="item.safeCross.label">3x Seguros</span></button>
           </div>
         </div>
+        <div id="hint-msg" class="hint-msg" role="status" aria-live="polite" hidden></div>
       </div>
-      </aside>
-      </div>
-      <div class="stage"><div id="board" aria-label="Tabuleiro" data-i18n-attr="aria-label:ctrl.board"></div></div>
+
       <div id="modal" class="modal" role="dialog" aria-modal="true" aria-label="Mensagem do jogo" data-i18n-attr="aria-label:modal.aria"></div>
     </section>
 
@@ -198,7 +223,7 @@
               <figcaption data-i18n="g5.cap">Um gato bloqueia as casas ao redor (incluindo diagonais).</figcaption>
               <div class="mini-board neighborhood" role="img" aria-label="Gato no centro e casas vizinhas bloqueadas" data-i18n-attr="aria-label:g5.aria">
                 <span class="blocked">×</span><span class="blocked">×</span><span class="blocked">×</span>
-                <span class="blocked">×</span><span class="cat-cell">🐱</span><span class="blocked">×</span>
+                <span class="blocked">×</span><span class="cat-cell"><svg class="mini-cat" aria-hidden="true" viewBox="0 0 64 64"><use href="#cat-ears"/><use href="#cat-body"/><use href="#cat-eyes"/></svg></span><span class="blocked">×</span>
                 <span class="blocked">×</span><span class="blocked">×</span><span class="blocked">×</span>
               </div>
               <div class="legend"><span><i class="legend-cross">×</i><span data-i18n="g5.l1">Casas que não podem receber outro gato</span></span></div>
@@ -361,6 +386,80 @@
       </article>
     </section>
   </main>
+
+  <!-- ===== Menu ⋯ (sobreposto): abas, ajustes, idioma e regras. Cartão central na paisagem, folha de baixo no retrato. ===== -->
+  <div class="menu-scrim" data-menu-close hidden></div>
+  <div id="menu-drop" class="menu-drop" role="dialog" aria-modal="true" aria-labelledby="menu-title" hidden>
+    <div class="menu-head">
+      <span class="brand"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 64 64"><use href="#cat-ears"/><use href="#cat-body"/><use href="#cat-eyes"/></svg><span id="menu-title" data-i18n="app.name">MeowColor</span></span>
+      <button type="button" class="icon-btn" data-menu-close aria-label="Fechar menu" data-i18n-attr="aria-label:menu.close">
+        <svg class="ic" aria-hidden="true"><use href="#i-close"/></svg>
+      </button>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab active" data-target="game"><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg><span data-i18n="tab.game">Jogar</span></button>
+      <button type="button" class="tab" data-target="levels"><svg class="ic" aria-hidden="true"><use href="#i-grid"/></svg><span data-i18n="tab.levels">Níveis</span></button>
+      <button type="button" class="tab" data-target="help"><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span data-i18n="tab.help">Guia Help</span></button>
+      <button type="button" class="tab" data-target="solver" data-dev><span data-i18n="tab.solver">Resolve Nível</span></button>
+      <button type="button" class="tab" data-target="wiki" data-dev><span>Documentação Algorítmica</span></button>
+    </div>
+
+    <section class="menu-sec">
+      <h3 class="menu-sec-title" data-i18n="menu.play">Partida</h3>
+      <div class="controls">
+        <label class="field"><span data-i18n="ctrl.size">Tamanho:</span>
+          <select id="size">
+            <option>5</option><option>6</option><option selected>7</option>
+            <option>8</option><option>9</option><option>10</option>
+          </select>
+        </label>
+        <button id="new" type="button" class="pill-btn" data-menu-close><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg><span data-i18n="ctrl.new">Novo jogo</span></button>
+        <button id="clear" type="button" class="pill-btn" data-menu-close><svg class="ic" aria-hidden="true"><use href="#i-eraser"/></svg><span data-i18n="ctrl.clear">Limpar</span></button>
+      </div>
+    </section>
+
+    <section class="menu-sec">
+      <h3 class="menu-sec-title" data-i18n="menu.settings">Ajustes</h3>
+      <div class="settings">
+        <button id="sound-btn" type="button" class="set-row" aria-pressed="true">
+          <svg class="ic ic-on" aria-hidden="true"><use href="#i-sound"/></svg><svg class="ic ic-off" aria-hidden="true"><use href="#i-sound-off"/></svg>
+          <span class="set-label">Som</span><span class="set-switch" aria-hidden="true"></span>
+        </button>
+        <button id="haptics-btn" type="button" class="set-row" aria-pressed="true">
+          <svg class="ic" aria-hidden="true"><use href="#i-vibrate"/></svg>
+          <span class="set-label">Vibração</span><span class="set-switch" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="lang-switch" role="group" data-i18n-attr="aria-label:lang.group" aria-label="Idioma">
+        <button type="button" class="lang-btn" data-lang="pt" lang="pt" data-i18n-attr="aria-label:lang.pt;title:lang.pt" aria-label="Português" title="Português">PT</button>
+        <button type="button" class="lang-btn" data-lang="en" lang="en" data-i18n-attr="aria-label:lang.en;title:lang.en" aria-label="English" title="English">EN</button>
+        <button type="button" class="lang-btn" data-lang="es" lang="es" data-i18n-attr="aria-label:lang.es;title:lang.es" aria-label="Español" title="Español">ES</button>
+      </div>
+    </section>
+
+    <section class="menu-sec">
+      <h3 class="menu-sec-title" data-i18n="menu.rules">Como jogar</h3>
+      <ul class="rules">
+        <li data-i18n="rules.color">Um gato por cor</li>
+        <li data-i18n="rules.line">Um gato por linha e coluna</li>
+        <li data-i18n="rules.touch">Os gatos não podem se encostar</li>
+      </ul>
+      <p class="hint" data-i18n-html="ctrl.tapHint">Clique: marca ✕<br>Duplo clique: coloca um gato</p>
+    </section>
+
+    <div class="reveal-wrap"><button id="reveal" type="button" class="link-btn" data-menu-close data-i18n="ctrl.reveal">Revelar solução</button>
+      <div class="dev-card" data-dev>
+        <label class="dev-head"><span>🛠️ Modo Dev</span><input type="checkbox" id="dev" class="switch" aria-label="Modo Dev"></label>
+        <div class="dev-body">
+          <p class="dev-note" id="dev-note" hidden>♾️ Vidas infinitas</p>
+          <label class="dev-opt" id="auto-x-wrap" hidden><span>✕ ao redor do gato</span><input type="checkbox" id="auto-x" class="switch" checked></label>
+          <label class="dev-opt" id="auto-color-wrap" hidden><span>✕ na cor do gato</span><input type="checkbox" id="auto-color" class="switch" checked></label>
+          <button id="find-cat" type="button" class="dev-btn" data-menu-close hidden>🔎 Achar um gato</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="engine.js"></script>
   <script src="infinite.js"></script>

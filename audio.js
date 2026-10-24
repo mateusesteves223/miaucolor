@@ -89,9 +89,10 @@ const Sound = (() => {
 
     click: playClick,
     tap: playClick,
-    cat() {                                         // "miau": sobe e desce
-      tone({ freq: 520, to: 900, dur: 0.12, type: "sawtooth", gain: 0.05 });
-      tone({ freq: 900, to: 460, dur: 0.18, type: "sawtooth", gain: 0.05, delay: 0.11 });
+    cat() {                                         // "mrrp" macio: um trinado curto que sobe e assenta
+      [0, 0.035, 0.07].forEach((d, i) => tone({ freq: 400 + i * 60, to: 470 + i * 70, dur: 0.05, type: "triangle", gain: 0.07, delay: d }));
+      tone({ freq: 620, to: 520, dur: 0.16, type: "sine", gain: 0.06, delay: 0.1 });
+      tone({ freq: 1240, to: 1040, dur: 0.12, type: "sine", gain: 0.012, delay: 0.1 });
       vibrate(15);
     },
     point(combo = 0) {                              // "plim" cristalino; sobe um semitom a cada combo
@@ -101,7 +102,8 @@ const Sound = (() => {
       tone({ freq: 3136 * k, to: 3136 * k, dur: 0.12, type: "triangle", gain: 0.015, delay: 0.07 });
     },
     error() {
-      tone({ freq: 190, to: 90, dur: 0.25, type: "square", gain: 0.06 });
+      tone({ freq: 260, to: 150, dur: 0.28, type: "triangle", gain: 0.09 });   // "puf" grave e macio, sem aspereza
+      tone({ freq: 196, to: 120, dur: 0.3, type: "sine", gain: 0.05, delay: 0.04 });
       vibrate([30, 40, 30]);
     },
     win() {

@@ -8,11 +8,13 @@
  *   marks[r][c]  = 0|1|2   -> jogador: vazio | X | gato
  * ===================================================================== */
 
+/* Paleta "almofada ao sol": a original com ~8% menos saturação; as mais claras escurecem um pouco
+ * para não sumirem na moldura creme. A ordem é a mesma (I18n.colorName depende dela). */
 const PALETTE = [
-  "#b9d3e4", "#a577e0", "#ffbb77", "#fccd3c", "#b6dc78",
-  "#4a85c9", "#2ec4b3", "#fbbcd8", "#c98048", "#de5959",
-    "#8ed6f5", "#e0689a",
-  ];
+  "#aecadd", "#a67bdc", "#fabb7c", "#f4c944", "#b5d87c",
+  "#4f85c4", "#34beae", "#f7aecf", "#c4814d", "#d95e5e",
+  "#92d4f1", "#db6d9b",
+];
 const SYMBOLS = ["", "✕", "🐱"];
 const GameState = Object.freeze({
   IDLE: "IDLE",
@@ -83,7 +85,7 @@ const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
 const livesEl = document.getElementById("lives");
 const modalEl = document.getElementById("modal");
-const timerEl = document.getElementById("timer");
+const timerEl = document.getElementById("timer-text");
 const levelInfoEl = document.getElementById("level-info");
 const levelValueEl = document.getElementById("level-value");
 const scoreValueEl = document.getElementById("score-value");
@@ -140,7 +142,7 @@ function formatTime(secs) {
   return (h ? `${h}:${two(m)}` : two(m)) + ":" + two(secs % 60);
 }
 function renderTimer() {
-  const text = "⏱ " + formatTime(Math.floor(timerElapsed() / 1000));
+  const text = formatTime(Math.floor(timerElapsed() / 1000));
   if (timerEl.textContent !== text) timerEl.textContent = text;
 }
 document.addEventListener("visibilitychange", () => {
@@ -242,11 +244,54 @@ function persist() {
 }
 window.addEventListener("pagehide", persistNow);
 
+/* ---------- SVG do sprite (index.html): criados uma vez, nunca via innerHTML ---------- */
+const SVG_NS = "http://www.w3.org/2000/svg";
+function svgEl(cls, viewBox = "0 0 24 24") {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", cls);
+  svg.setAttribute("viewBox", viewBox);
+  svg.setAttribute("aria-hidden", "true");
+  return svg;
+}
+function svgUse(id, cls) {
+  const use = document.createElementNS(SVG_NS, "use");
+  use.setAttribute("href", "#" + id);
+  if (cls) use.setAttribute("class", cls);
+  return use;
+}
+/* Gato desenhado: orelhas, corpo e olhos são <use> separados para o "sentar" e a piscada da vitória */
+function catSvg(cls) {
+  const svg = svgEl(cls, "0 0 64 64");
+  svg.append(svgUse("cat-ears", "cat-ears"), svgUse("cat-body", "cat-body"),
+    svgUse("cat-eyes", "cat-eyes"), svgUse("cat-happy", "cat-happy"));
+  return svg;
+}
+/* ✕ em dois traços levemente curvos (giz de cera); pathLength=1 permite desenhá-los com stroke-dashoffset */
+function crossSvg() {
+  const svg = svgEl("sym-x");
+  for (const [cls, d] of [["x1", "M6.4 6.6Q12.3 11.7 17.6 17.5"], ["x2", "M17.5 6.4Q11.6 12.2 6.5 17.6"]]) {
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("class", cls);
+    path.setAttribute("d", d);
+    path.setAttribute("pathLength", "1");
+    svg.appendChild(path);
+  }
+  return svg;
+}
+
+/* Reinicia uma animação de classe na célula (a classe sai sozinha no animationend da própria célula) */
+const PULSES = ["pop-x", "pop-cat", "wave", "shake"];
+function pulse(el, cls) {
+  if (el.classList.contains(cls)) { el.classList.remove(cls); void el.offsetWidth; }
+  el.classList.add(cls);
+}
+
 function renderCell(r, c) {
   const el = cells[r][c];
   const symbol = cellSymbols[r][c];
   const m = marks[r][c];
   const cross = m === 1 || m === 3;
+  const prev = el.dataset.mark;
 
   el.dataset.mark = m;
   el.classList.toggle("has-cat", m === 2);
@@ -254,17 +299,23 @@ function renderCell(r, c) {
   symbol.classList.toggle("x", cross);
   symbol.classList.toggle("cat", m === 2);
   symbol.classList.toggle("wrong", m === 3);
-  const text = m === 2 ? "🐱" : "";
-  if (symbol.textContent !== text) symbol.textContent = text;
+  if (prev === undefined || prev === String(m)) return;
+  if (m === 2) pulse(el, "pop-cat");                        // a célula "infla" e o gato senta
+  else if (cross && prev !== "1" && prev !== "3") pulse(el, "pop-x");   // afunda de leve
 }
 
-function renderLives() {
+/* Vidas = patinhas. `animate`: a patinha recém-perdida "se solta" e cai (só no erro, não ao retomar) */
+function renderLives(animate = false) {
   if (heartNodes.length !== MAX_LIVES) {
     const fragment = document.createDocumentFragment();
     heartNodes = [];
     for (let i = 0; i < MAX_LIVES; i++) {
       const heart = document.createElement("span");
-      heart.className = "heart";
+      heart.className = "paw";
+      const svg = svgEl("paw-svg");
+      svg.append(svgUse("i-paw", "paw-ring"), svgUse("i-paw", "paw-fill"));
+      heart.appendChild(svg);
+      heart.addEventListener("animationend", () => heart.classList.remove("drop"));
       heartNodes.push(heart);
       fragment.appendChild(heart);
     }
@@ -273,10 +324,51 @@ function renderLives() {
   for (let i = 0; i < MAX_LIVES; i++) {
     const heart = heartNodes[i];
     const alive = i < game.lives;
+    const wasAlive = !heart.classList.contains("lost");
     heart.classList.toggle("lost", !alive);
-    const text = alive ? "❤️" : "🖤";
-    if (heart.textContent !== text) heart.textContent = text;
+    if (animate && wasAlive && !alive) pulse(heart, "drop");
   }
+}
+
+/* ---------- Onda quente: linha, coluna ou região "fechada" (tem o gato e todo o resto marcado com ✕) ---------- */
+const WAVE_STEP_MS = 25;
+const waveDone = new Set();         // unidades já celebradas (voltam a valer se forem desfeitas)
+function unitClosed(list) {
+  let cat = false;
+  for (const [i, j] of list) {
+    const m = marks[i][j];
+    if (m === 0) return false;
+    if (m === 2) cat = true;
+  }
+  return cat;
+}
+function checkWaves(r, c) {
+  const id = regions[r][c];
+  const units = { ["r" + r]: [], ["c" + c]: [], ["g" + id]: [] };
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    if (i === r) units["r" + r].push([i, j]);
+    if (j === c) units["c" + c].push([i, j]);
+    if (regions[i][j] === id) units["g" + id].push([i, j]);
+  }
+  for (const [key, list] of Object.entries(units)) {
+    if (!unitClosed(list)) { waveDone.delete(key); continue; }
+    if (waveDone.has(key)) continue;
+    waveDone.add(key);
+    playWave(list, r, c);
+  }
+}
+function playWave(list, r0, c0) {
+  const els = [];
+  for (const [i, j] of list) {
+    if (marks[i][j] === 2) continue;                       // o gato mantém a própria animação
+    const el = cells[i][j];
+    el.style.setProperty("--wave", `${(Math.abs(i - r0) + Math.abs(j - c0)) * WAVE_STEP_MS}ms`);
+    el.classList.remove("wave");
+    els.push(el);
+  }
+  if (!els.length) return;
+  void boardEl.offsetWidth;                                // um único reflow para reiniciar todas
+  for (const el of els) el.classList.add("wave");
 }
 
 /* A linha de status mostra o contador de gatos ou uma mensagem fixa (vitória, derrota...) guardada por chave,
@@ -298,7 +390,8 @@ langHooks.push(renderStatus);
 
 function buildBoard() {
   boardEl.style.setProperty("--size", N);
-  boardEl.classList.remove("locked");
+  boardEl.classList.remove("locked", "won", "lost");
+  waveDone.clear();
   if (cells.length !== N) {
     cells = matrix(N, null);
     cellSymbols = matrix(N, null);
@@ -309,9 +402,11 @@ function buildBoard() {
         const symbol = document.createElement("span");
         cell.className = "cell";
         cell.dataset.r = r; cell.dataset.c = c;
+        cell.addEventListener("animationend", e => { if (e.target === cell) cell.classList.remove(...PULSES); });
         symbol.className = "sym";
         symbol.setAttribute("aria-hidden", "true");
         symbol.hidden = true;
+        symbol.append(crossSvg(), catSvg("sym-cat"));
         cell.appendChild(symbol);
         cells[r][c] = cell;
         cellSymbols[r][c] = symbol;
@@ -323,7 +418,10 @@ function buildBoard() {
 
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
-      cells[r][c].style.background = PALETTE[regions[r][c] % PALETTE.length];
+      const cell = cells[r][c];
+      cell.style.backgroundColor = PALETTE[regions[r][c] % PALETTE.length];   // só a cor: o "inchaço" é background-image no CSS
+      cell.classList.remove(...PULSES);
+      delete cell.dataset.mark;                            // tabuleiro novo: sem animação de entrada
       renderCell(r, c);
     }
   }
@@ -342,6 +440,7 @@ function dragApply(cell) {
   if (m >= 2 || m === game.drag.mode) return;
   marks[r][c] = game.drag.mode;
   renderCell(r, c);
+  checkWaves(r, c);
   Sound.click();
 }
 
@@ -392,6 +491,7 @@ boardEl.addEventListener("pointerup", e => {
   game.lastTap = { cell, t: now, prev: marks[r][c] };
   marks[r][c] = marks[r][c] === 1 ? 0 : 1;
   renderCell(r, c);
+  checkWaves(r, c);
   Sound.click();
   persist();
 });
@@ -432,6 +532,7 @@ function commitCat(r, c, award) {
   if (game.devMode && autoXEl.checked) autoCross(r, c);
   if (game.devMode && autoColorEl.checked) autoCrossRegion(r, c);
   renderCell(r, c);
+  checkWaves(r, c);
   updateStatus();
   Sound.cat();
   if (award) awardPoints(r, c);
@@ -448,22 +549,20 @@ function tryCat(r, c) {
   marks[r][c] = 3;                 // erro: ✕ vinho fixo
   game.combo = 0;
   renderCell(r, c);
+  checkWaves(r, c);
   shake(cells[r][c]);
   Sound.error();
   if (game.devMode) return;             // modo dev: vidas infinitas
   game.lives--;
-  renderLives();
+  renderLives(true);
   if (game.lives <= 0) gameOver();
   else persist();
 }
 
+/* Erro suave: só a célula balança e fica rosada; o tabuleiro não treme (não pune de forma agressiva) */
 function shake(el) {
-  for (const target of [el, boardEl]) {
-    target.classList.remove("shake");
-    void target.offsetWidth;            // reinicia a animação
-    target.classList.add("shake");
-    setTimeout(() => target.classList.remove("shake"), 600);
-  }
+  pulse(el, "shake");
+  setTimeout(() => el.classList.remove("shake"), 900);
 }
 
 function lockBoard(nextState) {
@@ -485,8 +584,29 @@ function node(tag, cls, text) {
   if (text !== undefined) el.textContent = text;
   return el;
 }
+/* Ilustração do topo do cartão (substitui os emojis): gato feliz, gato sonolento ou "play" do vídeo */
+function modalArt(kind, stars) {
+  const art = node("div", "modal-art " + kind);
+  if (kind === "ad") art.appendChild(svgEl("modal-ic")).appendChild(svgUse("i-play"));
+  else {
+    const cat = catSvg("modal-cat");
+    if (kind === "over") cat.querySelector(".cat-happy").setAttribute("href", "#cat-sleepy");
+    art.appendChild(cat);
+  }
+  if (stars === undefined) return [art];
+  const row = node("div", "modal-stars");
+  row.setAttribute("role", "img");
+  row.setAttribute("aria-label", starText(stars));
+  for (let i = 0; i < 3; i++) {
+    const star = svgEl("modal-star" + (i < stars ? " on" : ""));
+    star.style.setProperty("--i", i);
+    star.appendChild(svgUse("i-star"));
+    row.appendChild(star);
+  }
+  return [art, row];
+}
 function renderModal() {
-  const { emoji, title, text, label, action, extra } = modalBuild();
+  const { icon, stars, title, text, label, action, extra } = modalBuild();
   const p = node("p");
   (Array.isArray(text) ? text : [text]).forEach((line, i) => {
     if (i) p.appendChild(node("br"));
@@ -504,7 +624,7 @@ function renderModal() {
     actions.appendChild(btn2);
   }
   const card = node("div", "modal-card");
-  card.append(node("div", "modal-emoji", emoji), node("h2", "", title), p, actions);
+  card.append(...modalArt(icon, stars), node("h2", "", title), p, actions);
   modalEl.replaceChildren(card);
   if (modalAfter) modalAfter();
 }
@@ -532,11 +652,12 @@ const starText = n => "★".repeat(n) + "☆".repeat(3 - n);
 function win() {
   if (!isPlaying()) return;
   lockBoard(GameState.WON);
+  celebrate();
   setTimeout(() => Sound.win(), 350);               // depois do "miau" do último gato
   setStatusKey("status.won");
   if (!campaignId || game.cheated) {
     setTimeout(() => showModal(() => ({
-      emoji: "🏆", title: t("modal.free.title"), text: t("modal.free.text"),
+      icon: "win", title: t("modal.free.title"), text: t("modal.free.text"),
       label: t("modal.free.btn"), action: () => afterBreak(newGame),
     })), 500);
     return;
@@ -551,10 +672,10 @@ function win() {
   const isRecord = !!prevBest && secs < prevBest;
   setTimeout(() => {
     showModal(() => ({
-      emoji: "🏆",
+      icon: "win",
+      stars,
       title: t("modal.win.title"),
       text: [
-        { cls: "modal-stars", text: starText(stars) },
         t("modal.win.points", { n: Progress.formatScore(score) }),
         t("modal.win.time", { t: formatTime(secs) }) + (isRecord ? " " + t("modal.win.record") : ""),
       ],
@@ -565,14 +686,21 @@ function win() {
   }, 500);
 }
 
+/* Vitória: os gatos piscam (^ ^) em sequência, linha a linha, e as cores se saturam por um instante */
+function celebrate() {
+  solution.forEach((c, r) => cells[r][c].style.setProperty("--blink", r));
+  boardEl.classList.add("won");
+}
+
 function gameOver() {
   if (!isPlaying()) return;
   if (!campaignId) game.lost = true;      // trava "mesmo nível" só no treino livre
   lockBoard(GameState.GAME_OVER);
+  boardEl.classList.add("lost");
   setTimeout(() => Sound.lose(), 250);
   setStatusKey("status.over");
   setTimeout(() => showModal(() => ({
-    emoji: "😿", title: t("modal.over.title"), text: t("modal.over.text"),
+    icon: "over", title: t("modal.over.title"), text: t("modal.over.text"),
     label: t("modal.over.retry"), action: () => afterBreak(retryLevel),
     extra: campaignId ? [t("modal.levels"), showLevels] : null,
   })), 700);
@@ -717,6 +845,7 @@ async function playLevel(id, resume = true) {
 function clearBoard() {
   if (!isPlaying()) return;
   marks = matrix(N, 0);          // gatos já fixados também voltam ao vazio, vidas são mantidas
+  waveDone.clear();
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
   setScore(0);                   // sem gatos no tabuleiro, sem pontos (evita farmar limpando e recolocando)
   game.combo = 0;
@@ -762,10 +891,12 @@ document.getElementById("clear").addEventListener("click", clearBoard);
 /* Chaves de som e vibração (preferências persistentes) */
 function bindToggle(id, labelKey, getter, setter) {
   const btn = document.getElementById(id);
+  const labelEl = btn.querySelector(".set-label");
   const render = () => {
     const on = getter();
     btn.setAttribute("aria-pressed", on);
-    btn.textContent = t("toggle.state", { label: t(labelKey), state: t(on ? "toggle.on" : "toggle.off") });
+    labelEl.textContent = t(labelKey);
+    btn.setAttribute("aria-label", t("toggle.state", { label: t(labelKey), state: t(on ? "toggle.on" : "toggle.off") }));
     btn.classList.toggle("off", !on);
   };
   btn.addEventListener("click", () => { setter(!getter()); render(); });
@@ -795,13 +926,12 @@ document.querySelectorAll(".pu-btn").forEach(btn => {
   itemUi[btn.dataset.item] = { btn, badge: btn.querySelector(".pu-badge") };
   btn.addEventListener("click", () => usePowerUp(btn.dataset.item));
 });
-const ITEM_ICONS = { hint: "💡", revealCat: "🐱", safeCross: "✕" };
-const itemLabel = key => `${ITEM_ICONS[key]} ${t(`item.${key}.label`)}`;
+const itemLabel = key => t(`item.${key}.label`);
 
 function renderItems() {
   for (const [key, { btn, badge }] of Object.entries(itemUi)) {
     const n = Progress.item(key);
-    const text = n > 0 ? String(n) : `🎬 +${REWARD_UNITS}`;
+    const text = n > 0 ? String(n) : `+${REWARD_UNITS}`;   // esgotado: o CSS desenha o "play" do vídeo antes
     if (badge.textContent !== text) badge.textContent = text;
     btn.classList.toggle("empty", n === 0);
     const label = t(`item.${key}.aria`);
@@ -906,7 +1036,7 @@ function useSafeCross() {
   }
   if (!Progress.useItem("safeCross")) return;
   renderItems();
-  for (const [r, c] of picks) { marks[r][c] = 1; renderCell(r, c); }
+  for (const [r, c] of picks) { marks[r][c] = 1; renderCell(r, c); checkWaves(r, c); }
   Sound.click();
   highlightCells(picks, [], 1500);
   persist();
@@ -926,7 +1056,7 @@ function offerRecharge(key) {
   game.adHold = true;
   setGameState(GameState.PAUSED);
   showModal(() => ({
-    emoji: "🎬", title: t("modal.recharge.title"), text: t("modal.recharge.text", { n: REWARD_UNITS }),
+    icon: "ad", title: t("modal.recharge.title"), text: t("modal.recharge.text", { n: REWARD_UNITS }),
     label: t("modal.recharge.watch", { n: REWARD_UNITS }), action: () => watchForItem(key),
     extra: [t("modal.recharge.later"), closeRecharge],
   }));
@@ -988,7 +1118,7 @@ let sN = 7, sGrid = [], sCells = [], sColor = 0, sPaint = false;
 sSizeEl.value = sN;
 
 function buildPalette() {
-  paletteEl.innerHTML = "";
+  paletteEl.replaceChildren();
   for (let i = 0; i < PALETTE.length; i++) {
     const b = document.createElement("button");
     b.type = "button"; b.className = "swatch" + (i === sColor ? " active" : "");
@@ -1010,7 +1140,7 @@ function paintCell(r, c) {
   if (sGrid[r][c] === sColor) return;
   clearCats();
   sGrid[r][c] = sColor;
-  sCells[r][c].style.background = PALETTE[sColor];
+  sCells[r][c].style.backgroundColor = PALETTE[sColor];
   updateSolverStatus();
 }
 
@@ -1045,7 +1175,7 @@ function buildSolverBoard() {
   sN = +sSizeEl.value;
   
   sBoard.style.setProperty("--size", sN);
-  sBoard.innerHTML = "";
+  sBoard.replaceChildren();
   sGrid = matrix(sN, -1);
   sCells = matrix(sN, null);
   for (let r = 0; r < sN; r++) for (let c = 0; c < sN; c++) {
@@ -1067,7 +1197,9 @@ function solveDrawn() {
   }
   first.forEach((c, r) => {
     sCells[r][c].classList.add("has-cat");
-    sCells[r][c].insertAdjacentHTML("beforeend", '<span class="sym cat">🐱</span>');
+    const sym = node("span", "sym cat");
+    sym.appendChild(catSvg("sym-cat"));
+    sCells[r][c].appendChild(sym);
   });
   solverMsg = { key: count > 1 ? "solver.multi" : "solver.unique", cls: "ok" };
   renderSolverStatus();
@@ -1095,6 +1227,7 @@ document.querySelectorAll(".tab").forEach(btn =>
     document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b === btn));
     document.querySelectorAll(".panel").forEach(p =>
       p.classList.toggle("active", p.id === btn.dataset.target));
+    document.body.dataset.panel = btn.dataset.target;      // fora do jogo aparece a barra "voltar ao jogo"
     if (btn.dataset.target === "levels") renderLevelMap();
     if (btn.dataset.target === "game") {
       if (game.state === GameState.PAUSED && !document.hidden && !game.adHold) setGameState(GameState.PLAYING);
@@ -1121,7 +1254,9 @@ function levelButton(id, diff) {
     (id === Progress.unlocked && !stars ? " current" : "");
   b.disabled = locked;
   b.setAttribute("aria-label", t("level.aria", { id }) + (diff ? `, ${I18n.diffLabel(diff)}` : "") + ", " + (locked ? t("level.locked") : t("level.stars", { n: stars })));
-  b.append(node("span", "lv-num", locked ? "🔒" : String(id)), node("span", "lv-stars", locked ? "" : starText(stars)));
+  const num = node("span", "lv-num", locked ? undefined : String(id));
+  if (locked) num.appendChild(svgEl("lv-lock")).appendChild(svgUse("i-lock"));
+  b.append(num, node("span", "lv-stars", locked ? "" : starText(stars)));
   if (diff && !locked) b.appendChild(node("span", "lv-diff", I18n.diffLabel(diff)));
   b.addEventListener("click", () => startCampaign(id));
   return b;
@@ -1141,7 +1276,7 @@ function levelGroup(title, hint) {
 async function renderLevelMap() {
   const all = await MiauLevels.loadAll();
   levelsTotalEl.textContent = t("levels.total", { stars: Progress.totalStars(), score: Progress.formatScore(Progress.totalScore) });
-  levelMapEl.innerHTML = "";
+  levelMapEl.replaceChildren();
   let section = null;
   let lastN = 0;
   for (const lv of all) {
@@ -1170,39 +1305,50 @@ async function startCampaign(id) {
   if (!(await playLevel(id))) newGame();
 }
 
-/* Menu compacto: em telas pequenas, abas, controles e regras vão para um menu suspenso */
-const compactMq = matchMedia("(max-width: 700px), (max-height: 520px)");
-const menuBtn = document.getElementById("menu-btn");
+/* Layout por proporção: paisagem (trilhos laterais) ou retrato (HUD em cima, dock embaixo).
+ * A troca é toda em CSS (@media aspect-ratio); aqui só se marca o <body> para o menu ⋯
+ * abrir como cartão central (paisagem) ou folha de baixo (retrato). Nada muda de lugar no DOM. */
+const portraitMq = matchMedia("(max-aspect-ratio: 23/20)");
+const applyLayout = () => document.body.classList.toggle("portrait", portraitMq.matches);
+portraitMq.addEventListener("change", applyLayout);
+applyLayout();
+
+/* Menu ⋯ sobreposto: abas Níveis/Ajuda, partida, ajustes, idioma e regras */
 const menuDrop = document.getElementById("menu-drop");
-const menuItems = [".tabs", ".controls", ".rules", ".hint", ".reveal-wrap"].map(sel => {
-  const el = document.querySelector(sel);
-  const home = document.createComment(sel);   // marca o lugar original
-  el.before(home);
-  return { el, home };
-});
+const menuScrim = document.querySelector(".menu-scrim");
+const menuToggles = document.querySelectorAll("[data-menu-toggle]");
+const menuFocusable = () => [...menuDrop.querySelectorAll("button, select, input")]
+  .filter(el => !el.disabled && el.getClientRects().length);
 
 function setMenu(open) {
-  menuDrop.classList.toggle("open", open);
-  menuBtn.setAttribute("aria-expanded", open);
-}
-
-function applyLayout() {
-  document.body.classList.toggle("compact", compactMq.matches);
-  for (const { el, home } of menuItems) {
-    if (compactMq.matches) menuDrop.appendChild(el);
-    else home.after(el);
+  if (open === !menuDrop.hidden) return;
+  menuDrop.hidden = !open;
+  menuScrim.hidden = !open;
+  menuToggles.forEach(b => b.setAttribute("aria-expanded", open));
+  if (open) {
+    menuDrop.querySelector("[data-menu-close]").focus();
+    return;
   }
-  setMenu(false);
+  const visible = [...menuToggles].find(b => b.getClientRects().length);   // o ⋯ do trilho ou o da barra de página
+  if (visible) visible.focus({ preventScroll: true });
 }
 
-menuBtn.addEventListener("click", () => setMenu(!menuDrop.classList.contains("open")));
-menuDrop.addEventListener("click", e => { if (e.target.closest("button")) setMenu(false); });
-document.addEventListener("click", e => {
-  if (!menuDrop.contains(e.target) && !menuBtn.contains(e.target)) setMenu(false);
+menuToggles.forEach(b => b.addEventListener("click", () => setMenu(menuDrop.hidden)));
+menuScrim.addEventListener("click", () => setMenu(false));
+menuDrop.addEventListener("click", e => { if (e.target.closest(".tab, [data-menu-close]")) setMenu(false); });
+document.addEventListener("keydown", e => {
+  if (menuDrop.hidden) return;
+  if (e.key === "Escape") { setMenu(false); return; }
+  if (e.key !== "Tab") return;
+  const list = menuFocusable();                     // foco preso no menu enquanto ele está aberto
+  if (!list.length) return;
+  const first = list[0], last = list[list.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 });
-document.addEventListener("keydown", e => { if (e.key === "Escape") setMenu(false); });
-compactMq.addEventListener("change", applyLayout);
-applyLayout();
+/* Barra das páginas: volta ao jogo */
+document.querySelectorAll("[data-go]").forEach(b =>
+  b.addEventListener("click", () => document.querySelector(`.tab[data-target="${b.dataset.go}"]`).click()));
 
 /* ---------- Idioma: seletor PT/EN/ES e atualização da interface sem recarregar ---------- */
 const langBtns = document.querySelectorAll(".lang-btn");
