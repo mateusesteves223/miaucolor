@@ -120,6 +120,13 @@
   [data-theme="night"] .pu-btn:hover .pu-icon { color: #ffd9c4; }
 }
 
+/* Tutorial: o cartão do treinador segue o vidro escuro da mensagem de dica */
+[data-theme="night"] .coach { background: var(--surface-raised, #1c1a27); border: 1px solid rgba(255, 179, 138, .35); box-shadow: none; }
+[data-theme="night"] .coach[data-tone="warn"] { background: var(--danger-soft); border-color: rgba(255, 92, 122, .5); }
+[data-theme="night"] .coach[data-tone="good"] { background: rgba(126, 226, 176, .1); border-color: rgba(126, 226, 176, .45); }
+[data-theme="night"] .coach[data-tone="good"] .coach-text { color: var(--success); }
+[data-theme="night"] .tut-paw { stroke: var(--bg); filter: drop-shadow(0 0 10px rgba(255, 179, 138, .55)); }
+
 [data-theme="night"] .hint-msg {
   background: var(--surface-raised, #1c1a27); color: var(--text-1); border: 1px solid rgba(255, 210, 122, .35);
   font-weight: 500;
@@ -191,6 +198,12 @@
 [data-theme="night"] .cell.hint-target::before { border: 0; border-radius: var(--rtl) var(--rtr) var(--rbr) var(--rbl); }
 [data-theme="night"] .cell.hint-glow::before { box-shadow: inset 0 0 0 2px var(--honey), inset 0 0 calc(var(--cell) * .35) rgba(255, 210, 122, .45); background: rgba(255, 210, 122, .14); }
 [data-theme="night"] .cell.hint-target::before { box-shadow: inset 0 0 0 2px #fff, inset 0 0 calc(var(--cell) * .35) rgba(255, 255, 255, .45); background: rgba(255, 255, 255, .16); }
+[data-theme="night"] :is(.cell.tut-unit, .cell.tut-focus, .cell.tut-ban)::before { border: 0; border-radius: var(--rtl) var(--rtr) var(--rbr) var(--rbl); }
+[data-theme="night"] .cell.tut-unit::before { box-shadow: inset 0 0 0 2px var(--honey), inset 0 0 calc(var(--cell) * .35) rgba(255, 210, 122, .45); background: rgba(255, 210, 122, .14); }
+[data-theme="night"] .tut-ghost-cat { color: var(--ink); }
+[data-theme="night"] .coach-dot { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .25), 0 0 8px rgba(var(--c-rgb, 255 255 255) / .4); }
+[data-theme="night"] .cell.tut-focus::before { box-shadow: inset 0 0 0 3px #fff, inset 0 0 calc(var(--cell) * .4) rgba(255, 255, 255, .55); background: rgba(255, 255, 255, .2); }
+[data-theme="night"] .cell.tut-ban::before { box-shadow: inset 0 0 0 3px var(--danger), inset 0 0 calc(var(--cell) * .4) rgba(255, 92, 122, .7); background: rgba(255, 40, 80, .32); }
 
 /* Resolve Nível (dev): casas soltas */
 [data-theme="night"] #sboard .cell { border-radius: 6px; background-color: #22202e; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }

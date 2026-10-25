@@ -253,6 +253,11 @@
       const left = E.matrix(n, 1); cols.forEach((c, r) => (left[r][c] = 0));
       eq([E.pickSafeCrosses(n, reg, cols, left, 3).length], [0], "sem casas livres sem gato");
     });
+    test("Progress: tutorial começa pendente e fica marcado como visto", () => {
+      eq([Progress.tutorialDone], [false], "save v6 migrado sem o campo");
+      Progress.finishTutorial();
+      eq([Progress.tutorialDone, JSON.parse(localStorage.getItem("miaucolor:v1")).tutorial], [true, true], "persistido");
+    });
     test("Progress: inventário de itens (estoque inicial 3, consumo, recarga e limite)", () => {
       eq([Progress.item("hint"), Progress.item("revealCat"), Progress.item("safeCross")], [3, 3, 3], "estoque inicial");
       eq([Progress.useItem("hint"), Progress.useItem("hint"), Progress.useItem("hint"), Progress.useItem("hint")], [true, true, true, false], "consumo até zerar");

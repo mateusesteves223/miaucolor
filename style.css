@@ -504,7 +504,7 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 @keyframes eyesHappy { 0%, 45% { opacity: 0; } 46%, 100% { opacity: 1; } }
 
 /* Realce temporário das dicas (::before: ::after já serve ao gato e ao erro) */
-.cell.hint-glow::before, .cell.hint-target::before {
+.cell.hint-glow::before, .cell.hint-target::before, .cell.tut-unit::before, .cell.tut-focus::before, .cell.tut-ban::before {
   content: ""; position: absolute; inset: var(--inset); z-index: 2; pointer-events: none;
   border-radius: max(18%, var(--rtl)) max(18%, var(--rtr)) max(18%, var(--rbr)) max(18%, var(--rbl));
   animation: hintPulse .8s ease-in-out infinite alternate;
@@ -512,6 +512,11 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 /* alinhavo: costura provisória tracejada, como quem marca o tecido antes de costurar */
 .cell.hint-glow::before { border: 2.5px dashed #b5781a; background: rgba(255, 214, 120, .38); }
 .cell.hint-target::before { border: 2.5px dashed #fff; background: rgba(255, 255, 255, .45); }
+/* tutorial: a dedução (dourado), a casa a tocar (branco) e as casas a riscar com ✕ (vermelho); gatos dados já entram sentados */
+.cell.tut-unit::before { border: 2.5px dashed #b5781a; background: rgba(255, 214, 120, .3); }
+.cell.tut-focus::before { border: 3px dashed #fff; background: rgba(255, 255, 255, .5); }
+.cell.tut-ban::before { border: 3px solid #c43d3d; background: rgba(196, 61, 61, .42); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .55); }
+.cell.given .sym.cat :is(.cat-body, .cat-eyes, .cat-ears) { animation: none; }
 @keyframes hintPulse { from { opacity: .45; } to { opacity: 1; } }
 
 /* Pop-out de pontos: fixo na viewport e sem capturar toques */
@@ -933,6 +938,114 @@ a:hover { border-bottom-color: var(--accent-deep); }
 }
 
 /* =====================================================================
+ * TUTORIAL — cartão do treinador (no lugar do HUD) e patinha que mostra onde tocar
+ * ===================================================================== */
+.coach {
+  display: flex; flex-direction: column; gap: 4px; width: 100%; min-height: 0; margin: auto 0;
+  padding: 12px 12px 14px; border-radius: var(--radius-m); overflow-y: auto; text-align: left;
+  background: #fff4e2; border: 1.5px solid rgba(242, 153, 107, .55); box-shadow: var(--shadow-soft);
+  transition: background .25s, border-color .25s;
+}
+.coach[hidden] { display: none; }
+.coach-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.coach-step { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--accent-deep); }
+.coach-skip {
+  min-height: 30px; padding: 0 12px; border: 0; border-radius: var(--radius-pill);
+  background: var(--surface-2); color: var(--text-2); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.coach-title { font-size: 17px; line-height: 1.2; color: var(--text-1); }
+.coach-text { margin: 0; font-size: 13.5px; font-weight: 600; line-height: 1.4; color: var(--text-2); }
+.coach[data-tone="warn"] { background: var(--danger-soft); border-color: rgba(224, 108, 108, .6); }
+.coach[data-tone="warn"] .coach-text { color: var(--danger-ink); }
+.coach[data-tone="good"] { background: #eaf4e2; border-color: rgba(127, 183, 126, .75); }
+.coach[data-tone="good"] .coach-text { color: #4f8a4e; }
+.coach.bump { animation: coachBump .38s var(--ease-out); }
+@keyframes coachBump { 40% { transform: scale(1.035); } }
+@media (hover: hover) { .coach-skip:hover { background: var(--surface-3); } }
+
+body.tutoring .hud, body.tutoring #reveal { display: none; }
+body.tutoring #game.active { --rail: clamp(150px, 20cqw, 240px); }   /* trilho mais largo para o texto */
+.tut-replay { margin-top: 10px; }
+.coach-dot {
+  display: inline-block; width: .95em; height: .95em; margin: 0 .1em; border-radius: 50%; vertical-align: -.12em;
+  background: var(--fab); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .12), 0 0 0 1.5px rgba(255, 255, 255, .8);
+}
+
+/* Próximo gato: o resto do tabuleiro escurece e um gato fantasma "respira" na casa certa */
+#board.tut-dim .cell:not(.tut-unit) { filter: brightness(.78) saturate(.55); }
+.tut-ghost { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; pointer-events: none; }
+.tut-ghost-cat {
+  width: 80%; height: 80%; margin-top: 6%; overflow: visible; fill: currentColor; color: var(--cat-ink);
+  animation: ghostBreath 1.5s ease-in-out infinite alternate;
+}
+@keyframes ghostBreath { from { opacity: .18; transform: translateY(4%) scale(.96); } to { opacity: .45; transform: none; } }
+
+/* Patinha: fica no centro do alvo e "pisa" (um toque) ou pisa duas vezes (duplo toque); a onda marca o toque */
+.tut-hand {
+  --hand: 48px;
+  position: fixed; z-index: 25; left: 0; top: 0; width: 0; height: 0; pointer-events: none;
+}
+.tut-hand[hidden], body:not([data-panel="game"]) .tut-hand { display: none; }
+.tut-ripple {
+  position: absolute; left: calc(var(--hand) * -.5); top: calc(var(--hand) * -.5);
+  width: var(--hand); height: var(--hand); border-radius: 50%;
+  border: 3px solid var(--accent); opacity: 0;
+}
+.tut-paw {
+  position: absolute; left: calc(var(--hand) * -.12); top: calc(var(--hand) * -.1);
+  width: calc(var(--hand) * .82); height: calc(var(--hand) * .82); overflow: visible;
+  fill: var(--accent); stroke: #fff; stroke-width: 1.6; paint-order: stroke;
+  filter: drop-shadow(0 4px 6px rgba(90, 50, 20, .35));
+  transform-origin: 30% 20%; rotate: -24deg;
+}
+.tut-hand.tap .tut-paw { animation: pawTap 1.5s var(--ease-soft) infinite; }
+.tut-hand.tap .tut-ripple { animation: tapRipple 1.5s ease-out infinite; }
+.tut-hand.dbl .tut-paw { animation: pawDbl 1.7s var(--ease-soft) infinite; }
+.tut-hand.dbl .tut-ripple { animation: dblRipple 1.7s ease-out infinite; }
+@keyframes pawTap {
+  0%, 100% { transform: translate(14%, 14%); }
+  30% { transform: translate(0, 0) scale(.86); }
+  45% { transform: translate(10%, 10%); }
+}
+@keyframes tapRipple {
+  0%, 28% { opacity: 0; transform: scale(.3); }
+  32% { opacity: .9; }
+  70%, 100% { opacity: 0; transform: scale(1.35); }
+}
+@keyframes pawDbl {
+  0%, 100% { transform: translate(14%, 14%); }
+  20% { transform: translate(0, 0) scale(.86); }
+  30% { transform: translate(7%, 7%); }
+  40% { transform: translate(0, 0) scale(.86); }
+  55% { transform: translate(12%, 12%); }
+}
+@keyframes dblRipple {
+  0%, 18% { opacity: 0; transform: scale(.3); }
+  22% { opacity: .9; transform: scale(.5); }
+  38% { opacity: .5; transform: scale(1); }
+  42% { opacity: .95; transform: scale(.55); }
+  80%, 100% { opacity: 0; transform: scale(1.4); }
+}
+
+/* Retrato: o cartão ocupa as faixas do HUD e do varal (que somem durante o tutorial) */
+@media (max-aspect-ratio: 23/20) {
+  body.tutoring #game.active { --rail: 0px; --hud-h: 72px; }
+  body.tutoring .rack { display: none; }
+  .coach {
+    grid-row: 1 / 3; grid-column: 1; align-self: stretch; width: auto; margin: 0 54px 0 0;
+    display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto 1fr;
+    grid-template-areas: "step title skip" "text text text"; column-gap: 8px; row-gap: 2px; align-items: center;
+    padding: 8px 10px 8px 12px;
+  }
+  .coach[hidden] { display: none; }
+  .coach-head { display: contents; }
+  .coach-step { grid-area: step; }
+  .coach-title { grid-area: title; font-size: 15px; min-width: 0; }
+  .coach-skip { grid-area: skip; min-height: 26px; padding: 0 10px; }
+  .coach-text { grid-area: text; align-self: start; font-size: 13px; line-height: 1.32; }
+}
+
+/* =====================================================================
  * Menos movimento: sem deslocamentos; o feedback de cor continua
  * ===================================================================== */
 @media (prefers-reduced-motion: reduce) {
@@ -947,7 +1060,11 @@ a:hover { border-bottom-color: var(--accent-deep); }
   .modal.open, .menu-scrim, .hint-msg { animation: fade .2s ease-out; }
   .modal-card, .menu-drop, body.portrait .menu-drop { animation: fade .2s ease-out; }
   .modal-star.on { animation: fade .3s calc(.2s + var(--i, 0) * .15s) both; }
-  .cell.hint-glow::before, .cell.hint-target::before { animation: none; }
+  .cell.hint-glow::before, .cell.hint-target::before, .cell.tut-unit::before, .cell.tut-focus::before, .cell.tut-ban::before { animation: none; }
+  .tut-ghost-cat { animation: none; opacity: .35; }
+  .tut-hand .tut-paw, .tut-hand .tut-ripple { animation: none; }
+  .tut-hand .tut-ripple { opacity: .6; transform: scale(.9); }
+  .coach.bump { animation: none; }
   .point-pop { animation: fadeOnly .8s linear forwards; }
   .score-info .level-info-value.bump { animation: none; }
 }

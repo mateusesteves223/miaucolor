@@ -602,6 +602,7 @@ function dragApply(cell) {
   renderCell(r, c);
   checkWaves(r, c);
   Sound.click();
+  if (Tutorial.active) Tutorial.tap(r, c);
 }
 
 /* Dentro do iframe da Poki: espaço/setas não rolam a página-mãe e o toque longo não abre menu de contexto */
@@ -654,6 +655,7 @@ boardEl.addEventListener("pointerup", e => {
   checkWaves(r, c);
   Sound.click();
   persist();
+  if (Tutorial.active) Tutorial.tap(r, c);
 });
 
 const endDrag = () => {
@@ -696,8 +698,9 @@ function commitCat(r, c, award) {
   catFx(r, c);
   updateStatus();
   Sound.cat();
-  if (award) awardPoints(r, c);
+  if (award && !Tutorial.active) awardPoints(r, c);
   persist();
+  if (Tutorial.active) Tutorial.cat(r, c);
   if (marks.flat().filter(m => m === 2).length === N) win();
 }
 
@@ -713,6 +716,7 @@ function tryCat(r, c) {
   checkWaves(r, c);
   shake(cells[r][c]);
   Sound.error();
+  if (Tutorial.active) { Tutorial.wrong(r, c); return; }   // tutorial: explica o erro, sem perder vidas
   if (game.devMode) return;             // modo dev: vidas infinitas
   game.lives--;
   renderLives(true);
@@ -844,6 +848,7 @@ const starText = n => "★".repeat(n) + "☆".repeat(3 - n);
 
 function win() {
   if (!isPlaying()) return;
+  if (Tutorial.active) { Tutorial.solved(); return; }   // sem lockBoard: o save da campanha fica intacto
   lockBoard(GameState.WON);
   celebrate();
   setTimeout(() => Sound.win(), 350);               // depois do "miau" do último gato
@@ -961,6 +966,7 @@ function generateLevelAsync(n) {
 
 async function newGame() {
   if (game.generating) return;
+  Tutorial.exit();
   const sizeEl = document.getElementById("size");
   if (game.lost) {                       // após derrota, o nível não muda
     sizeEl.value = N;
@@ -994,6 +1000,7 @@ function prefetchInfinite(id) {
 /* Carrega um nível da campanha (packs ou infinito), retomando a partida salva se houver */
 async function playLevel(id, resume = true) {
   if (game.generating) return false;
+  Tutorial.exit();
   const slow = MiauLevels.needsGeneration(id);     // nível infinito ainda não salvo
   if (slow) {
     game.generating = true;
@@ -1038,6 +1045,7 @@ async function playLevel(id, resume = true) {
 
 function clearBoard() {
   if (!isPlaying()) return;
+  if (Tutorial.active) { Tutorial.restart(); return; }   // recomeça a lição (com os gatos que ela já traz)
   marks = matrix(N, 0);          // gatos já fixados também voltam ao vazio, vidas são mantidas
   waveDone.clear();
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
@@ -1048,7 +1056,7 @@ function clearBoard() {
 }
 
 function showSolution() {
-  if (!isPlaying()) return;
+  if (!isPlaying() || Tutorial.active) return;
   marks = matrix(N, 0);
   solution.forEach((c, r) => (marks[r][c] = 2));
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
@@ -1121,6 +1129,7 @@ document.querySelectorAll(".pu-btn").forEach(btn => {
   btn.addEventListener("click", () => usePowerUp(btn.dataset.item));
 });
 const itemLabel = key => t(`item.${key}.label`);
+const spendItem = key => Tutorial.active || Progress.useItem(key);   // no tutorial os power-ups são grátis
 
 function renderItems() {
   for (const [key, { btn, badge }] of Object.entries(itemUi)) {
@@ -1207,7 +1216,7 @@ function useHint() {
     showHudMessage(() => t("hint.none"), 4000);
     return;
   }
-  if (!Progress.useItem("hint")) return;
+  if (!spendItem("hint")) return;
   renderItems();
   Sound.click();
   highlightCells(h.cells, h.targets);
@@ -1216,7 +1225,7 @@ function useHint() {
 
 function useRevealCat() {
   const pick = E.pickRevealCat(N, solution, marks);
-  if (!pick || !Progress.useItem("revealCat")) return;
+  if (!pick || !spendItem("revealCat")) return;
   renderItems();
   commitCat(pick[0], pick[1], false);
   if (isPlaying()) highlightCells([pick], [], 1500);
@@ -1228,7 +1237,7 @@ function useSafeCross() {
     showHudMessage(() => t("hint.noSafe"), 4000);
     return;
   }
-  if (!Progress.useItem("safeCross")) return;
+  if (!spendItem("safeCross")) return;
   renderItems();
   for (const [r, c] of picks) { marks[r][c] = 1; renderCell(r, c); checkWaves(r, c); }
   Sound.click();
@@ -1240,7 +1249,8 @@ const ITEM_ACTIONS = { hint: useHint, revealCat: useRevealCat, safeCross: useSaf
 
 function usePowerUp(key) {
   if (!isPlaying()) return;
-  if (Progress.item(key) <= 0) offerRecharge(key);
+  if (Tutorial.active) Tutorial.poke();
+  if (Progress.item(key) <= 0 && !Tutorial.active) offerRecharge(key);
   else ITEM_ACTIONS[key]();
 }
 
@@ -1297,6 +1307,353 @@ async function watchForItem(key) {
 
 renderItems();
 Ads.init();
+
+/* =====================================================================
+ * 5c) TUTORIAL: três lições em tabuleiros pequenos, na primeira visita (e no menu, "Ver tutorial").
+ * O jogador sempre faz tudo: nada é marcado por ele. A cada gato posto, as casas que esse gato bloqueia
+ * ficam vermelhas em etapas (linha → coluna → vizinhança → cor) e cada uma só perde o vermelho ao receber ✕.
+ * Sem casas a riscar, a patinha aponta o próximo gato que já dá para deduzir (ou, na lição 3, a Dica).
+ *   1) 4×4 com 3 gatos postos; falta o da cor de uma casa só (1×1). Só o duplo toque, sem etapas de ✕.
+ *   2) 4×4 com 1 gato: começa pela vizinhança (gatos não se encostam); a ajuda espera um pouco.
+ *   3) 5×5 com 1 gato: o jogador resolve sozinho; a ajuda só vem se ele ficar parado.
+ * Erros não tiram vidas, nada pontua, os power-ups são grátis e o save da campanha não é tocado.
+ * O cartão #coach (no lugar do HUD) explica; a patinha .tut-hand mostra onde tocar.
+ * ===================================================================== */
+const Tutorial = (() => {
+  // regiões em letras (A = 0), linha a linha; `cats` = linhas cujo gato já vem posto. Todas têm solução única.
+  // order = ordem das etapas; wait = ms parado antes da próxima ajuda; point = a patinha aponta o próximo gato
+  const LESSONS = [
+    { n: 4, regions: "CABBCCBBCCDBDDDD", solution: [1, 3, 0, 2], cats: [1, 2, 3],
+      order: [], wait: 1400, point: true },
+    { n: 4, regions: "BBBDCCBDCADDAADD", solution: [2, 0, 3, 1], cats: [1],
+      order: ["touch", "row", "col", "color"], wait: 2600, point: true },
+    { n: 5, regions: "AAABBCCABBECDDBECDDBEEDDB", solution: [2, 4, 1, 3, 0], cats: [2],
+      order: ["row", "col", "touch", "color"], wait: 7000, point: false },
+  ];
+  const NEXT_MS = 1600;          // comemoração antes da próxima lição
+  const FLASH_MS = 3400;         // recado passageiro (erro, "quase!", "isso!")
+
+  const coachEl = document.getElementById("coach");
+  const stepEl = document.getElementById("coach-step");
+  const titleEl = document.getElementById("coach-title");
+  const textEl = document.getElementById("coach-text");
+  const hand = node("div", "tut-hand");
+  hand.hidden = true;
+  hand.append(node("span", "tut-ripple"), svgEl("tut-paw"));
+  hand.lastChild.appendChild(svgUse("i-paw"));
+  document.body.appendChild(hand);
+
+  let lesson = -1;               // -1 = fora do tutorial
+  let msg = null;                // () => texto da etapa (função: é retraduzido ao trocar de idioma)
+  let flash = null;              // { text, tone } passageiro, por cima de `msg`
+  let chore = null;              // { cells, done }: casas vermelhas que o jogador precisa marcar com ✕
+  let catOrder = [];             // gatos na ordem em que entraram: as etapas seguem do mais antigo
+  let handTarget = null;
+  let focusEl = null;            // a casa do próximo gato (brilha, com um gato fantasma)
+  let unitEls = [];              // a linha, coluna ou cor de onde vem a dedução (dourado; o resto escurece)
+  let msgDot = 0;                // região da bolinha de cor do texto
+  let topic = null;              // regra em foco ("row" | "col" | "touch" | "color"): troca o título da lição
+  const ghost = node("span", "tut-ghost");
+  ghost.appendChild(catSvg("tut-ghost-cat"));
+  let flashTimer = 0, idleTimer = 0, nextTimer = 0, tapTimer = 0;
+  const isActive = () => lesson >= 0;
+  const keys = list => () => list.map(k => t(k)).join(" ");
+
+  /* ---------- Cartão do treinador ---------- */
+  function render() {
+    if (!isActive()) return;
+    stepEl.textContent = t("tut.step", { n: lesson + 1, total: LESSONS.length });
+    titleEl.textContent = t(topic ? `tut.rule.${topic}` : `tut.${lesson + 1}.title`);
+    // o texto pode trazer a bolinha da cor: "\u0000" no texto vira um <span class="coach-dot"> de `dot`
+    const text = flash ? flash.text() : msg ? msg() : "";
+    const parts = text.split("\u0000");
+    textEl.replaceChildren(...parts.flatMap((part, i) => {
+      if (!i) return [part];
+      const dot = node("span", "coach-dot");
+      dot.style.setProperty("--fab", PALETTE[msgDot % PALETTE.length]);
+      return [dot, part];
+    }));
+    coachEl.dataset.tone = (flash && flash.tone) || "";
+  }
+  langHooks.push(render);
+  function say(text) {
+    clearTimeout(flashTimer);
+    flash = null;
+    msg = text;
+    render();
+    pulse(coachEl, "bump");
+  }
+  function flashSay(tone, text) {
+    clearTimeout(flashTimer);
+    flash = { text, tone };
+    render();
+    pulse(coachEl, "bump");
+    flashTimer = setTimeout(() => { flash = null; render(); }, FLASH_MS);
+  }
+  coachEl.addEventListener("animationend", () => coachEl.classList.remove("bump"));
+
+  /* ---------- Patinha e casa em foco ---------- */
+  /* mode: "tap" (um toque) | "dbl" (duplo toque) */
+  function showHand(el, mode) {
+    handTarget = el;
+    hand.className = "tut-hand " + mode;
+    hand.hidden = false;
+    placeHand();
+    requestAnimationFrame(placeHand);               // o layout muda ao entrar em body.tutoring
+  }
+  function hideHand() { handTarget = null; hand.hidden = true; }
+  function placeHand() {
+    if (!handTarget) return;
+    const rect = handTarget.getBoundingClientRect();
+    hand.style.left = `${rect.left + rect.width / 2}px`;
+    hand.style.top = `${rect.top + rect.height / 2}px`;
+    hand.style.setProperty("--hand", `${Math.round(Math.max(36, Math.min(64, rect.width * .7)))}px`);
+  }
+  window.addEventListener("resize", placeHand);
+  new ResizeObserver(placeHand).observe(boardEl);
+
+  /* Próximo gato: a casa brilha com um gato fantasma; `unit` (lista de casas) é a linha, coluna ou cor que explica */
+  function setFocus(r, c, unit = []) {
+    clearFocus();
+    focusEl = cells[r][c];
+    focusEl.classList.add("tut-focus");
+    focusEl.appendChild(ghost);
+    unitEls = unit.map(([i, j]) => cells[i][j]);
+    for (const el of [focusEl, ...unitEls]) el.classList.add("tut-unit");
+    boardEl.classList.add("tut-dim");
+    showHand(focusEl, "dbl");
+  }
+  function clearFocus() {
+    if (focusEl) focusEl.classList.remove("tut-focus", "tut-unit");
+    for (const el of unitEls) el.classList.remove("tut-unit");
+    ghost.remove();
+    boardEl.classList.remove("tut-dim");
+    focusEl = null;
+    unitEls = [];
+  }
+
+  /* ---------- Casas vermelhas: cada uma fica vermelha até receber ✕; a patinha aponta a próxima ---------- */
+  function startChore(list, done) {
+    chore = { cells: list, done };
+    syncChore();
+  }
+  function syncChore() {
+    if (!chore) return;
+    const left = chore.cells.filter(([r, c]) => marks[r][c] === 0);
+    for (const [r, c] of chore.cells) cells[r][c].classList.toggle("tut-ban", marks[r][c] === 0);
+    if (!left.length) {
+      const { done } = chore;
+      endChore();
+      done();
+      return;
+    }
+    showHand(cells[left[0][0]][left[0][1]], "tap");
+  }
+  function endChore() {
+    if (!chore) return;
+    for (const [r, c] of chore.cells) cells[r][c].classList.remove("tut-ban");
+    chore = null;
+    hideHand();
+  }
+
+  /* ---------- Próxima ajuda ---------- */
+  /* Casas que um gato em (r, c) bloqueia, por regra: "row" | "col" | "touch" (vizinhança) | "color" */
+  function blocked(rule, r, c) {
+    const out = [];
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      if (i === r && j === c) continue;
+      const hit = rule === "row" ? i === r : rule === "col" ? j === c
+        : rule === "touch" ? Math.abs(i - r) <= 1 && Math.abs(j - c) <= 1 : regions[i][j] === regions[r][c];
+      if (hit) out.push([i, j]);
+    }
+    return out;
+  }
+  /* Uma cor, linha ou coluna sem gato com uma única casa livre (livre = fora do alcance dos gatos postos).
+   * Cor primeiro: é a regra que o tutorial mais quer fixar. -> { kind: "g" | "r" | "c", unit, cell } ou null */
+  function nextSingle() {
+    const cats = catOrder.filter(([r, c]) => marks[r][c] === 2);
+    const free = (i, j) => marks[i][j] !== 2 && !cats.some(([r, c]) =>
+      r === i || c === j || regions[r][c] === regions[i][j] || (Math.abs(r - i) <= 1 && Math.abs(c - j) <= 1));
+    for (const kind of ["g", "r", "c"]) for (let id = 0; id < N; id++) {
+      const unit = [];
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++)
+        if (kind === "r" ? i === id : kind === "c" ? j === id : regions[i][j] === id) unit.push([i, j]);
+      if (unit.some(([i, j]) => marks[i][j] === 2)) continue;
+      const open = unit.filter(([i, j]) => free(i, j));
+      if (open.length === 1) return { kind, unit, cell: open[0] };
+    }
+    return null;
+  }
+  /* A próxima etapa ainda não feita do gato mais antigo; sem nenhuma, o próximo gato dedutível (ou a Dica) */
+  function nudge() {
+    if (!isActive() || !isPlaying() || chore || focusEl) return;
+    const L = LESSONS[lesson];
+    for (const [r, c] of catOrder) {
+      if (marks[r][c] !== 2) continue;
+      for (const rule of L.order) {
+        const list = blocked(rule, r, c).filter(([i, j]) => marks[i][j] === 0);
+        if (!list.length) continue;
+        topic = rule;
+        say(keys([`tut.chore.${rule}`]));
+        startChore(list, () => {                       // feito: o cartão não volta ao pedido já cumprido
+          const free = lesson === LESSONS.length - 1;    // lição livre: volta ao título e ao texto dela
+          if (free) topic = null;
+          say(keys([free ? "tut.3.text" : "tut.chore.nice"]));
+          flashSay("good", keys(["tut.chore.nice"]));
+          poke();
+        });
+        return;
+      }
+    }
+    const next = L.point && nextSingle();
+    if (next) {
+      // sem coordenadas: a patinha mostra onde; o texto diz por quê ("nesta cor/linha/coluna só sobrou uma casa")
+      const { kind, unit, cell: [r, c] } = next;
+      msgDot = regions[r][c];
+      topic = lesson === 0 ? null : { g: "color", r: "row", c: "col" }[kind];
+      say(lesson === 0 ? keys(["tut.1.text"]) : () => t("tut.next." + kind, { dot: "\u0000" }));
+      setFocus(r, c, unit);
+      return;
+    }
+    topic = null;
+    say(keys(["tut.3.stuck"]));
+    showHand(itemUi.hint.btn, "tap");
+  }
+
+  /* ---------- Lições ---------- */
+  function clearTimers() { for (const id of [flashTimer, idleTimer, nextTimer, tapTimer]) clearTimeout(id); }
+  function reset() {
+    clearTimers();
+    endChore();
+    clearFocus();
+    hideHand();
+  }
+  /* "given" só sai ao trocar de tabuleiro: tirá-la com o gato à vista dispararia o pulo de entrada */
+  const clearGiven = () => { for (const row of cells) for (const el of row) el.classList.remove("given"); };
+
+  function load(i) {
+    reset();
+    clearGiven();
+    lesson = i;
+    const L = LESSONS[i];
+    campaignId = null;
+    currentLevel = null;
+    game.lost = false;
+    N = L.n;
+    solution = L.solution.slice();
+    regions = matrix(N, 0).map((row, r) => row.map((_, c) => L.regions.charCodeAt(r * N + c) - 65));
+    document.body.classList.add("tutoring");
+    coachEl.hidden = false;
+    resetBoard();
+    catOrder = [];
+    topic = null;
+    for (const r of L.cats) {                         // gatos dados já sentados: sem pulo nem anel
+      const el = cells[r][solution[r]];
+      el.classList.add("given");
+      delete el.dataset.mark;
+      marks[r][solution[r]] = 2;
+      renderCell(r, solution[r]);
+      catOrder.push([r, solution[r]]);
+    }
+    updateStatus();
+    if (i === LESSONS.length - 1) { say(keys(["tut.3.text"])); poke(); }   // lição livre: ajuda só se parar
+    else nudge();
+  }
+
+  /* ---------- Reações às jogadas (chamadas pelo jogo) ---------- */
+  /* Qualquer jogada: a patinha some e a próxima ajuda vem se o jogador ficar parado `wait` ms. Com casas
+   * vermelhas pendentes ou um gato apontado, ela fica: o gesto esperado ainda não veio. */
+  function poke() {
+    if (!isActive()) return;
+    clearTimeout(idleTimer);
+    if (chore || focusEl) return;
+    hideHand();
+    idleTimer = setTimeout(nudge, LESSONS[lesson].wait);
+  }
+
+  /* ✕ posto ou tirado por toque ou arrasto. Espera o 2º toque possível: o 1º toque de um duplo toque também passa aqui. */
+  function tap(r, c) {
+    poke();
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => {
+      if (!isActive() || !isPlaying()) return;
+      syncChore();
+      if (focusEl === cells[r][c] && marks[r][c] === 1) flashSay("warn", keys(["tut.1.single"]));
+    }, DOUBLE_TAP_MS + 60);
+  }
+
+  function cat(r, c) {
+    catOrder.push([r, c]);
+    clearFocus();
+    hideHand();
+    syncChore();
+    poke();
+  }
+
+  function whyWrong(r, c) {
+    const found = new Set();
+    for (const [i, j] of catOrder) {
+      if (marks[i][j] !== 2) continue;
+      if (Math.abs(i - r) <= 1 && Math.abs(j - c) <= 1) found.add("touch");
+      if (i === r) found.add("row");
+      if (j === c) found.add("col");
+      if (regions[i][j] === regions[r][c]) found.add("color");
+    }
+    return ["touch", "row", "col", "color"].find(k => found.has(k)) || "logic";
+  }
+  function wrong(r, c) {
+    syncChore();                                      // o ✕ do erro também preenche uma casa vermelha
+    poke();
+    flashSay("warn", keys(["tut.why." + whyWrong(r, c), "tut.why.free"]));
+  }
+
+  /* Lição resolvida: comemora (sem modal) e passa à próxima; na última, o cartão final leva à campanha */
+  function solved() {
+    reset();
+    setGameState(GameState.WON);
+    boardEl.classList.add("locked");
+    clearHints();
+    celebrate();
+    setTimeout(() => Sound.win(), 350);
+    flashSay("good", keys(["tut.good"]));
+    nextTimer = setTimeout(() => (lesson + 1 < LESSONS.length ? load(lesson + 1) : finish()), NEXT_MS);
+  }
+  function finish() {
+    Progress.finishTutorial();
+    showModal(() => ({
+      icon: "win", title: t("tut.done.title"), text: t("tut.done.text"),
+      label: t("tut.done.btn"), action: leave,
+    }));
+  }
+  async function leave() {
+    modalEl.classList.remove("open");
+    exit();
+    if (!(MiauLevels.total && await playLevel(Progress.current()))) await newGame();
+  }
+
+  function start() {
+    persistNow();                                     // partida da campanha em andamento fica salva
+    document.querySelector('.tab[data-target="game"]').click();
+    load(0);
+  }
+  function exit() {
+    if (!isActive()) return;
+    reset();
+    clearGiven();
+    lesson = -1;
+    msg = flash = null;
+    coachEl.hidden = true;
+    document.body.classList.remove("tutoring");
+  }
+
+  document.getElementById("coach-skip").addEventListener("click", () => { Progress.finishTutorial(); leave(); });
+  document.getElementById("tut-replay").addEventListener("click", () => start());
+
+  return {
+    get active() { return isActive(); },
+    start, exit, restart: () => load(lesson), poke, tap, cat, wrong, solved,
+  };
+})();
 
 
 /* =====================================================================
@@ -1591,8 +1948,10 @@ for (const btn of langBtns) {
 }
 updateLanguage();
 
-/* Abre direto na campanha (partida em andamento ou último nível liberado); sem packs, cai no treino livre */
+/* Primeira visita: tutorial. Depois, abre direto na campanha (partida em andamento ou último nível liberado);
+ * sem packs, cai no treino livre */
 (async () => {
-  if (!(MiauLevels.total && await playLevel(Progress.current()))) await newGame();
+  if (!Progress.tutorialDone && !Progress.totalStars() && !Progress.getProgress(Progress.current())) Tutorial.start();
+  else if (!(MiauLevels.total && await playLevel(Progress.current()))) await newGame();
   Ads.loadingFinished();
 })();

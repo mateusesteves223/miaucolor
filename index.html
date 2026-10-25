@@ -111,6 +111,15 @@
             <span class="score-line"><svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg><span id="score-value" class="level-info-value">0</span></span>
           </div>
         </div>
+        <!-- Tutorial: o "treinador" ocupa o lugar do HUD enquanto body.tutoring (ver Tutorial em script.js) -->
+        <div id="coach" class="coach" role="region" aria-label="Tutorial" data-i18n-attr="aria-label:tut.aria" hidden>
+          <div class="coach-head">
+            <span id="coach-step" class="coach-step"></span>
+            <button id="coach-skip" type="button" class="coach-skip" data-i18n="tut.skip">Pular</button>
+          </div>
+          <strong id="coach-title" class="coach-title"></strong>
+          <p id="coach-text" class="coach-text" aria-live="polite"></p>
+        </div>
         <div class="rack">
           <div id="status" class="status"></div>
           <div id="rack" class="rack-dots" aria-hidden="true"></div>
@@ -463,6 +472,7 @@
         <li data-i18n="rules.touch">Os gatos não podem se encostar</li>
       </ul>
       <p class="hint" data-i18n-html="ctrl.tapHint">Clique: marca ✕<br>Duplo clique: coloca um gato</p>
+      <button id="tut-replay" type="button" class="pill-btn tut-replay" data-menu-close><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg><span data-i18n="tut.replay">Ver tutorial</span></button>
     </section>
 
     <div class="reveal-wrap"><button id="reveal" type="button" class="link-btn" data-menu-close data-i18n="ctrl.reveal">Revelar solução</button>

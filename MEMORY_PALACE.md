@@ -227,9 +227,10 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. Prioridade: **P0** bloqueia v
 | C8 | Acessibilidade: `role/tabindex/aria`, teclado, foco/Esc no modal | ⬜ P1 | |
 | C9 | Unificar nome/marca (MiauColor) e README/comentários | ✅ | `Instructions` mantido (nota do dono) |
 | C10 | Esconder Modo Dev e tirar Resolve Nível/Docs do menu principal (flag `?dev`) | ✅ | **Guia Help** mantido (decisão de PM; vira tutorial em C11) |
-| C11 | Tutorial interativo (3 níveis) substituindo "Guia Help" | ⬜ P1 | |
+| C11 | Tutorial interativo (3 níveis) | ✅ | `Tutorial` em `script.js`: 4×4, 4×4, 5×5; abre na 1ª visita (`Progress.tutorialDone`), "Ver tutorial" no menu; Guia Help mantido |
 | C12 | Tela de configurações (som, háptica, tema, daltonismo) | ⬜ P1 | |
 | C13 | Realce de conflitos em tempo real | ⬜ P2 | ⚠️ pode conflitar com a mecânica de validação por duplo toque; discutir antes |
+| C14 | Refatorar a **Dica**: ensinar o raciocínio em vez de entregar o gato | ⬜ P1 | Decisão do dono (25/10/2026): a Dica **não** aponta a casa do gato (isso é o Revelar Gato) nem usa coordenadas. Escolhe a técnica pelo contexto, na ordem do Guia Help: 05 vizinhança (casas que um gato posto bloqueia e ainda não têm ✕; passo novo no `findHint`) → 02 bloqueio (`regionLine`) → 04 interseção (`lineRegion`) → 03 pares (`regionSet`/`lineSet`) → 06 contradição → 01 casa única só como último recurso, destacando a unidade sem apontar a casa. Apresentação = mecânica do tutorial: padrão em dourado + casas vermelhas que perdem o vermelho ao receber ✕; texto curto com o nome da técnica, bolinha de cor no lugar do nome da cor e toque que abre o card do Guia. O gato fantasma fica **só** no tutorial. |
 
 ### D. Escopo v1.0 / distribuição
 | ID | Item | Status | Notas |
