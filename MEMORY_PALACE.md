@@ -129,7 +129,12 @@ Interação:
   items:{hint,revealCat,safeCross}, installed, language, tutorial, daily:{last, streak, bestStreak, done:{data:★}} }`.
   A sequência só conta dias seguidos (vale se o último foi hoje ou ontem); `done` guarda 60 dias.
 - `miaucolor:gen:v1` (infinitos), `miaucolor:settings:v1` (som/vibração), `miaucolor:theme:v1`.
+- `miaucolor:dev-tune` (só com `?dev`): valores do painel 🎚️ (variáveis CSS, chaves A/B, modo leve, medidor).
 - `?dev` na URL: Modo Dev (vidas infinitas, auto-✕, achar gato), abas Resolve Nível e Documentação, vídeo simulado.
+  No fim do cartão Dev, **🎚️ Visual / desempenho** (não conta como trapaça): sliders das variáveis `--felt-a`,
+  `--felt-a-night`, `--night-dim`, `--lit-mix`, `--x-edge-w/-a`, `--wave-glow`, `--scrim-a-night`; chaves
+  "Antigo: …" (`data-legacy-blend/-filter/-blur`) para comparar o peso; modo leve; medidor de FPS/pior quadro;
+  "Copiar valores" gera o bloco `:root {…}`.
 
 ## 6. Evidências medidas
 
@@ -149,6 +154,10 @@ Interação:
 7. Dica ensina (técnica + casas a riscar), não entrega o gato. Gato fantasma só no tutorial.
 8. Desfazer não volta gatos nem erros (evita "testar" casas sem custo).
 9. Diário: mesma seed para todos, tamanho pelo dia da semana, não conta para a campanha, sem save no meio.
+10. Renderização leve (celular fraco travava): **nada de `filter`, `mix-blend-mode` ou `backdrop-filter`** no
+    tabuleiro/menu; cor da peça por `--fab-n` (`color-mix`); animações das casas só em `opacity`/`transform` de um
+    filho (`.sym`, `.patch::before`); arrasto com geometria em cache (`game.drag.geo`); menu sempre montado
+    (`.open` + `inert`, sem `hidden`). Modo leve automático `<html data-lite>` (memória ≤ 4 GB ou ≤ 4 núcleos).
 
 ## 8. Armadilhas e limitações conhecidas
 
@@ -163,6 +172,9 @@ Interação:
   geometria) e duplo toque tolera o 2º toque na vizinha (`DOUBLE_TAP_SLOP`). Próximo passo possível: zoom/pan.
 - 1ª abertura de um infinito pode levar 5–10 s no celular se o prefetch não terminou.
 - Nada testado em **aparelho real** (D3); sons nunca ouvidos por humano em teste.
+- Painel 🎚️: os valores padrão das variáveis ainda são chute; o CSS "Antigo" (`data-legacy-*`) é temporário e
+  deve sair quando o dono mandar os valores escolhidos (A12).
+- `data-lite` pode ligar no Moto G55 (deviceMemory pode reportar 4): confirmar se o visual sem enfeites agrada.
 - `fullCode.md` é um dump gerado (212 KB) e pode estar desatualizado.
 
 ## 9. Roadmap — status
@@ -179,6 +191,7 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. **P0** bloqueia lançamento �
 | A6 | Consolidar CSS | 🟡 | redesign reescreveu o CSS; checar sobras |
 | A9 | Testes automatizados | 🟡 | `tests.html` (motor, packs, curva, infinito, diário, progresso, dicas); ⬜ testes de UI versionados (hoje só script Playwright ad hoc) |
 | A11 | Packs 101–300 pré-gerados (infinito instantâneo) | ⬜ P2 | o infinito é determinístico: dá para gerar offline |
+| A12 | Renderização leve no celular | 🟡 | arrasto e menu fluidos no aparelho fraco (25/10/2026); ⬜ fixar os valores do painel 🎚️ e remover o CSS `data-legacy-*` |
 
 ### B. Game loop e retenção
 | ID | Item | Status | Notas |
@@ -209,6 +222,8 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. **P0** bloqueia lançamento �
 | C14 | Dica que ensina | ✅ | |
 | C15 | Temas Aconchego / Noite | ✅ | |
 | C16 | i18n PT/EN/ES | ✅ | |
+| C17 | Zoom/pan no tabuleiro para 10×10 no celular | ⬜ P1 | só se o teste no G55 mostrar que 37 px por casa ainda é pouco |
+| C18 | Menu e 10×10 no celular (layout) | ✅ | 25/10/2026: menu sem quebrar em 320–393 px; bandeja de borda a borda; toque tolerante |
 
 ### D. Distribuição
 | ID | Item | Status | Notas |
@@ -223,11 +238,14 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. **P0** bloqueia lançamento �
 
 ## 10. Próximas ações sugeridas
 
-1. **D3** testar em aparelhos reais; **D10** checklist da Poki.
+1. **D3** testar em aparelhos reais (o dono testa num **Moto G55**, viewport ≈ 393×873, pelo servidor local na rede:
+   `python -m http.server 8765 --bind 0.0.0.0` → `http://<IP do PC>:8765/index.html`). Se o 10×10 ainda estiver
+   difícil: zoom com pinça no tabuleiro (C17). **D10** checklist da Poki.
 2. **C7** modo daltônico e **C8** teclado/acessibilidade no tabuleiro.
 3. **B11** meta para estrelas/pontos (coleção, estatísticas); **B12** slots por nível; **B10** custo do Revelar.
 4. **A5** modularizar `script.js`; **A9** versionar o teste de UI.
 5. **A11** packs de infinitos pré-gerados.
+6. **A12** receber os valores do "Copiar valores" do dono, fixar no `style.css` e apagar as chaves/CSS "Antigo".
 
 ## 11. Como verificar
 
@@ -269,3 +287,8 @@ Legenda: ✅ feito · 🟡 parcial · ⬜ a fazer. **P0** bloqueia lançamento �
     em 320 px; em ≤ 360 px os botões da partida perdem o ícone e os ajustes viram uma coluna.
   - Celular/10×10: bandeja de borda a borda em retrato ≤ 540 px e moldura mais fina (casa 33 → 37 px no G55);
     `cellAt` por geometria (moldura = casa da beirada); duplo toque aceita o 2º toque a até meia casa do 1º.
+  - Commits na `main` com push: `1ab5a5d` (curva dos níveis), `0718cb1` (desfazer, diário, celular),
+    `35f7c67` (Memory Palace).
+  - **A12** renderização leve (`7d61455`): textura sem blend, sem `filter` nas peças/✕/região acesa, onda por
+    opacity, `pop-x` só no ✕, arrasto sem reflow (+ `getCoalescedEvents`), menu sempre montado sem blur, modo leve
+    automático e painel 🎚️ no `?dev`. Dono confirmou no aparelho fraco: arrasto e menu melhoraram.
