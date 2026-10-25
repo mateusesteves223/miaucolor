@@ -452,6 +452,13 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 .sym-x path.thread { stroke: var(--x-thread, rgba(255, 240, 225, .4)); stroke-width: 1; }
 .sym.wrong path { stroke: var(--x-wrong); stroke-width: 3.6; }
 .sym.wrong path.thread { stroke: rgba(255, 220, 210, .45); stroke-width: 1; }
+/* tema claro: ✕ sempre branco, grosso e com contorno escuro suave, para aparecer até nas cores mais claras */
+:root:not([data-theme="night"]) .sym.x .sym-x {
+  width: 62%; height: 62%;
+  filter: drop-shadow(0 0 1px rgba(59, 47, 42, .6)) drop-shadow(0 1px 1.5px rgba(59, 47, 42, .35));
+}
+:root:not([data-theme="night"]) .sym.x:not(.wrong) path { stroke: #fff; stroke-width: 4.6; }
+:root:not([data-theme="night"]) .sym.x:not(.wrong) path.thread { display: none; }
 .sym.x .x1 { animation: drawStroke 90ms ease-out both; }
 .sym.x .x2 { animation: drawStroke 90ms 90ms ease-out both; }
 @keyframes drawStroke { from { stroke-dashoffset: 1; } }
