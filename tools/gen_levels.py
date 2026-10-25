@@ -26,8 +26,17 @@ DIRS = ((1, 0), (-1, 0), (0, 1), (0, -1))
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "levels"
 PACK_SIZE = 20
-# (tamanho, quantidade, tier mínimo aceito)
-PLAN = [(5, 10, 1), (6, 15, 1), (7, 25, 2), (8, 25, 2), (9, 15, 2), (10, 10, 2)]
+# Curva da campanha: (tamanho, {tier: quantidade}). Dentro do tamanho os níveis vão do tier mais baixo ao
+# mais alto (e por score); um tamanho novo recomeça um degrau abaixo de onde o anterior terminou, nunca no
+# tier 1. A contradição (tier 4) só aparece a partir do 7×7, depois de o jogador já ter visto os pares (tier 3).
+PLAN = [
+    (5, {1: 5, 2: 5}),
+    (6, {1: 3, 2: 9, 3: 3}),
+    (7, {2: 10, 3: 10, 4: 5}),
+    (8, {2: 6, 3: 10, 4: 9}),
+    (9, {2: 3, 3: 6, 4: 6}),
+    (10, {2: 2, 3: 4, 4: 4}),
+]
 TIER_NAMES = {1: "Fácil", 2: "Médio", 3: "Difícil", 4: "Expert"}
 
 
@@ -272,22 +281,21 @@ def decode(n, s):
 
 def build_levels():
     levels = []
-    for n, qty, min_tier in PLAN:
-        got = []
-        for slot in range(qty):
-            attempt = 0
-            while True:
-                rng = random.Random(f"miaucolor:{n}:{slot}:{attempt}")
-                attempt += 1
-                cols, reg = generate_unique(n, rng)
-                g = grade(n, reg, cols)
-                if g and g[0] >= min_tier:
-                    got.append({"n": n, "tier": g[0], "score": g[1],
-                                "regions": encode(reg), "solution": cols})
-                    break
-        got.sort(key=lambda L: L["score"])       # mais simples primeiro dentro do tamanho
+    for n, quota in PLAN:
+        need, got, k = dict(quota), [], 0
+        # candidatos em sequência fixa de seeds; cada um entra se o seu tier ainda tem vaga
+        while any(need.values()):
+            rng = random.Random(f"miaucolor:{n}:c{k}")
+            k += 1
+            cols, reg = generate_unique(n, rng)
+            g = grade(n, reg, cols)
+            if g and need.get(g[0], 0) > 0:
+                need[g[0]] -= 1
+                got.append({"n": n, "tier": g[0], "score": g[1],
+                            "regions": encode(reg), "solution": cols})
+        got.sort(key=lambda L: (L["tier"], L["score"]))   # mais simples primeiro dentro do tamanho
         levels += got
-        print(f"  {n}x{n}: {qty} níveis, tiers {sorted({L['tier'] for L in got})}", flush=True)
+        print(f"  {n}x{n}: {len(got)} níveis de {k} candidatos, tiers {dict(sorted(quota.items()))}", flush=True)
     for i, L in enumerate(levels, 1):
         L["id"] = i
         L["diff"] = TIER_NAMES[L["tier"]]
