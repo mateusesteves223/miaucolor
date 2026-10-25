@@ -146,24 +146,32 @@
     0 0 80px -20px rgb(var(--glow-rgb, 155 132 240) / .3),
     0 20px 40px -20px rgba(0, 0, 0, .9);
 }
-[data-theme="night"] #board::after { mix-blend-mode: screen; opacity: .05; }
+[data-theme="night"] #board::after { opacity: var(--felt-a-night); }
+[data-theme="night"][data-legacy-blend] #board::after { mix-blend-mode: screen; opacity: .05; }
 [data-theme="night"] #board.lost { filter: saturate(.55) brightness(.88); }
 [data-theme="night"] #board.won { animation: none; }
 [data-theme="night"] #board.shake { animation: microShake .14s linear; }
 
-[data-theme="night"] #board :is(.patch, .fil) { filter: saturate(.9) brightness(.92); }
+/* peça um pouco mais apagada: a cor já vem misturada com a mesa (--fab-n), sem filter em cada peça */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  [data-theme="night"] #board .cell { --fab-n: color-mix(in srgb, var(--fab) var(--night-dim), #1a1726); }
+}
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  [data-theme="night"] #board :is(.patch, .fil) { filter: saturate(.9) brightness(.92); }
+}
+[data-theme="night"][data-legacy-filter] #board .cell { --fab-n: initial; }
+[data-theme="night"][data-legacy-filter] #board :is(.patch, .fil) { filter: saturate(.9) brightness(.92); }
 [data-theme="night"] #board .patch { box-shadow: inset 0 calc(var(--t) * 1px) 0 rgba(255, 255, 255, .16), inset 0 calc(var(--b) * -2px) 0 rgba(0, 0, 0, .22); }
-[data-theme="night"] #board .cell.lit :is(.patch, .fil) { filter: saturate(1) brightness(1.04); }
+/* região com gato: volta à cor cheia (sem o escurecimento da mesa) */
+[data-theme="night"] #board .cell.lit { --fab-n: initial; }
+[data-theme="night"][data-legacy-filter] #board .cell.lit :is(.patch, .fil) { filter: saturate(1) brightness(1.04); }
 
 /* costura: linha clara nas peças escuras e médias, escura nas claras */
 [data-theme="night"] .seams path { stroke: rgba(255, 255, 255, .4); }
 [data-theme="night"] .seams path:is([data-f="0"], [data-f="3"], [data-f="7"], [data-f="10"]) { stroke: rgba(21, 18, 29, .35); }
 
 /* camada de efeitos */
-[data-theme="night"] #board .patch::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; opacity: 0; pointer-events: none;
-  background: rgb(var(--c-rgb, 255 255 255));
-}
+[data-theme="night"] #board .patch::before { background: rgb(var(--c-rgb, 255 255 255)); }
 [data-theme="night"] #board .cell.fx-pulse .patch::before { background: #fff; animation: fxPulse .5s ease-out var(--d, 0ms) both; }
 [data-theme="night"] #board .cell.fx-breath .patch::before { background: #fff; animation: fxBreath 1.1s ease-in-out var(--d, 0ms) both; }
 [data-theme="night"] #board.won .cell .patch::before {
@@ -218,10 +226,9 @@
 }
 
 /* ---------- Menu ⋯, ajustes, modal ---------- */
-[data-theme="night"] .menu-scrim { background: rgba(5, 4, 10, .55); }
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  [data-theme="night"] .menu-scrim { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-}
+/* sem backdrop-filter: o blur de tela cheia era recalculado em todo quadro da abertura; o fundo escurece mais */
+[data-theme="night"] .menu-scrim { background: rgba(5, 4, 10, var(--scrim-a-night)); }
+[data-theme="night"][data-legacy-blur] .menu-scrim.open { background: rgba(5, 4, 10, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 [data-theme="night"] .menu-drop { border: 1px solid var(--line); }
 [data-theme="night"] .menu-head .icon-btn { border: 1px solid var(--line); }
 [data-theme="night"] .menu-sec-title { font-size: 10px; font-weight: 600; letter-spacing: .16em; }
@@ -316,3 +323,7 @@
   [data-theme="night"] #game.spot-open::after { transform: none; }
   [data-theme="night"] .paw.drop .paw-eyes { animation: none; }
 }
+
+/* Modo leve: sem o halo de 80px da moldura */
+[data-theme="night"][data-lite] #board,
+[data-theme="night"][data-lite] #sboard { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05), 0 20px 40px -20px rgba(0, 0, 0, .9); }

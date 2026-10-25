@@ -75,6 +75,16 @@
   --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
   --ease-soft: cubic-bezier(.45, 0, .25, 1);
 
+  /* efeitos leves (sem filter/blend no tabuleiro); ajustáveis no painel 🎚️ do Modo Dev */
+  --felt-a: .14;                     /* textura do feltro, tema claro */
+  --felt-a-night: .04;               /* textura do feltro, tema noite */
+  --night-dim: 91%;                  /* cor da peça no noite (resto: mesa escura) */
+  --x-edge-w: 6.4;                   /* contorno do ✕ no tema claro */
+  --x-edge-a: .4;
+  --wave-glow: .18;                  /* brilho máximo da onda */
+  --lit-mix: 6%;                     /* quanto a região com gato clareia (tema claro) */
+  --scrim-a-night: .68;              /* fundo do menu no noite */
+
   --font: "Quicksand", ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, sans-serif;
   --paw-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.2c-3.4 0-6.1-1.8-6.1-4.3 0-2.8 2.9-5.6 6.1-5.6s6.1 2.8 6.1 5.6c0 2.5-2.7 4.3-6.1 4.3z'/%3E%3Cellipse cx='4.8' cy='10.6' rx='2.1' ry='2.5'/%3E%3Cellipse cx='9.3' cy='6.4' rx='2.2' ry='2.7'/%3E%3Cellipse cx='14.7' cy='6.4' rx='2.2' ry='2.7'/%3E%3Cellipse cx='19.2' cy='10.6' rx='2.1' ry='2.5'/%3E%3C/svg%3E");
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5' fill='none' stroke='%2374645a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -363,11 +373,12 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   touch-action: none; user-select: none; -webkit-user-select: none;
 }
 #board { gap: 0; }
-/* fibra do feltro, por cima das peças e sem capturar toques */
+/* fibra do feltro, por cima das peças e sem capturar toques. Sem mix-blend-mode: com blend, cada ✕ obrigava a
+ * recompor o tabuleiro inteiro; numa camada própria (translateZ) a textura é pintada uma vez só. */
 #board::after {
   content: ""; position: absolute; inset: var(--frame); z-index: 1; pointer-events: none;
   border-radius: calc(var(--board) * .03);
-  opacity: .2; mix-blend-mode: multiply;
+  opacity: var(--felt-a); transform: translateZ(0);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .25 0 0 0 0 .15 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 #board.locked .cell { cursor: default; }
@@ -393,16 +404,20 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   display: grid; place-items: center;
   min-width: 0; min-height: 0;
   cursor: pointer; user-select: none;
-  transition: filter .18s;
 }
 .cell.et { --t: 1; } .cell.er { --r: 1; } .cell.eb { --b: 1; } .cell.el { --l: 1; }
 
 .patch {
   position: absolute; inset: var(--inset); pointer-events: none;
   border-radius: var(--rtl) var(--rtr) var(--rbr) var(--rbl);
-  background: var(--fab, var(--surface-2));
+  background: var(--fab-n, var(--fab, var(--surface-2)));      /* --fab-n: cor já escurecida (tema noite) */
   /* relevo só nas divisas: brilho em cima, sombra embaixo (dentro da região a peça é lisa) */
   box-shadow: inset 0 calc(var(--t) * 1.5px) 0 rgba(255, 255, 255, .35), inset 0 calc(var(--b) * -2px) 0 rgba(0, 0, 0, .07);
+}
+/* camada de brilho (onda; no noite também pulso/varredura): só opacity anima */
+#board .patch::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; opacity: 0; pointer-events: none;
+  background: #fff;
 }
 /* Canto côncavo: quadrado de lado --f com um furo circular de raio --f centrado no canto da peça vizinha.
  * Fica fora da casa (desloca --s + --rr) e cobre a quina da vala, que antes ficava em degrau. */
@@ -410,12 +425,18 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   --o: calc(-1 * (var(--s) + var(--rr)));
   position: absolute; display: none; width: var(--f); height: var(--f); pointer-events: none;
 }
-.fil-tl { left: var(--o); top: var(--o); background: radial-gradient(circle at 0 0, transparent var(--f), var(--fab) calc(var(--f) + .6px)); }
-.fil-tr { right: var(--o); top: var(--o); background: radial-gradient(circle at 100% 0, transparent var(--f), var(--fab) calc(var(--f) + .6px)); }
-.fil-br { right: var(--o); bottom: var(--o); background: radial-gradient(circle at 100% 100%, transparent var(--f), var(--fab) calc(var(--f) + .6px)); }
-.fil-bl { left: var(--o); bottom: var(--o); background: radial-gradient(circle at 0 100%, transparent var(--f), var(--fab) calc(var(--f) + .6px)); }
+.fil-tl { left: var(--o); top: var(--o); background: radial-gradient(circle at 0 0, transparent var(--f), var(--fab-n, var(--fab)) calc(var(--f) + .6px)); }
+.fil-tr { right: var(--o); top: var(--o); background: radial-gradient(circle at 100% 0, transparent var(--f), var(--fab-n, var(--fab)) calc(var(--f) + .6px)); }
+.fil-br { right: var(--o); bottom: var(--o); background: radial-gradient(circle at 100% 100%, transparent var(--f), var(--fab-n, var(--fab)) calc(var(--f) + .6px)); }
+.fil-bl { left: var(--o); bottom: var(--o); background: radial-gradient(circle at 0 100%, transparent var(--f), var(--fab-n, var(--fab)) calc(var(--f) + .6px)); }
 .cell.ctl .fil-tl, .cell.ctr .fil-tr, .cell.cbr .fil-br, .cell.cbl .fil-bl { display: block; }
-.cell.lit :is(.patch, .fil) { filter: brightness(1.05) saturate(1.08); }
+/* região com gato acende: a cor clareia direto (--fab-n), sem filter (no fim da partida é quase o tabuleiro todo) */
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  #board .cell.lit { --fab-n: color-mix(in srgb, var(--fab), #fff var(--lit-mix)); }
+}
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .cell.lit :is(.patch, .fil) { filter: brightness(1.05) saturate(1.08); }
+}
 
 /* Costura: contorno tracejado de cada região (unidade do SVG = 1 casa) */
 .seams {
@@ -459,13 +480,12 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 .sym-x path.thread { stroke: var(--x-thread, rgba(255, 240, 225, .4)); stroke-width: 1; }
 .sym.wrong path { stroke: var(--x-wrong); stroke-width: 3.6; }
 .sym.wrong path.thread { stroke: rgba(255, 220, 210, .45); stroke-width: 1; }
-/* tema claro: ✕ sempre branco, grosso e com contorno escuro suave, para aparecer até nas cores mais claras */
-:root:not([data-theme="night"]) .sym.x .sym-x {
-  width: 62%; height: 62%;
-  filter: drop-shadow(0 0 1px rgba(59, 47, 42, .6)) drop-shadow(0 1px 1.5px rgba(59, 47, 42, .35));
-}
-:root:not([data-theme="night"]) .sym.x:not(.wrong) path { stroke: #fff; stroke-width: 4.6; }
-:root:not([data-theme="night"]) .sym.x:not(.wrong) path.thread { display: none; }
+/* tema claro: ✕ sempre branco, grosso e com contorno escuro suave, para aparecer até nas cores mais claras.
+ * Sem drop-shadow: o traço principal vira o contorno e a linha (thread, desenhada por cima) vira o traço branco. */
+:root:not([data-theme="night"]) .sym.x .sym-x { width: 62%; height: 62%; }
+:root:not([data-theme="night"]) .sym.x path:not(.thread) { stroke: rgba(59, 47, 42, var(--x-edge-a)); stroke-width: var(--x-edge-w); }
+:root:not([data-theme="night"]) .sym.x path.thread { stroke: #fff; stroke-width: 4.6; }
+:root:not([data-theme="night"]) .sym.wrong path.thread { stroke: var(--x-wrong); }
 .sym.x .x1 { animation: drawStroke 90ms ease-out both; }
 .sym.x .x2 { animation: drawStroke 90ms 90ms ease-out both; }
 @keyframes drawStroke { from { stroke-dashoffset: 1; } }
@@ -490,9 +510,9 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   100% { transform: none; }
 }
 
-/* Juice das células (classes passageiras; saem no animationend) */
-.cell.pop-x { animation: sink .24s var(--ease-out); }
-@keyframes sink { 40% { transform: translateY(1px) scale(.97); } }
+/* Juice das células (classes passageiras; saem no animationend). O ✕ anima só o próprio símbolo, não a casa. */
+.cell.pop-x .sym { animation: sink .24s var(--ease-out); }
+@keyframes sink { 40% { transform: translateY(4%) scale(.9); } }
 .cell.pop-cat { z-index: 2; animation: inflate .44s var(--ease-spring); }
 @keyframes inflate { 35% { transform: scale(1.08); } }
 .cell.pop-cat .sym::before {                       /* anel pêssego que se expande e some */
@@ -501,11 +521,8 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   animation: ring .6s ease-out both;
 }
 @keyframes ring { from { opacity: .95; transform: scale(.6); } to { opacity: 0; transform: scale(1.5); } }
-.cell.wave { animation: warmWave .62s var(--wave, 0ms) var(--ease-soft) both; }
-@keyframes warmWave {
-  0%, 100% { filter: none; transform: none; }
-  40% { filter: brightness(1.14) saturate(1.15); transform: translateY(-1.5px); }
-}
+.cell.wave .patch::before { animation: warmWave .62s var(--wave, 0ms) var(--ease-soft) both; }
+@keyframes warmWave { 40% { opacity: var(--wave-glow); } }
 .cell.shake { z-index: 2; animation: wobble .7s var(--ease-soft); }
 .cell.shake::after { background: var(--danger); animation: blush .7s ease-out both; }
 @keyframes wobble {
@@ -629,8 +646,13 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 /* =====================================================================
  * MENU ⋯ — cartão de duas colunas (paisagem) ou folha que sobe (retrato)
  * ===================================================================== */
-.menu-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(70, 45, 25, .3); animation: fade .2s ease-out; }
-.menu-scrim[hidden], .menu-drop[hidden] { display: none; }
+/* O menu fica sempre montado (fechado = fora da tela/transparente, inert): abrir não refaz layout nem pintura da
+ * folha inteira no primeiro quadro, só anima transform/opacity, que o compositor faz sozinho. */
+.menu-scrim {
+  position: fixed; inset: 0; z-index: 40; background: rgba(70, 45, 25, .3);
+  opacity: 0; pointer-events: none; transition: opacity .2s ease-out; will-change: opacity;
+}
+.menu-scrim.open { opacity: 1; pointer-events: auto; }
 .menu-drop {
   position: fixed; z-index: 41; left: 50%; top: 50%;
   width: min(720px, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
@@ -643,9 +665,12 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   border-radius: var(--radius-l);
   background: var(--surface-1);
   box-shadow: var(--shadow-pop);
-  transform: translate(-50%, -50%);
-  animation: cardIn .3s var(--ease-out);
+  opacity: 0; pointer-events: none;
+  transform: translate(-50%, calc(-50% + 18px)) scale(.97);
+  transition: opacity .3s var(--ease-out), transform .3s var(--ease-out);
+  contain: layout paint; will-change: transform, opacity;
 }
+.menu-drop.open { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
 .menu-drop > .menu-sec:nth-of-type(1) { grid-area: play; }
 .menu-drop > .menu-sec:nth-of-type(2) { grid-area: settings; }
 .menu-drop > .menu-sec:nth-of-type(3) { grid-area: rules; }
@@ -658,14 +683,16 @@ body.portrait .menu-drop {
   grid-template-areas: "head" "tabs" "play" "settings" "rules" "reveal";
   padding: 10px 18px calc(18px + env(safe-area-inset-bottom));
   border-radius: var(--radius-l) var(--radius-l) 0 0;
-  transform: none;
-  animation: sheetUp .34s var(--ease-out);
+  box-shadow: 0 -8px 24px -14px rgba(90, 55, 25, .4);   /* sombra curta: a folha encosta na base */
+  opacity: 1;
+  transform: translateY(calc(100% + 32px));
+  transition: transform .34s var(--ease-out);
 }
+body.portrait .menu-drop.open { transform: none; }
 body.portrait .menu-drop::before {                 /* alça da folha */
   content: ""; justify-self: center; grid-row: 1; grid-column: 1; align-self: start;
   width: 40px; height: 4px; margin-top: -2px; border-radius: 4px; background: var(--surface-3);
 }
-@keyframes sheetUp { from { transform: translateY(100%); } }
 
 .menu-head { grid-area: head; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 4px; }
 .menu-head .brand { font-size: 19px; }
@@ -766,6 +793,21 @@ body.portrait .menu-drop::before {                 /* alça da folha */
 .switch:checked { background: var(--accent); }
 .switch:checked::after { transform: translateX(14px); }
 .dev-btn { min-height: 36px; padding: 0 12px; border: 0; border-radius: 10px; background: var(--surface-2); font-size: 13px; font-weight: 700; cursor: pointer; }
+/* 🎚️ ajuste de visual/desempenho (não conta como trapaça) */
+.dev-tune { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.dev-tune summary { font-size: 13px; font-weight: 700; cursor: pointer; }
+.dev-tune-body { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.dev-range { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; color: var(--text-2); font-size: 12.5px; }
+.dev-range input { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); }
+.dev-range output { font-variant-numeric: tabular-nums; color: var(--text-1); font-weight: 700; }
+.dev-tune-btns { display: flex; gap: 8px; }
+.dev-tune-btns .dev-btn { flex: 1; }
+.dev-fps {
+  position: fixed; top: calc(4px + env(safe-area-inset-top)); left: 4px; z-index: 100; pointer-events: none;
+  padding: 2px 6px; border-radius: 6px; background: rgba(0, 0, 0, .7); color: #fff;
+  font: 700 11px/1.3 ui-monospace, monospace; white-space: pre;
+}
+.dev-fps[hidden] { display: none; }
 
 /* =====================================================================
  * MODAL — cartão de papel que sobe
@@ -1119,12 +1161,15 @@ body.tutoring #game.active { --rail: clamp(150px, 20cqw, 240px); }   /* trilho m
   .cell.pop-x, .cell.pop-cat, .cell.shake, #board.won .cell.has-cat { animation: none; }
   .cell.pop-cat .sym::before { display: none; }
   .sym.x .x1, .sym.x .x2, .sym.cat .cat-body, .sym.cat .cat-eyes, .sym.cat .cat-ears { animation: none; }
-  .cell.wave { animation-name: warmWaveStill; }
-  @keyframes warmWaveStill { 40% { filter: brightness(1.14) saturate(1.15); } }
+  .cell.pop-x .sym { animation: none; }
   #board.won .sym.cat .cat-eyes { animation: eyesClose .01s calc(var(--blink, 0) * 110ms + 250ms) both; }
   .paw.drop .paw-fill { animation: none; }
-  .modal.open, .menu-scrim, .hint-msg { animation: fade .2s ease-out; }
-  .modal-card, .menu-drop, body.portrait .menu-drop { animation: fade .2s ease-out; }
+  .modal.open, .hint-msg { animation: fade .2s ease-out; }
+  .modal-card { animation: fade .2s ease-out; }
+  .menu-drop, body.portrait .menu-drop { transition: opacity .2s ease-out; }
+  .menu-drop, .menu-drop.open { transform: translate(-50%, -50%); }
+  body.portrait .menu-drop { opacity: 0; transform: none; }
+  body.portrait .menu-drop.open { opacity: 1; transform: none; }
   .modal-star.on { animation: fade .3s calc(.2s + var(--i, 0) * .15s) both; }
   .strategy-card.guide-flash { animation: none; }
   .cell.hint-glow::before, .cell.hint-target::before, .cell.hint-ban::before, .cell.tut-unit::before, .cell.tut-focus::before, .cell.tut-ban::before { animation: none; }
@@ -1135,3 +1180,16 @@ body.tutoring #game.active { --rail: clamp(150px, 20cqw, 240px); }   /* trilho m
   .point-pop { animation: fadeOnly .8s linear forwards; }
   .score-info .level-info-value.bump { animation: none; }
 }
+
+/* =====================================================================
+ * Modo leve (<html data-lite>, celular com pouca memória/núcleos; ver theme.js): sem enfeites que só pesam
+ * ===================================================================== */
+:root[data-lite] #board::after, :root[data-lite] #game::after { display: none; }
+:root[data-lite] .sym.cat .sym-cat { filter: none; }
+
+/* Efeitos antigos, só para comparar o peso no painel 🎚️ do Modo Dev (sai depois de escolhidos os valores) */
+:root[data-legacy-blend] #board::after { opacity: .2; mix-blend-mode: multiply; transform: none; }
+:root[data-legacy-filter]:not([data-theme="night"]) .sym.x .sym-x { filter: drop-shadow(0 0 1px rgba(59, 47, 42, .6)) drop-shadow(0 1px 1.5px rgba(59, 47, 42, .35)); }
+:root[data-legacy-filter] .cell { transition: filter .18s; }
+:root[data-legacy-filter] #board .cell.lit { --fab-n: initial; }
+:root[data-legacy-filter] .cell.lit :is(.patch, .fil) { filter: brightness(1.05) saturate(1.08); }

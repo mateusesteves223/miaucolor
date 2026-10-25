@@ -302,6 +302,7 @@ function crossSvg() {
 
 /* Reinicia uma animação de classe na célula (a classe sai sozinha no animationend da própria célula) */
 const PULSES = ["pop-x", "pop-cat", "wave", "shake"];
+const PULSE_INNER = { sink: "pop-x", warmWave: "wave" };   // animam um filho (.sym / .patch::before), não a casa
 function pulse(el, cls) {
   if (el.classList.contains(cls)) { el.classList.remove(cls); void el.offsetWidth; }
   el.classList.add(cls);
@@ -427,7 +428,10 @@ function buildBoard() {
         const symbol = document.createElement("span");
         cell.className = "cell";
         cell.dataset.r = r; cell.dataset.c = c;
-        cell.addEventListener("animationend", e => { if (e.target === cell) cell.classList.remove(...PULSES); });
+        cell.addEventListener("animationend", e => {
+          if (e.target === cell) cell.classList.remove(...PULSES);
+          else if (PULSE_INNER[e.animationName]) cell.classList.remove(PULSE_INNER[e.animationName]);
+        });
         symbol.className = "sym";
         symbol.setAttribute("aria-hidden", "true");
         symbol.hidden = true;
@@ -593,11 +597,15 @@ function drawSeams() {
 
 /* Clique e arraste: o primeiro quadrado define se o gesto pinta ✕ ou apaga ✕.
  * A casa sai da geometria do tabuleiro (não de elementFromPoint): a moldura conta como a casa da beirada,
- * o que ajuda nas casas pequenas do 10×10 no celular. Fora do tabuleiro, nenhuma casa. */
-function cellAt(x, y) {
-  const rect = boardEl.getBoundingClientRect();
+ * o que ajuda nas casas pequenas do 10×10 no celular. Fora do tabuleiro, nenhuma casa.
+ * Durante o arraste a geometria medida no pointerdown é reaproveitada: medir a cada pointermove, logo depois
+ * de mexer nas classes da casa anterior, forçava recálculo de estilo e layout do tabuleiro a cada evento. */
+function boardGeo() {
+  return { rect: boardEl.getBoundingClientRect(), frame: parseFloat(getComputedStyle(boardEl).paddingLeft) || 0 };
+}
+function cellAt(x, y, geo = boardGeo()) {
+  const { rect, frame } = geo;
   if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom || cells.length !== N) return null;
-  const frame = parseFloat(getComputedStyle(boardEl).paddingLeft) || 0;
   const size = (rect.width - 2 * frame) / N;
   const clamp = v => Math.min(N - 1, Math.max(0, Math.floor(v / size)));
   return cells[clamp(y - rect.top - frame)][clamp(x - rect.left - frame)];
@@ -625,24 +633,30 @@ for (const el of [boardEl, document.getElementById("sboard")]) el.addEventListen
 boardEl.addEventListener("pointerdown", e => {
   game.dragged = false;
   if (!isPlaying() || e.button !== 0) return;
-  const cell = cellAt(e.clientX, e.clientY);
+  const geo = boardGeo();
+  const cell = cellAt(e.clientX, e.clientY, geo);
   if (!cell) return;
   const m = marks[+cell.dataset.r][+cell.dataset.c];
   if (m >= 2) return;
   game.dragStart = cell;
-  game.drag = { mode: m === 1 ? 0 : 1, move: [] };
+  game.drag = { mode: m === 1 ? 0 : 1, move: [], geo };
 });
 
+/* Eventos agrupados (getCoalescedEvents): com o dedo rápido o navegador junta vários pontos num quadro; olhar
+ * todos evita pular casas. Com a geometria em cache, cada ponto é só aritmética. */
 boardEl.addEventListener("pointermove", e => {
   if (!isPlaying() || !game.drag) return;
-  const cell = cellAt(e.clientX, e.clientY);
-  if (!cell) return;
-  if (!game.dragged) {
-    if (cell === game.dragStart) return;
-    game.dragged = true;
-    dragApply(game.dragStart);
+  const points = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+  for (const p of points.length ? points : [e]) {
+    const cell = cellAt(p.clientX, p.clientY, game.drag.geo);
+    if (!cell) continue;
+    if (!game.dragged) {
+      if (cell === game.dragStart) continue;
+      game.dragged = true;
+      dragApply(game.dragStart);
+    }
+    dragApply(cell);
   }
-  dragApply(cell);
 });
 
 /* Toque simples alterna ✕ na hora; segundo toque na mesma célula confirma o gato.
@@ -1280,6 +1294,127 @@ devEl.addEventListener("change", () => {
   document.getElementById("dev-note").hidden = !game.devMode;
   autoColorWrap.hidden = !game.devMode;
 });
+/* 🎚️ Visual / desempenho (só com ?dev; não conta como trapaça): ajusta as variáveis CSS dos efeitos leves, religa os
+ * efeitos antigos para comparar o peso no aparelho e mede os quadros. Salvo à parte, sem tocar no progresso. */
+(() => {
+  if (!document.body.classList.contains("dev-ui")) return;
+  const KEY = "miaucolor:dev-tune";
+  const root = document.documentElement;
+  const VARS = [            // [variável, rótulo, mín, máx, passo, unidade]
+    ["--felt-a", "Textura do feltro (claro)", 0, .3, .01, ""],
+    ["--felt-a-night", "Textura do feltro (noite)", 0, .15, .005, ""],
+    ["--night-dim", "Cor das peças (noite)", 70, 100, 1, "%"],
+    ["--lit-mix", "Região com gato clareia (claro)", 0, 20, 1, "%"],
+    ["--x-edge-w", "Contorno do ✕: largura (claro)", 4.6, 9, .1, ""],
+    ["--x-edge-a", "Contorno do ✕: opacidade (claro)", 0, .9, .02, ""],
+    ["--wave-glow", "Brilho da onda", 0, .5, .01, ""],
+    ["--scrim-a-night", "Fundo do menu (noite)", .3, .9, .01, ""],
+  ];
+  const FLAGS = [
+    ["lite", "Modo leve (sem textura, spot e halo)"],
+    ["legacyBlend", "Antigo: textura com blend"],
+    ["legacyFilter", "Antigo: filtros nas peças e ✕"],
+    ["legacyBlur", "Antigo: blur no menu (noite)"],
+  ];
+  const attr = k => "data-" + k.replace(/[A-Z]/g, ch => "-" + ch.toLowerCase());
+  let state = { vars: {}, flags: {}, fps: false };
+  try { state = { ...state, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { /* começa do padrão */ }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* só nesta sessão */ } };
+  const cssVal = name => getComputedStyle(root).getPropertyValue(name).trim();
+
+  const body = document.getElementById("dev-tune-body");
+  const btns = body.querySelector(".dev-tune-btns");
+
+  for (const [key, label] of FLAGS) {
+    if (typeof state.flags[key] === "boolean" && key !== "lite") root.toggleAttribute(attr(key), state.flags[key]);   // lite: theme.js
+    const row = document.createElement("label");
+    row.className = "dev-opt";
+    const text = document.createElement("span");
+    text.textContent = label;
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.className = "switch";
+    input.checked = root.hasAttribute(attr(key));
+    input.addEventListener("change", () => {
+      root.toggleAttribute(attr(key), input.checked);
+      state.flags[key] = input.checked;
+      save();
+    });
+    row.append(text, input);
+    body.insertBefore(row, btns);
+  }
+
+  for (const [name, label, min, max, step, unit] of VARS) {
+    if (state.vars[name]) root.style.setProperty(name, state.vars[name]);
+    const row = document.createElement("label");
+    row.className = "dev-range";
+    const text = document.createElement("span");
+    text.textContent = label;
+    const out = document.createElement("output");
+    const input = document.createElement("input");
+    Object.assign(input, { type: "range", min, max, step });
+    input.value = parseFloat(cssVal(name));
+    out.textContent = input.value + unit;
+    input.addEventListener("input", () => {
+      const v = input.value + unit;
+      root.style.setProperty(name, v);
+      state.vars[name] = v;
+      out.textContent = v;
+      save();
+    });
+    row.append(text, out, input);
+    body.insertBefore(row, btns);
+  }
+
+  document.getElementById("dev-tune-copy").addEventListener("click", e => {
+    const text = ":root {\n" + VARS.map(([name]) => `  ${name}: ${cssVal(name)};`).join("\n") + "\n}\n" +
+      "/* " + FLAGS.map(([key]) => `${key}: ${root.hasAttribute(attr(key))}`).join(", ") + " */";
+    console.log(text);
+    const btn = e.currentTarget;
+    const done = () => { btn.textContent = "✓ Copiado"; setTimeout(() => { btn.textContent = "📋 Copiar valores"; }, 1500); };
+    const fallback = () => window.prompt("Copie os valores:", text);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+    else fallback();
+  });
+  document.getElementById("dev-tune-reset").addEventListener("click", () => {
+    try { localStorage.removeItem(KEY); } catch { /* nada salvo */ }
+    location.reload();
+  });
+
+  /* Medidor: FPS médio e pior quadro dos últimos 2 s (só roda com a chave ligada) */
+  const fpsEl = document.createElement("div");
+  fpsEl.className = "dev-fps";
+  fpsEl.hidden = true;
+  document.body.appendChild(fpsEl);
+  const fpsOn = document.getElementById("dev-fps-on");
+  let raf = 0, last = 0, shownAt = 0;
+  const frames = [];                                  // [instante, duração]
+  function tick(t) {
+    const dt = t - last;
+    if (last && dt < 1000) frames.push([t, dt]);      // aba oculta pausa o rAF: ignora o buraco
+    last = t;
+    while (frames.length && frames[0][0] < t - 2000) frames.shift();
+    if (t - shownAt > 500 && frames.length > 1) {
+      shownAt = t;
+      let worst = 0;
+      for (const f of frames) worst = Math.max(worst, f[1]);
+      const fps = (frames.length - 1) * 1000 / (t - frames[0][0]);
+      fpsEl.textContent = `${Math.round(fps)} fps\npior ${Math.round(worst)} ms`;
+    }
+    raf = requestAnimationFrame(tick);
+  }
+  function setFps(on) {
+    fpsEl.hidden = !on;
+    cancelAnimationFrame(raf);
+    frames.length = 0;
+    last = 0;
+    if (on) raf = requestAnimationFrame(tick);
+  }
+  fpsOn.checked = !!state.fps;
+  setFps(fpsOn.checked);
+  fpsOn.addEventListener("change", () => { state.fps = fpsOn.checked; save(); setFps(fpsOn.checked); });
+})();
+
 findCatBtn.addEventListener("click", () => {
   if (!isPlaying()) return;
   const left = solution.map((c, r) => [r, c]).filter(([r, c]) => marks[r][c] !== 2);
@@ -2120,24 +2255,28 @@ const menuToggles = document.querySelectorAll("[data-menu-toggle]");
 const menuFocusable = () => [...menuDrop.querySelectorAll("button, select, input")]
   .filter(el => !el.disabled && el.getClientRects().length);
 
+/* Sempre montado: fechado fica inert (sem foco nem leitor de tela) e fora da tela via CSS (.open) */
+let menuOpen = false;
 function setMenu(open) {
-  if (open === !menuDrop.hidden) return;
-  menuDrop.hidden = !open;
-  menuScrim.hidden = !open;
+  if (open === menuOpen) return;
+  menuOpen = open;
+  menuDrop.classList.toggle("open", open);
+  menuScrim.classList.toggle("open", open);
+  menuDrop.inert = !open;
   menuToggles.forEach(b => b.setAttribute("aria-expanded", open));
   if (open) {
-    menuDrop.querySelector("[data-menu-close]").focus();
+    menuDrop.querySelector("[data-menu-close]").focus({ preventScroll: true });   // a folha ainda está entrando
     return;
   }
   const visible = [...menuToggles].find(b => b.getClientRects().length);   // o ⋯ do trilho ou o da barra de página
   if (visible) visible.focus({ preventScroll: true });
 }
 
-menuToggles.forEach(b => b.addEventListener("click", () => setMenu(menuDrop.hidden)));
+menuToggles.forEach(b => b.addEventListener("click", () => setMenu(!menuOpen)));
 menuScrim.addEventListener("click", () => setMenu(false));
 menuDrop.addEventListener("click", e => { if (e.target.closest(".tab, [data-menu-close]")) setMenu(false); });
 document.addEventListener("keydown", e => {
-  if (menuDrop.hidden) return;
+  if (!menuOpen) return;
   if (e.key === "Escape") { setMenu(false); return; }
   if (e.key !== "Tab") return;
   const list = menuFocusable();                     // foco preso no menu enquanto ele está aberto

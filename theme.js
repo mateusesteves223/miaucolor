@@ -29,6 +29,16 @@ const Theme = (() => {
   }
 
   paint();
+
+  /* Modo leve (<html data-lite>): celular com pouca memória ou poucos núcleos perde só os enfeites (style.css).
+   * O painel 🎚️ do Modo Dev pode forçar ligado/desligado (chave própria, separada do progresso). */
+  let lite = navigator.deviceMemory <= 4 || navigator.hardwareConcurrency <= 4;
+  try {
+    const tune = JSON.parse(localStorage.getItem("miaucolor:dev-tune") || "null");
+    if (tune && typeof tune.flags?.lite === "boolean" && new URLSearchParams(location.search).has("dev")) lite = tune.flags.lite;
+  } catch { /* sem storage ou JSON inválido: fica o automático */ }
+  document.documentElement.toggleAttribute("data-lite", lite);
+
   return {
     THEMES, set,
     get current() { return current; },

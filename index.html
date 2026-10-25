@@ -415,8 +415,8 @@
   </main>
 
   <!-- ===== Menu ⋯ (sobreposto): abas, ajustes, idioma e regras. Cartão central na paisagem, folha de baixo no retrato. ===== -->
-  <div class="menu-scrim" data-menu-close hidden></div>
-  <div id="menu-drop" class="menu-drop" role="dialog" aria-modal="true" aria-labelledby="menu-title" hidden>
+  <div class="menu-scrim" data-menu-close></div>
+  <div id="menu-drop" class="menu-drop" role="dialog" aria-modal="true" aria-labelledby="menu-title" inert>
     <div class="menu-head">
       <span class="brand"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 64 64"><use href="#cat-ears"/><use href="#cat-body"/><use href="#cat-eyes"/></svg><span id="menu-title" data-i18n="app.name">MeowColor</span></span>
       <button type="button" class="icon-btn" data-menu-close aria-label="Fechar menu" data-i18n-attr="aria-label:menu.close">
@@ -490,6 +490,13 @@
           <label class="dev-opt" id="auto-color-wrap" hidden><span>✕ na cor do gato</span><input type="checkbox" id="auto-color" class="switch" checked></label>
           <button id="find-cat" type="button" class="dev-btn" data-menu-close hidden>🔎 Achar um gato</button>
         </div>
+        <details class="dev-tune">
+          <summary>🎚️ Visual / desempenho</summary>
+          <div class="dev-tune-body" id="dev-tune-body">
+            <label class="dev-opt"><span>Medidor de quadros</span><input type="checkbox" id="dev-fps-on" class="switch"></label>
+            <div class="dev-tune-btns"><button type="button" class="dev-btn" id="dev-tune-copy">📋 Copiar valores</button><button type="button" class="dev-btn" id="dev-tune-reset">↺ Padrão</button></div>
+          </div>
+        </details>
       </div>
     </div>
   </div>
