@@ -9,8 +9,9 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' https: blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src https: http:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <title>MeowColor</title>
-  <link rel="preload" href="fonts/quicksand-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+  <script src="theme.js"></script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="theme-night.css">
   <script src="https://game-cdn.poki.com/scripts/v2/poki-sdk.js"></script>
 </head>
 <body data-panel="game">
@@ -66,6 +67,8 @@
       <symbol id="i-grid" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="2"/></g></symbol>
       <symbol id="i-book" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.6C10.3 5 7.9 4.4 4.5 4.6v13.3c3.4-.2 5.8.4 7.5 2 1.7-1.6 4.1-2.2 7.5-2V4.6c-3.4-.2-5.8.4-7.5 2zM12 6.6v13.3"/></g></symbol>
       <symbol id="i-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.2 12a7.2 7.2 0 1 1-2.1-5.1"/><path d="M19.4 4.6v3.6h-3.6"/></g></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.1M12 19.1v2.1M2.8 12h2.1M19.1 12h2.1M5.5 5.5l1.5 1.5M17 17l1.5 1.5M5.5 18.5 7 17M17 7l1.5-1.5"/></g></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.6 14.6A8 8 0 0 1 9.4 4.4a8 8 0 1 0 10.2 10.2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
       <symbol id="i-eraser" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.4 19.5 4.6 14.7a1.6 1.6 0 0 1 0-2.3l7.8-7.8a1.6 1.6 0 0 1 2.3 0l4.7 4.7a1.6 1.6 0 0 1 0 2.3l-7.9 7.9zM20 19.5H9.4M8 10.9l5.1 5.1"/></g></symbol>
     </defs>
   </svg>
@@ -430,6 +433,10 @@
           <svg class="ic" aria-hidden="true"><use href="#i-vibrate"/></svg>
           <span class="set-label">Vibração</span><span class="set-switch" aria-hidden="true"></span>
         </button>
+      </div>
+      <div class="theme-switch" role="group" data-i18n-attr="aria-label:theme.group" aria-label="Tema">
+        <button type="button" class="theme-btn" data-theme-set="cozy" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-sun"/></svg><span data-i18n="theme.cozy">Aconchego</span></button>
+        <button type="button" class="theme-btn" data-theme-set="night" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg><span data-i18n="theme.night">Noite</span></button>
       </div>
       <div class="lang-switch" role="group" data-i18n-attr="aria-label:lang.group" aria-label="Idioma">
         <button type="button" class="lang-btn" data-lang="pt" lang="pt" data-i18n-attr="aria-label:lang.pt;title:lang.pt" aria-label="Português" title="Português">PT</button>

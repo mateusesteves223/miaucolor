@@ -30,6 +30,7 @@ const I18n = (() => {
       "menu.rules": "Como jogar",
       "menu.back": "Voltar ao jogo",
       "lang.group": "Idioma",
+      "theme.group": "Tema", "theme.cozy": "Aconchego", "theme.night": "Noite",
       "lang.pt": "Português",
       "lang.en": "English",
       "lang.es": "Español",
@@ -119,6 +120,9 @@ const I18n = (() => {
       "color.0": "Azul-claro", "color.1": "Lilás", "color.2": "Laranja", "color.3": "Amarelo",
       "color.4": "Verde-claro", "color.5": "Azul", "color.6": "Verde-água", "color.7": "Rosa",
       "color.8": "Marrom", "color.9": "Vermelho", "color.10": "Creme", "color.11": "Ameixa",
+      "color.night.0": "Azul-gelo", "color.night.1": "Roxo", "color.night.2": "Laranja", "color.night.3": "Amarelo",
+      "color.night.4": "Verde", "color.night.5": "Azul", "color.night.6": "Turquesa", "color.night.7": "Rosa",
+      "color.night.8": "Marrom", "color.night.9": "Vermelho", "color.night.10": "Azul-céu", "color.night.11": "Magenta",
       "diff.easy": "Fácil", "diff.medium": "Médio", "diff.hard": "Difícil", "diff.expert": "Expert",
 
       "levels.title": "Níveis",
@@ -206,6 +210,7 @@ const I18n = (() => {
 "menu.rules": "How to play",
 "menu.back": "Back to game",
       "lang.group": "Language",
+      "theme.group": "Theme", "theme.cozy": "Cozy", "theme.night": "Night",
       "lang.pt": "Português",
       "lang.en": "English",
       "lang.es": "Español",
@@ -295,6 +300,9 @@ const I18n = (() => {
       "color.0": "Light blue", "color.1": "Lilac", "color.2": "Orange", "color.3": "Yellow",
       "color.4": "Light green", "color.5": "Blue", "color.6": "Aqua", "color.7": "Pink",
       "color.8": "Brown", "color.9": "Red", "color.10": "Cream", "color.11": "Plum",
+      "color.night.0": "Ice blue", "color.night.1": "Purple", "color.night.2": "Orange", "color.night.3": "Yellow",
+      "color.night.4": "Green", "color.night.5": "Blue", "color.night.6": "Turquoise", "color.night.7": "Pink",
+      "color.night.8": "Brown", "color.night.9": "Red", "color.night.10": "Sky blue", "color.night.11": "Magenta",
       "diff.easy": "Easy", "diff.medium": "Medium", "diff.hard": "Hard", "diff.expert": "Expert",
 
       "levels.title": "Levels",
@@ -382,6 +390,7 @@ const I18n = (() => {
 "menu.rules": "Cómo jugar",
 "menu.back": "Volver al juego",
       "lang.group": "Idioma",
+      "theme.group": "Tema", "theme.cozy": "Acogedor", "theme.night": "Noche",
       "lang.pt": "Português",
       "lang.en": "English",
       "lang.es": "Español",
@@ -471,6 +480,9 @@ const I18n = (() => {
       "color.0": "Celeste", "color.1": "Lila", "color.2": "Naranja", "color.3": "Amarillo",
       "color.4": "Verde claro", "color.5": "Azul", "color.6": "Aguamarina", "color.7": "Rosa",
       "color.8": "Marrón", "color.9": "Rojo", "color.10": "Crema", "color.11": "Ciruela",
+      "color.night.0": "Azul hielo", "color.night.1": "Morado", "color.night.2": "Naranja", "color.night.3": "Amarillo",
+      "color.night.4": "Verde", "color.night.5": "Azul", "color.night.6": "Turquesa", "color.night.7": "Rosa",
+      "color.night.8": "Marrón", "color.night.9": "Rojo", "color.night.10": "Celeste", "color.night.11": "Magenta",
       "diff.easy": "Fácil", "diff.medium": "Medio", "diff.hard": "Difícil", "diff.expert": "Experto",
 
       "levels.title": "Niveles",
@@ -569,7 +581,8 @@ const I18n = (() => {
     return raw.replace(/\{(\w+)\}/g, (m, name) => (name in vars ? String(vars[name]) : m));
   }
 
-  const colorName = id => t("color." + (((id % 12) + 12) % 12));
+  /* Nome da cor da região; cada tema tem a própria paleta (e nomes): "night" usa color.night.N */
+  const colorName = (id, theme) => t((theme === "night" ? "color.night." : "color.") + (((id % 12) + 12) % 12));
   const diffLabel = label => (DIFF_KEYS[label] ? t("diff." + DIFF_KEYS[label]) : label);
 
   /* Junta itens com o "e" do idioma: ["a","b","c"] -> "a, b e c" */

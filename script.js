@@ -8,15 +8,26 @@
  *   marks[r][c]  = 0|1|2   -> jogador: vazio | X | gato
  * ===================================================================== */
 
-/* Paleta "colcha de retalhos": cada região é um tecido. As cores variam em claridade (claro / médio /
- * escuro), não só em matiz, e cada índice tem também uma estampa própria no CSS (xadrez, poá, listras...),
- * para distinguir as regiões mesmo com daltonismo. Escuros (5, 8, 11) recebem gato e ✕ bordados em creme.
- * A ordem casa com I18n.colorName (color.0 ... color.11). Só os índices 0–9 aparecem no jogo (N ≤ 10). */
-const PALETTE = [
-  "#a3cbee", "#a088d6", "#ef9560", "#f5dd7a", "#bfe0a2",
-  "#4a69ab", "#4fae9f", "#f5bad0", "#7c5036", "#e06a62",
-  "#f6e7b8", "#7d4e7c",
-];
+/* Paletas por tema; a ordem casa com I18n.colorName (color.N / color.night.N).
+ * Só os índices 0–9 aparecem no jogo (N ≤ 10).
+ * cozy ("colcha de retalhos"): cada região é um tecido. As cores variam em claridade (claro / médio /
+ *   escuro), não só em matiz, e cada índice tem também uma estampa própria no CSS (xadrez, poá, listras...),
+ *   para distinguir as regiões mesmo com daltonismo. Escuros (5, 8, 11) recebem gato e ✕ bordados em creme.
+ * night ("vitrine noturna"): luzes neon-pastel sobre vidro escuro, também escalonadas em luminosidade. */
+const PALETTES = {
+  cozy: [
+    "#a3cbee", "#a088d6", "#ef9560", "#f5dd7a", "#bfe0a2",
+    "#4a69ab", "#4fae9f", "#f5bad0", "#7c5036", "#e06a62",
+    "#f6e7b8", "#7d4e7c",
+  ],
+  night: [
+    "#d6e8f5", "#a184ff", "#ff8a33", "#ffe680", "#6edc86",
+    "#3d74f0", "#29c4b4", "#ffc2e2", "#9c7a62", "#ff4757",
+    "#86d6ff", "#e35ad0",
+  ],
+};
+let PALETTE = PALETTES[Theme.current];
+const hexRgb = hex => { const v = parseInt(hex.slice(1), 16); return `${v >> 16} ${(v >> 8) & 255} ${v & 255}`; };
 const SYMBOLS = ["", "✕", "🐱"];
 const GameState = Object.freeze({
   IDLE: "IDLE",
@@ -83,6 +94,7 @@ let heartNodes = [];
 let campaignId = null;          // id do nível da campanha (null = treino livre)
 let currentLevel = null;
 
+const gameEl = document.getElementById("game");
 const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
 const livesEl = document.getElementById("lives");
@@ -388,13 +400,15 @@ function renderStatus() {
   }
   if (statusEl.textContent !== text) statusEl.textContent = text;
 }
-function updateStatus() { statusKey = null; renderStatus(); }
+function updateStatus() { statusKey = null; renderStatus(); syncRegionGlow(); }   // toda mudança de gatos passa por aqui
 function setStatusKey(key) { statusKey = key; renderStatus(); }
 langHooks.push(renderStatus);
 
 function buildBoard() {
   boardEl.style.setProperty("--size", N);
-  boardEl.classList.remove("locked", "won", "lost");
+  boardEl.classList.remove("locked", "won", "lost", "shake");
+  gameEl.classList.remove("spot-open");
+  clearCatFx();
   waveDone.clear();
   if (cells.length !== N) {
     cells = matrix(N, null);
@@ -420,13 +434,12 @@ function buildBoard() {
     boardEl.replaceChildren(fragment);
   }
 
+  paintRegions();
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
       const cell = cells[r][c];
       const id = regions[r][c];
-      const fabric = id % PALETTE.length;
-      cell.style.setProperty("--fab", PALETTE[fabric]);
-      cell.dataset.f = fabric;                             // estampa e tom (claro/escuro) no CSS
+      cell.style.setProperty("--i", r + c);                // ordem da varredura diagonal da vitória (night)
       // bordas de região: o retalho recua e ganha costura só nos lados que encostam em outra região
       const edge = (i, j) => i < 0 || j < 0 || i >= N || j >= N || regions[i][j] !== id;
       cell.classList.toggle("et", edge(r - 1, c));
@@ -441,6 +454,33 @@ function buildBoard() {
       renderCell(r, c);
     }
   }
+  syncRegionGlow();
+}
+
+/* Cor de cada região no tema atual: --fab (tecido, cozy) e --c-rgb (vidro, night); data-f escolhe a estampa.
+ * Também a cor média do tabuleiro (--glow-rgb em #game), que tinge a luz da moldura e o spot da vitória. */
+function paintRegions() {
+  let R = 0, G = 0, B = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const idx = regions[r][c] % PALETTE.length;
+    const rgb = hexRgb(PALETTE[idx]);
+    const st = cells[r][c].style;
+    st.setProperty("--fab", PALETTE[idx]);
+    st.setProperty("--c-rgb", rgb);
+    cells[r][c].dataset.f = idx;
+    const [x, y, z] = rgb.split(" ").map(Number);
+    R += x; G += y; B += z;
+  }
+  const n = N * N || 1;
+  gameEl.style.setProperty("--glow-rgb", `${Math.round(R / n)} ${Math.round(G / n)} ${Math.round(B / n)}`);
+}
+
+/* Região com gato fica "acesa" (.lit; só o tema night desenha). Recalculado a cada mudança de gatos. */
+function syncRegionGlow() {
+  if (cells.length !== N || marks.length !== N) return;
+  const lit = new Set();
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (marks[r][c] === 2) lit.add(regions[r][c]);
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) cells[r][c].classList.toggle("lit", lit.has(regions[r][c]));
 }
 
 /* Clique e arraste: o primeiro quadrado define se o gesto pinta ✕ ou apaga ✕ */
@@ -549,6 +589,7 @@ function commitCat(r, c, award) {
   if (game.devMode && autoColorEl.checked) autoCrossRegion(r, c);
   renderCell(r, c);
   checkWaves(r, c);
+  catFx(r, c);
   updateStatus();
   Sound.cat();
   if (award) awardPoints(r, c);
@@ -575,10 +616,42 @@ function tryCat(r, c) {
   else persist();
 }
 
-/* Erro suave: só a célula balança e fica rosada; o tabuleiro não treme (não pune de forma agressiva) */
+/* Gato posto (night): pulso de luz corre pela linha e coluna e a região "respira".
+ * Classes passageiras com atraso em --d; o tema cozy não as desenha. */
+const catFxEls = [];
+let catFxTimer = 0;
+function clearCatFx() {
+  clearTimeout(catFxTimer);
+  for (const el of catFxEls) el.classList.remove("fx-pulse", "fx-breath");
+  catFxEls.length = 0;
+}
+function catFx(r, c) {
+  clearCatFx();
+  const id = regions[r][c];
+  const list = [];
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    if (i === r && j === c) continue;
+    if (regions[i][j] === id) list.push([cells[i][j], "fx-breath", 140]);
+    else if (i === r || j === c) list.push([cells[i][j], "fx-pulse", 30 * (Math.abs(i - r) + Math.abs(j - c))]);
+  }
+  void boardEl.offsetWidth;                          // um único reflow reinicia todas as animações
+  for (const [el, cls, d] of list) {
+    el.style.setProperty("--d", `${d}ms`);
+    el.classList.add(cls);
+    catFxEls.push(el);
+  }
+  catFxTimer = setTimeout(clearCatFx, 1400);
+}
+
+/* Erro: a célula balança e fica rosada. O tabuleiro ganha .shake também, mas só o tema night o faz tremer
+ * (no cozy o tabuleiro fica parado para não punir de forma agressiva). */
 function shake(el) {
   pulse(el, "shake");
   setTimeout(() => el.classList.remove("shake"), 900);
+  boardEl.classList.remove("shake");
+  void boardEl.offsetWidth;
+  boardEl.classList.add("shake");
+  setTimeout(() => boardEl.classList.remove("shake"), 300);
 }
 
 function lockBoard(nextState) {
@@ -706,6 +779,7 @@ function win() {
 function celebrate() {
   solution.forEach((c, r) => cells[r][c].style.setProperty("--blink", r));
   boardEl.classList.add("won");
+  gameEl.classList.add("spot-open");                  // night: o spot de fundo se abre
 }
 
 function gameOver() {
@@ -931,7 +1005,7 @@ document.getElementById("size").addEventListener("change", newGame);
  * Os ✕ e gatos postos aqui nunca dão pontos nem combo.
  * ===================================================================== */
 const COLOR_COUNT = PALETTE.length;
-const colorName = id => I18n.colorName(id % COLOR_COUNT);   // mesma ordem de PALETTE
+const colorName = id => I18n.colorName(id % COLOR_COUNT, Theme.current);   // mesma ordem de PALETTE
 const REWARD_UNITS = 3;
 const HINT_CELLS_MS = 5000;
 const HINT_TEXT_MS = 9000;
@@ -1382,6 +1456,26 @@ function updateLanguage() {
   for (const hook of langHooks) hook();
   if (document.getElementById("levels").classList.contains("active")) renderLevelMap();
 }
+
+/* ---------- Tema: Aconchego (claro) ou Noite (escuro); troca na hora, sem perder a partida ---------- */
+const themeBtns = document.querySelectorAll("[data-theme-set]");
+function renderThemeBtns() {
+  for (const btn of themeBtns) {
+    const on = btn.dataset.themeSet === Theme.current;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", on);
+  }
+}
+themeBtns.forEach(btn => btn.addEventListener("click", () => Theme.set(btn.dataset.themeSet)));
+Theme.onChange(() => {
+  PALETTE = PALETTES[Theme.current];
+  renderThemeBtns();
+  if (cells.length === N && regions.length === N) paintRegions();
+  buildPalette();
+  for (let r = 0; r < sN; r++) for (let c = 0; c < sN; c++)
+    if (sGrid[r][c] >= 0) sCells[r][c].style.backgroundColor = PALETTE[sGrid[r][c]];
+});
+renderThemeBtns();
 
 for (const btn of langBtns) {
   btn.addEventListener("click", () => {

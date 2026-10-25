@@ -678,6 +678,17 @@ body.portrait .menu-drop::before {                 /* alça da folha */
 }
 .lang-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
 
+/* Tema: Aconchego (este arquivo) ou Noite (theme-night.css) */
+.theme-switch { display: flex; gap: 6px; margin-top: 8px; }
+.theme-btn {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 40px; padding: 0 10px; border: 1.5px solid transparent; border-radius: 12px;
+  background: var(--surface-2); color: var(--text-2); font-size: 13.5px; font-weight: 700; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.theme-btn .ic { width: 18px; height: 18px; }
+.theme-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+
 .rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .rules li { position: relative; padding: 6px 0 6px 28px; font-weight: 600; line-height: 1.35; }
 .rules li::before {
