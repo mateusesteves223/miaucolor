@@ -229,6 +229,20 @@
       }
       assert(solved >= 1, "nenhum nível foi resolvido só com dicas");
     });
+    test("findHint: vizinhança do gato vem primeiro; casa única só quando nada mais elimina", () => {
+      const n = 7;
+      const { cols, reg } = E.generateUnique(n, E.rngFor("hint-order"));
+      const marks = E.matrix(n, 0);
+      marks[3][cols[3]] = 2;
+      const h = E.findHint(n, reg, marks);
+      eq([h.kind, h.cells], ["neighbor", [[3, cols[3]]]], "dica de vizinhança");
+      assert(h.targets.every(([r, c]) => r === 3 || c === cols[3] || reg[r][c] === reg[3][cols[3]] ||
+        (Math.abs(r - 3) <= 1 && Math.abs(c - cols[3]) <= 1)), "✕ fora da zona do gato");
+      for (const [r, c] of h.targets) marks[r][c] = 1;
+      const next = E.findHint(n, reg, marks);
+      assert(next && next.kind !== "neighbor", "vizinhança já aplicada não se repete");
+      if (next.kind === "single") assert(next.targets.length === 0 && next.area.length > 1, "casa única realça a unidade inteira");
+    });
     test("findHint: ignora ✕ errados do jogador e devolve null quando tudo está posto", () => {
       const { cols, reg } = E.generateUnique(6, E.rngFor("hint-x"));
       const marks = E.matrix(6, 0);
@@ -280,9 +294,9 @@
       eq([I18n.detect(["pt-BR"]), I18n.detect(["es-MX", "en"]), I18n.detect(["fr", "en-US"]), I18n.detect(["de"])], ["pt", "es", "en", "en"], "detect");
       I18n.setLanguage("en");
       eq([I18n.t("status.cats", { n: 2, total: 7 }), I18n.t("chave.inexistente")], ["Cats: 2/7", "chave.inexistente"], "interpolação e chave ausente");
-      eq([I18n.t("hint.regionLine", { color: "Green", axis: I18n.t("axis.row"), n: 2 }).startsWith("Green color only has valid cells in row 2")], [true], "dica em inglês");
+      eq([I18n.t("hint.regionLine", { dot: "●", axis: I18n.t("axis.row"), arrow: "↔" }).startsWith("Every free square of color ● is in this row ↔")], [true], "dica em inglês");
       I18n.setLanguage("es");
-      eq([I18n.t("hint.regionLine", { color: "Verde", axis: I18n.t("axis.row"), n: 2 }).startsWith("El color Verde solo tiene casillas válidas en la fila 2")], [true], "dica em espanhol");
+      eq([I18n.t("hint.regionLine", { dot: "●", axis: I18n.t("axis.row"), arrow: "↔" }).startsWith("Todas las casillas libres del color ● están en esta fila ↔")], [true], "dica em espanhol");
       I18n.setLanguage("pt");
       eq([I18n.list(["1", "2", "3"]), I18n.diffLabel("Fácil")], ["1, 2 e 3", "Fácil"], "lista e dificuldade em pt");
     });

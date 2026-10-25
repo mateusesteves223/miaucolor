@@ -319,6 +319,14 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   box-shadow: var(--shadow-pop); animation: toastIn .28s var(--ease-out);
 }
 .hint-msg[hidden] { display: none; }
+/* dica: técnica (como no card do Guia) + porquê + atalho para o card */
+.hint-tech { display: block; margin-bottom: 2px; color: var(--accent-deep); font-size: 11px; font-weight: 800; letter-spacing: .1em; }
+.hint-guide {
+  display: block; margin: 6px 0 0 auto; padding: 4px 10px; border: 0; border-radius: 999px;
+  background: rgba(242, 153, 107, .2); color: var(--accent-deep); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
+}
+.strategy-card.guide-flash { animation: guideFlash 1.6s ease-out; }
+@keyframes guideFlash { 0%, 40% { box-shadow: 0 0 0 4px rgba(242, 153, 107, .7); } 100% { box-shadow: 0 0 0 0 rgba(242, 153, 107, 0); } }
 @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } }
 
 /* =====================================================================
@@ -504,7 +512,7 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 @keyframes eyesHappy { 0%, 45% { opacity: 0; } 46%, 100% { opacity: 1; } }
 
 /* Realce temporário das dicas (::before: ::after já serve ao gato e ao erro) */
-.cell.hint-glow::before, .cell.hint-target::before, .cell.tut-unit::before, .cell.tut-focus::before, .cell.tut-ban::before {
+.cell.hint-glow::before, .cell.hint-target::before, .cell.hint-ban::before, .cell.tut-unit::before, .cell.tut-focus::before, .cell.tut-ban::before {
   content: ""; position: absolute; inset: var(--inset); z-index: 2; pointer-events: none;
   border-radius: max(18%, var(--rtl)) max(18%, var(--rtr)) max(18%, var(--rbr)) max(18%, var(--rbl));
   animation: hintPulse .8s ease-in-out infinite alternate;
@@ -515,7 +523,7 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 /* tutorial: a dedução (dourado), a casa a tocar (branco) e as casas a riscar com ✕ (vermelho); gatos dados já entram sentados */
 .cell.tut-unit::before { border: 2.5px dashed #b5781a; background: rgba(255, 214, 120, .3); }
 .cell.tut-focus::before { border: 3px dashed #fff; background: rgba(255, 255, 255, .5); }
-.cell.tut-ban::before { border: 3px solid #c43d3d; background: rgba(196, 61, 61, .42); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .55); }
+.cell:is(.tut-ban, .hint-ban)::before { border: 3px solid #c43d3d; background: rgba(196, 61, 61, .42); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .55); }
 .cell.given .sym.cat :is(.cat-body, .cat-eyes, .cat-ears) { animation: none; }
 @keyframes hintPulse { from { opacity: .45; } to { opacity: 1; } }
 
@@ -966,7 +974,7 @@ a:hover { border-bottom-color: var(--accent-deep); }
 body.tutoring .hud, body.tutoring #reveal { display: none; }
 body.tutoring #game.active { --rail: clamp(150px, 20cqw, 240px); }   /* trilho mais largo para o texto */
 .tut-replay { margin-top: 10px; }
-.coach-dot {
+.color-dot {
   display: inline-block; width: .95em; height: .95em; margin: 0 .1em; border-radius: 50%; vertical-align: -.12em;
   background: var(--fab); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .12), 0 0 0 1.5px rgba(255, 255, 255, .8);
 }
@@ -1060,7 +1068,8 @@ body.tutoring #game.active { --rail: clamp(150px, 20cqw, 240px); }   /* trilho m
   .modal.open, .menu-scrim, .hint-msg { animation: fade .2s ease-out; }
   .modal-card, .menu-drop, body.portrait .menu-drop { animation: fade .2s ease-out; }
   .modal-star.on { animation: fade .3s calc(.2s + var(--i, 0) * .15s) both; }
-  .cell.hint-glow::before, .cell.hint-target::before, .cell.tut-unit::before, .cell.tut-focus::before, .cell.tut-ban::before { animation: none; }
+  .strategy-card.guide-flash { animation: none; }
+  .cell.hint-glow::before, .cell.hint-target::before, .cell.hint-ban::before, .cell.tut-unit::before, .cell.tut-focus::before, .cell.tut-ban::before { animation: none; }
   .tut-ghost-cat { animation: none; opacity: .35; }
   .tut-hand .tut-paw, .tut-hand .tut-ripple { animation: none; }
   .tut-hand .tut-ripple { opacity: .6; transform: scale(.9); }

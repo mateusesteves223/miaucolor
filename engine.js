@@ -347,10 +347,12 @@ function createEngine() {
    * `marks[r][c]`: 0 vazio | 1 ✕ | 2 gato | 3 ✕ errado. Na dedução só os gatos entram (são sempre
    * certos); os ✕ do jogador podem estar errados e servem apenas para pular dicas já aplicadas. */
 
-  /* Procura a dedução lógica mais simples que ainda traga algo NOVO ao jogador.
-   * Devolve { kind, tier, axis?, lines?, regs?, unit?, cells, targets } ou null (sem dedução sem chute).
+  /* Procura a próxima dedução que ainda traga algo NOVO ao jogador, na ordem do Guia: a dica ensina a
+   * eliminar e só aponta uma "casa única" quando nada mais resta (achar o gato é o Revelar Gato).
+   * Devolve { kind, tier, axis?, lines?, regs?, unit?, cells, targets, area? } ou null (sem dedução sem chute).
    *   cells   = casas que justificam a dedução; targets = casas que podem receber ✕ (vazio em "single").
-   * kind: single | regionLine | lineRegion | regionSet | lineSet | contradiction */
+   *   area    = casas a realçar sem entregar a resposta ("single": a unidade inteira; "contradiction": a unidade que esvaziaria).
+   * kind: neighbor | regionLine | lineRegion | regionSet | lineSet | contradiction | single */
   function findHint(n, reg, marks) {
     const cells = {};
     for (let i = 0; i < n; i++) cells["r" + i] = [];
@@ -390,34 +392,36 @@ function createEngine() {
       return out;
     };
 
-    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (marks[r][c] === 2) put(r, c);
+    const cats = [];
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (marks[r][c] === 2) cats.push([r, c]);
+    if (cats.length === n) return null;
+    for (const [r, c] of cats) {                                 // 0) vizinhança: o que um gato posto já bloqueia
+      const targets = [...zone(r, c)].map(i => [Math.floor(i / n), i % n]).filter(([a, b]) => marks[a][b] === 0);
+      if (targets.length) return { kind: "neighbor", tier: 1, cells: [[r, c]], targets };
+    }
+    for (const [r, c] of cats) put(r, c);
 
     // Próxima dedução (das técnicas mais simples às mais complexas) que elimina ao menos uma casa viva.
     function nextStep() {
-      for (const u of units) {                                   // 1) única casa possível
-        if (done.has(u)) continue;
+      for (const u of units) if (!done.has(u) && !live(u).length) return null;   // inconsistente: não deveria ocorrer
+      for (const u of free("g")) {                               // 2) bloqueio: cor presa a uma linha/coluna
         const lv = live(u);
-        if (!lv.length) return null;                             // inconsistente: não deveria ocorrer
-        if (lv.length === 1) return { kind: "single", tier: 1, unit: u, cells: lv, targets: [] };
-      }
-      for (const u of units) {                                   // 2) região presa a uma linha/coluna (e o inverso)
-        if (done.has(u)) continue;
-        const lv = live(u);
-        if (kindOf(u) === "g") {
-          for (const [axis, key] of [["r", 0], ["c", 1]]) {
-            const vals = new Set(lv.map(p => p[key]));
-            if (vals.size !== 1) continue;
-            const v = [...vals][0];
-            const targets = live(axis + v).filter(p => reg[p[0]][p[1]] !== idOf(u));
-            if (targets.length) return { kind: "regionLine", tier: 2, axis, lines: [v], regs: [idOf(u)], cells: lv, targets };
-          }
-        } else {
-          const gs = new Set(lv.map(([r, c]) => reg[r][c]));
-          if (gs.size !== 1) continue;
-          const g = [...gs][0];
-          const targets = live("g" + g).filter(p => !inUnit(u, p));
-          if (targets.length) return { kind: "lineRegion", tier: 2, axis: kindOf(u), lines: [idOf(u)], regs: [g], cells: lv, targets };
+        for (const [axis, key] of [["r", 0], ["c", 1]]) {
+          const vals = new Set(lv.map(p => p[key]));
+          if (vals.size !== 1) continue;
+          const v = [...vals][0];
+          const targets = live(axis + v).filter(p => reg[p[0]][p[1]] !== idOf(u));
+          if (targets.length) return { kind: "regionLine", tier: 2, axis, lines: [v], regs: [idOf(u)], cells: lv, targets };
         }
+      }
+      for (const u of units) {                                   // 4) interseção: linha/coluna com uma cor só
+        if (done.has(u) || kindOf(u) === "g") continue;
+        const lv = live(u);
+        const gs = new Set(lv.map(([r, c]) => reg[r][c]));
+        if (gs.size !== 1) continue;
+        const g = [...gs][0];
+        const targets = live("g" + g).filter(p => !inUnit(u, p));
+        if (targets.length) return { kind: "lineRegion", tier: 2, axis: kindOf(u), lines: [idOf(u)], regs: [g], cells: lv, targets };
       }
       for (const k of [2, 3]) for (const [axis, key] of [["r", 0], ["c", 1]]) {   // 3) k regiões em k linhas/colunas (e o inverso)
         for (const combo of combinations(free("g"), k)) {
@@ -453,9 +457,12 @@ function createEngine() {
           if (done.has(u) || own.has(u)) continue;
           const lv = live(u);
           if (lv.length && lv.every(([a, b]) => z.has(a * n + b))) {
-            return { kind: "contradiction", tier: 4, unit: u, cells: [[r, c]], targets: [[r, c]] };
+            return { kind: "contradiction", tier: 4, unit: u, cells: [[r, c]], targets: [[r, c]], area: lv };
           }
         }
+      }
+      for (const u of units) {                                   // 1) casa única: último recurso, realça só a unidade
+        if (!done.has(u) && live(u).length === 1) return { kind: "single", tier: 1, unit: u, cells: live(u), targets: [], area: cells[u] };
       }
       return null;
     }

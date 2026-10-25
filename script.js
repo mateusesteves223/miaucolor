@@ -317,6 +317,7 @@ function renderCell(r, c) {
   symbol.classList.toggle("x", cross);
   symbol.classList.toggle("cat", m === 2);
   symbol.classList.toggle("wrong", m === 3);
+  syncHintTask();
   if (prev === undefined || prev === String(m)) return;
   if (m === 2) pulse(el, "pop-cat");                        // a célula "infla" e o gato senta
   else if (cross && prev !== "1" && prev !== "3") pulse(el, "pop-x");   // afunda de leve
@@ -1048,6 +1049,7 @@ function clearBoard() {
   if (Tutorial.active) { Tutorial.restart(); return; }   // recomeça a lição (com os gatos que ela já traz)
   marks = matrix(N, 0);          // gatos já fixados também voltam ao vazio, vidas são mantidas
   waveDone.clear();
+  clearHints();
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
   setScore(0);                   // sem gatos no tabuleiro, sem pontos (evita farmar limpando e recolocando)
   game.combo = 0;
@@ -1145,69 +1147,122 @@ function renderItems() {
 }
 langHooks.push(renderItems);
 
+/* Texto com bolinhas de cor: cada "\u0000" vira um <span class="color-dot"> com a cor seguinte de `colors` */
+function fillDots(el, text, colors) {
+  el.replaceChildren(...text.split("\u0000").flatMap((part, i) => {
+    if (!i) return [part];
+    const dot = node("span", "color-dot");
+    dot.style.setProperty("--fab", PALETTE[colors[i - 1] % PALETTE.length]);
+    return [dot, part];
+  }));
+}
+
 /* Caixa de mensagem sobre a barra de power-ups: some sozinha ou ao toque.
- * `build` devolve o texto, para poder ser retraduzido enquanto a mensagem está visível. */
+ * `build` devolve o texto (ou { title, text, colors, guide } na dica), para poder ser retraduzido enquanto está visível. */
 let hudMsgTimer = 0;
 let hudMsgBuild = null;
 function hideHudMessage() { clearTimeout(hudMsgTimer); hudMsgBuild = null; hudMsgEl.hidden = true; }
+function renderHudMessage() {
+  const m = hudMsgBuild();
+  if (typeof m === "string") { hudMsgEl.textContent = m; return; }
+  const text = node("span", "hint-text");
+  fillDots(text, m.text, m.colors);
+  const link = node("button", "hint-guide", t("hint.guide"));
+  link.type = "button";
+  link.dataset.guide = m.guide;
+  hudMsgEl.replaceChildren(node("strong", "hint-tech", m.title), text, link);
+}
 function showHudMessage(build, ms = HINT_TEXT_MS) {
   clearTimeout(hudMsgTimer);
   hudMsgBuild = build;
-  hudMsgEl.textContent = build();
+  renderHudMessage();
   hudMsgEl.hidden = false;
   hudMsgTimer = setTimeout(hideHudMessage, ms);
 }
-hudMsgEl.addEventListener("click", hideHudMessage);
-langHooks.push(() => { if (hudMsgBuild && !hudMsgEl.hidden) hudMsgEl.textContent = hudMsgBuild(); });
+hudMsgEl.addEventListener("click", e => {
+  const link = e.target.closest(".hint-guide");
+  hideHudMessage();
+  if (link) openGuide(+link.dataset.guide);
+});
+langHooks.push(() => { if (hudMsgBuild && !hudMsgEl.hidden) renderHudMessage(); });
 
-/* Realce temporário: `glow` = casas que explicam a dica; `target` = casas a marcar */
+/* "Ver no Guia": abre a aba do Guia já no card da técnica */
+function openGuide(n) {
+  document.querySelector('.tab[data-target="help"]').click();
+  const card = document.querySelector(`[data-i18n="g${n}.n"]`).closest(".strategy-card");
+  card.scrollIntoView({ block: "center" });
+  pulse(card, "guide-flash");
+}
+
+/* Realce: `glow` (dourado) = casas que explicam; `target` = casas a marcar.
+ * Na dica as casas a marcar ficam vermelhas até receberem ✕ (`hintTask`); nos outros power-ups o realce é temporário. */
 let hintEls = [];
 let hintTimer = 0;
+let hintTask = null;              // { ban, unit }: casas vermelhas pendentes / unidade da "casa única" (sem casas a marcar)
 function clearHighlights() {
   clearTimeout(hintTimer);
   for (const [el, cls] of hintEls) el.classList.remove(cls);
   hintEls = [];
+  hintTask = null;
 }
 function clearHints() { clearHighlights(); hideHudMessage(); }
+function addHighlight(list, cls) {
+  list.forEach(([r, c]) => { cells[r][c].classList.add(cls); hintEls.push([cells[r][c], cls]); });
+}
 function highlightCells(glow, target, ms = HINT_CELLS_MS) {
   clearHighlights();
-  const add = (list, cls) => list.forEach(([r, c]) => { cells[r][c].classList.add(cls); hintEls.push([cells[r][c], cls]); });
-  add(glow, "hint-glow");
-  add(target, "hint-target");
+  addHighlight(glow, "hint-glow");
+  addHighlight(target, "hint-target");
   hintTimer = setTimeout(clearHighlights, ms);
+}
+function startHintTask(h) {
+  clearHighlights();
+  addHighlight(h.area || h.cells, "hint-glow");
+  addHighlight(h.targets, "hint-ban");
+  hintTask = { ban: h.targets, unit: h.kind === "single" ? h.area : null };
+}
+/* Chamada a cada casa renderizada: a casa vermelha perde o vermelho com o ✕ (e volta se ele sair) */
+function syncHintTask() {
+  if (!hintTask) return;
+  const { ban, unit } = hintTask;
+  let left = 0;
+  for (const [r, c] of ban) {
+    const on = marks[r][c] === 0;
+    cells[r][c].classList.toggle("hint-ban", on);
+    left += on;
+  }
+  if (unit ? unit.some(([r, c]) => marks[r][c] === 2) : !left) {
+    clearHighlights();
+    showHudMessage(() => t("hint.nice"), 2200);
+  }
 }
 
 const listText = I18n.list;
-function unitText(u) {
-  const id = +u.slice(1);
-  return u[0] === "g" ? t("unit.color", { name: colorName(id) }) : t(u[0] === "r" ? "unit.row" : "unit.col", { n: id + 1 });
-}
 
-/* Dica "inteligente": o texto é montado a partir de h.kind + parâmetros (cores, linhas/colunas) no idioma atual */
+/* Dica que ensina: nome da técnica (card do Guia) + o porquê, sem coordenadas — as casas aparecem no tabuleiro
+ * e as cores viram bolinhas. A "casa única" só realça a unidade; achar o gato fica com o jogador. */
+const HINT_GUIDE = { neighbor: 5, regionLine: 2, lineRegion: 4, regionSet: 3, lineSet: 3, contradiction: 6, single: 1 };
+const HINT_MSG_MS = 12000;
 function hintMessage(h) {
-  const axis = t(h.axis === "r" ? "axis.row" : "axis.col");
-  const axes = t(h.axis === "r" ? "axis.rows" : "axis.cols");
+  const D = "\u0000";
   const cap = s => s[0].toUpperCase() + s.slice(1);
-  const regs = (h.regs || []).map(colorName);
-  const lines = (h.lines || []).map(v => v + 1);
-  switch (h.kind) {
-    case "single": {
-      const [r, c] = h.cells[0];
-      return t("hint.single", { Who: cap(unitText(h.unit)), r: r + 1, c: c + 1 });
-    }
-    case "regionLine":
-      return t("hint.regionLine", { color: regs[0], axis, n: lines[0] });
-    case "lineRegion":
-      return t("hint.lineRegion", { color: regs[0], axis, n: lines[0] });
-    case "regionSet":
-      return t("hint.regionSet", { colors: listText(regs), axes, lines: listText(lines) });
-    case "lineSet":
-      return t("hint.lineSet", { Axes: cap(axes), axes, colors: listText(regs), lines: listText(lines) });
-    default: {
-      const [r, c] = h.cells[0];
-      return t("hint.contradiction", { r: r + 1, c: c + 1, unit: unitText(h.unit) });
-    }
+  const vars = {
+    axis: t(h.axis === "r" ? "axis.row" : "axis.col"),
+    axes: t(h.axis === "r" ? "axis.rows" : "axis.cols"),
+    arrow: h.axis === "r" ? "↔" : "↕",
+    dot: D,
+    dots: listText((h.regs || []).map(() => D)),
+    n: (h.regs || []).length,
+  };
+  let colors = h.regs || [];
+  if (h.unit) {                                      // contradição / casa única: a unidade em dourado
+    if (h.unit[0] === "g") colors = [+h.unit.slice(1)];
+    vars.unit = t(`hint.unit.${h.unit[0]}`, { dot: D });
+    vars.Unit = cap(vars.unit);
   }
+  const guide = HINT_GUIDE[h.kind];
+  const title = t(h.kind === "contradiction" ? "hint.tech.contradiction" : `g${guide}.n`);
+  return { title, text: t(`hint.${h.kind}`, vars), colors, guide };
 }
 
 function useHint() {
@@ -1219,8 +1274,8 @@ function useHint() {
   if (!spendItem("hint")) return;
   renderItems();
   Sound.click();
-  highlightCells(h.cells, h.targets);
-  showHudMessage(() => hintMessage(h));
+  startHintTask(h);
+  showHudMessage(() => hintMessage(h), HINT_MSG_MS);
 }
 
 function useRevealCat() {
@@ -1364,15 +1419,8 @@ const Tutorial = (() => {
     if (!isActive()) return;
     stepEl.textContent = t("tut.step", { n: lesson + 1, total: LESSONS.length });
     titleEl.textContent = t(topic ? `tut.rule.${topic}` : `tut.${lesson + 1}.title`);
-    // o texto pode trazer a bolinha da cor: "\u0000" no texto vira um <span class="coach-dot"> de `dot`
-    const text = flash ? flash.text() : msg ? msg() : "";
-    const parts = text.split("\u0000");
-    textEl.replaceChildren(...parts.flatMap((part, i) => {
-      if (!i) return [part];
-      const dot = node("span", "coach-dot");
-      dot.style.setProperty("--fab", PALETTE[msgDot % PALETTE.length]);
-      return [dot, part];
-    }));
+    // o texto pode trazer a bolinha da cor `msgDot` ("\u0000")
+    fillDots(textEl, flash ? flash.text() : msg ? msg() : "", [msgDot]);
     coachEl.dataset.tone = (flash && flash.tone) || "";
   }
   langHooks.push(render);
