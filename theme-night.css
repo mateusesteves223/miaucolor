@@ -1,25 +1,9 @@
 /* =====================================================================
- * MeowColor · tema "Noite" (Crisp Dark / Vitrine noturna)
- * Mesma estrutura do tema base (style.css, "Almofada ao sol"): só troca a pele.
- * Uma galeria escura; o tabuleiro é uma placa de vidro colorido iluminada por um spot.
+ * MeowColor · tema "Noite"
+ * Mesma "Mesa do gato" do tema base (style.css): só troca a pele.
+ * Uma sala escura com um spot de luz; o feltro fica em cores vivas e opacas sobre a mesa escura.
  * Tudo aqui vale só com <html data-theme="night"> (ver theme.js).
  * ===================================================================== */
-
-/* ---------- Fontes self-hosted (SIL OFL 1.1, ver fonts/OFL-*.txt). Só baixam se o tema estiver ativo. ---------- */
-@font-face {
-  font-family: "MC Inter";
-  src: url("fonts/inter-var-latin.woff2") format("woff2");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "MC Mono";
-  src: url("fonts/jetbrains-mono-var-latin.woff2") format("woff2");
-  font-weight: 100 800;
-  font-style: normal;
-  font-display: swap;
-}
 
 /* ---------- Tokens ---------- */
 :root[data-theme="night"] {
@@ -50,10 +34,12 @@
   --danger-ink: #ff8da2;
   --success: #7ee2b0;
 
-  --board-frame: #16141f;
+  --board-frame: #0f0d16;
+  --tray: #1b1825;
+  --shadow-tray: 0 0 0 1px rgba(255, 255, 255, .03), 0 40px 90px -30px rgba(140, 110, 220, .32);
   --board-seam: #0b0a11;
   --stitch: rgba(255, 255, 255, .035);
-  --x-ink: #eceaf5;
+  --x-ink: #15121d;
   --x-wrong: var(--danger);
   --ink: #12101a;                      /* gato sobre a casa acesa */
   --cat-ink: var(--ink);
@@ -71,19 +57,16 @@
   --ease-out: cubic-bezier(.2, .8, .2, 1);
   --blur: 16px;
 
-  --font: "MC Inter", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-num: "MC Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-num: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5' fill='none' stroke='%238c88a3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 /* ---------- Base ---------- */
-[data-theme="night"] body { background: var(--bg); font-weight: 400; -moz-osx-font-smoothing: grayscale; }
+[data-theme="night"] body { background: var(--bg); -moz-osx-font-smoothing: grayscale; }
 [data-theme="night"] :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-[data-theme="night"] h1, [data-theme="night"] h2, [data-theme="night"] h3, [data-theme="night"] h4 { font-weight: 650; letter-spacing: -.02em; }
 [data-theme="night"] a { color: var(--accent); border-bottom-color: rgba(255, 179, 138, .35); }
 [data-theme="night"] a:hover { color: #ffd9c4; border-bottom-color: #ffd9c4; }
 
-[data-theme="night"] .brand { font-weight: 650; letter-spacing: -.02em; }
 [data-theme="night"] .brand-mark { color: var(--accent); --cat-eye: var(--bg); --cat-blush: transparent; --cat-inner: transparent; filter: drop-shadow(0 0 8px rgba(255, 179, 138, .45)); }
 
 /* Botões: vidro com borda de 1px no lugar das almofadas */
@@ -100,17 +83,8 @@
   [data-theme="night"] .icon-btn[aria-expanded="true"]:hover { background: var(--surface-3); }
 }
 
-/* Vidro dos trilhos (com plano B sólido onde backdrop-filter não existe) */
-[data-theme="night"] .hud,
-[data-theme="night"] .pu-disc { background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--shadow-soft); }
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  [data-theme="night"] .hud,
-  [data-theme="night"] .pu-disc {
-    background: var(--glass);
-    -webkit-backdrop-filter: blur(var(--blur)) saturate(140%);
-    backdrop-filter: blur(var(--blur)) saturate(140%);
-  }
-}
+/* Botões das ajudas: discos escuros sobre a bandeja */
+[data-theme="night"] .pu-disc { background: var(--surface-2); border: 1px solid var(--line); box-shadow: var(--shadow-soft); }
 
 /* ---------- Spot de luz atrás do tabuleiro; ::after é o spot colorido que se abre na vitória ---------- */
 [data-theme="night"] #game.active { isolation: isolate; }
@@ -128,41 +102,19 @@
 }
 [data-theme="night"] #game.spot-open::after { opacity: 1; transform: scale(1.3); }
 
-/* ---------- HUD: painel de vidro; rótulos em caixa-alta, números mono ---------- */
-[data-theme="night"] .hud { border-radius: var(--radius-l); }
-[data-theme="night"] .level-info-label {
-  font-size: 9.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--text-2);
-}
-[data-theme="night"] .level-info .level-info-value {
-  font-family: var(--font-num); font-weight: 500; letter-spacing: -.04em; color: var(--text-1);
-}
-[data-theme="night"] .timer { font-family: var(--font-num); font-weight: 500; font-size: 14px; color: var(--text-1); }
+/* ---------- HUD ---------- */
 [data-theme="night"] .timer .ic { color: var(--text-2); }
-[data-theme="night"] .score-line .ic { color: var(--accent); }
-[data-theme="night"] .score-info .level-info-value { font-family: var(--font-num); font-weight: 600; }
-[data-theme="night"] .status { font-family: var(--font-num); font-weight: 500; font-size: 11.5px; letter-spacing: .04em; }
 
-/* Vidas = LEDs que piscam e apagam */
-[data-theme="night"] .lives { gap: 5px; align-items: center; min-height: 17px; }
-[data-theme="night"] .paw {
-  --paw: auto; width: 14px; height: 5px; border-radius: 2px;
-  background: var(--accent); box-shadow: 0 0 8px rgba(255, 179, 138, .6);
-  transition: background-color .25s, box-shadow .25s;
-}
-[data-theme="night"] .paw-svg { display: none; }
-[data-theme="night"] .paw.lost { background: rgba(255, 255, 255, .1); box-shadow: none; }
-[data-theme="night"] .paw.drop { animation: ledOff .6s steps(1, end); }
+/* Vidas = olhos de gato; perdida = olhos fechados e apagados */
+[data-theme="night"] .paw-fill, [data-theme="night"] .paw-ring { display: none; }
+[data-theme="night"] .paw-eyes { display: inline; transform-box: view-box; transform-origin: 50% 50%; transition: opacity .25s, transform .25s; }
+[data-theme="night"] .paw.lost .paw-eyes { opacity: .22; transform: scaleY(.3); }
+[data-theme="night"] .paw.drop .paw-eyes { animation: eyesShut .6s ease-out both; }
 
 /* ---------- Power-ups: quadrados de vidro, contador como sobrescrito ---------- */
-[data-theme="night"] .pu-disc { border-radius: var(--radius-m); transition: transform .12s var(--ease-out), border-color .15s, background-color .15s; }
-[data-theme="night"] .pu-label { font-weight: 500; font-size: 10.5px; }
-[data-theme="night"] .pu-badge {
-  top: 4px; right: 5px; min-width: 0; height: auto; padding: 0; border: 0; border-radius: 0;
-  background: none; color: var(--accent);
-  font-family: var(--font-num); font-size: 10.5px; font-weight: 600;
-}
+[data-theme="night"] .pu-disc { transition: transform .12s var(--ease-out), border-color .15s, background-color .15s; }
+[data-theme="night"] .pu-badge { border-color: var(--tray); }
 [data-theme="night"] .pu-btn.empty .pu-disc { background: transparent; border: 1px dashed var(--line-strong); }
-[data-theme="night"] .pu-btn.empty .pu-badge { background: none; color: var(--honey); }
 @media (hover: hover) {
   [data-theme="night"] .pu-btn:hover .pu-disc { transform: none; border-color: rgba(255, 179, 138, .45); background-color: rgba(255, 179, 138, .06); }
   [data-theme="night"] .pu-btn:hover .pu-icon { color: #ffd9c4; }
@@ -174,135 +126,47 @@
 }
 
 /* =====================================================================
- * TABULEIRO — "placa de vidro com costuras de luz"
- * Cada região é uma peça de vidro colorido translúcido; o contorno é um fio de luz na própria cor,
- * separado das vizinhas por uma costura escura. Só os cantos externos da região são arredondados.
- * Com gato, a região inteira acende e a casa do gato vira a lâmpada.
- * Usa a mesma marcação do tema base: .cell (alvo de toque) > .patch (o vidro) + .sym.
+ * TABULEIRO — feltro vivo sobre a mesa escura
+ * Mesma geometria do tema base (peças, .fil côncavo e costura SVG); só cores, luz e efeitos mudam.
  *   .patch::before = camada de efeitos (pulso / respiração / varredura da vitória)
- *   .patch::after  = cantos côncavos (quadradinho de costura + o fio dobrando a esquina)
  * ===================================================================== */
 [data-theme="night"] #board,
 [data-theme="night"] #sboard {
-  --frame: calc(var(--board) * .012 + 2px);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, 0) 38%),
-    radial-gradient(120% 90% at 50% 0%, #15131f 0%, #0a0910 70%);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, .1),
-    inset 0 1px 0 rgba(255, 255, 255, .1),
-    0 40px 90px -30px rgb(var(--glow-rgb, 255 179 138) / .55),
-    0 0 60px -20px rgb(var(--glow-rgb, 255 179 138) / .35),
+    inset 0 0 0 1px rgba(255, 255, 255, .05),
+    0 0 80px -20px rgb(var(--glow-rgb, 155 132 240) / .3),
     0 20px 40px -20px rgba(0, 0, 0, .9);
 }
-/* filete gravado de precisão, 3px para dentro do aro */
-[data-theme="night"] #board::before,
-[data-theme="night"] #sboard::before {
-  inset: 3px; border: 1px solid rgba(255, 255, 255, .035); border-radius: 15px;
-}
+[data-theme="night"] #board::after { mix-blend-mode: screen; opacity: .05; }
 [data-theme="night"] #board.lost { filter: saturate(.55) brightness(.88); }
 [data-theme="night"] #board.won { animation: none; }
-[data-theme="night"] #board.shake { animation: microShake .14s linear, aberration .2s linear; }
+[data-theme="night"] #board.shake { animation: microShake .14s linear; }
 
-[data-theme="night"] #board .cell {
-  --s: max(1.5px, calc(var(--cell) * .045));             /* metade da costura entre regiões */
-  --rr: calc(var(--cell) * .22);                          /* raio dos cantos externos da região */
-  --w: max(1.25px, calc(var(--cell) * .04));              /* espessura do fio de luz */
-  --rtl: calc(var(--t) * var(--l) * var(--rr));
-  --rtr: calc(var(--t) * var(--r) * var(--rr));
-  --rbr: calc(var(--b) * var(--r) * var(--rr));
-  --rbl: calc(var(--b) * var(--l) * var(--rr));
-  --fill-a: .32;
-  --edge-a: .78;
-  --inner-a: 0;
-  --ctl: 0; --ctr: 0; --cbr: 0; --cbl: 0;
-  transition: none;
-}
-[data-theme="night"] #board .cell.ctl { --ctl: 1; }
-[data-theme="night"] #board .cell.ctr { --ctr: 1; }
-[data-theme="night"] #board .cell.cbr { --cbr: 1; }
-[data-theme="night"] #board .cell.cbl { --cbl: 1; }
+[data-theme="night"] #board :is(.patch, .fil) { filter: saturate(.9) brightness(.92); }
+[data-theme="night"] #board .patch { box-shadow: inset 0 calc(var(--t) * 1px) 0 rgba(255, 255, 255, .16), inset 0 calc(var(--b) * -2px) 0 rgba(0, 0, 0, .22); }
+[data-theme="night"] #board .cell.lit :is(.patch, .fil) { filter: saturate(1) brightness(1.04); }
 
-[data-theme="night"] #board .patch {
-  overflow: hidden;
-  background-color: transparent;
-  background-image:
-    linear-gradient(180deg, rgb(var(--c-rgb, 58 55 80) / .07), rgb(var(--c-rgb, 58 55 80) / 0) 60%),
-    linear-gradient(rgb(var(--c-rgb, 58 55 80) / var(--fill-a)), rgb(var(--c-rgb, 58 55 80) / var(--fill-a)));
-  background-size: 100% 100%, 100% 100%;
-  background-position: 0 0, 0 0;
-  box-shadow:
-    inset 0 calc(var(--t) * var(--w)) 0 rgb(var(--c-rgb, 58 55 80) / var(--edge-a)),
-    inset calc(var(--r) * var(--w) * -1) 0 0 rgb(var(--c-rgb, 58 55 80) / var(--edge-a)),
-    inset 0 calc(var(--b) * var(--w) * -1) 0 rgb(var(--c-rgb, 58 55 80) / var(--edge-a)),
-    inset calc(var(--l) * var(--w)) 0 0 rgb(var(--c-rgb, 58 55 80) / var(--edge-a)),
-    inset calc((1 - var(--r)) * -1px) 0 0 rgba(255, 255, 255, .055),      /* linha capilar interna */
-    inset 0 calc((1 - var(--b)) * -1px) 0 rgba(255, 255, 255, .055),
-    inset 0 0 calc(var(--cell) * .45) rgb(var(--c-rgb, 58 55 80) / var(--inner-a));
-}
+/* costura: linha clara nas peças escuras e médias, escura nas claras */
+[data-theme="night"] .seams path { stroke: rgba(255, 255, 255, .4); }
+[data-theme="night"] .seams path:is([data-f="0"], [data-f="3"], [data-f="7"], [data-f="10"]) { stroke: rgba(21, 18, 29, .35); }
+
 /* camada de efeitos */
 [data-theme="night"] #board .patch::before {
-  inset: 0; border: 0; border-radius: inherit; opacity: 0;
+  content: ""; position: absolute; inset: 0; border-radius: inherit; opacity: 0; pointer-events: none;
   background: rgb(var(--c-rgb, 255 255 255));
 }
-[data-theme="night"] #board .cell.fx-pulse .patch::before { animation: fxPulse .5s ease-out var(--d, 0ms) both; }
-[data-theme="night"] #board .cell.fx-breath .patch::before { animation: fxBreath 1.1s ease-in-out var(--d, 0ms) both; }
+[data-theme="night"] #board .cell.fx-pulse .patch::before { background: #fff; animation: fxPulse .5s ease-out var(--d, 0ms) both; }
+[data-theme="night"] #board .cell.fx-breath .patch::before { background: #fff; animation: fxBreath 1.1s ease-in-out var(--d, 0ms) both; }
 [data-theme="night"] #board.won .cell .patch::before {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0) 15%, rgba(255, 255, 255, .9) 50%, rgba(255, 255, 255, 0) 85%);
   animation: fxSweep .7s var(--ease-out) calc(var(--i, 0) * 34ms) both;
 }
-/* cantos côncavos: camadas com tamanho multiplicado pelas flags (0 = invisível) */
-[data-theme="night"] #board .cell .patch::after {
-  --k: rgb(var(--c-rgb, 58 55 80) / var(--edge-a));
-  --g: #0b0a11;
-  content: ""; position: absolute; inset: 0; top: 0; left: 0; right: 0; bottom: 0; width: auto; height: auto;
-  border: 0; pointer-events: none;
-  background-repeat: no-repeat;
-  background-image:
-    linear-gradient(var(--g), var(--g)), linear-gradient(var(--k), var(--k)), linear-gradient(var(--k), var(--k)),
-    linear-gradient(var(--g), var(--g)), linear-gradient(var(--k), var(--k)), linear-gradient(var(--k), var(--k)),
-    linear-gradient(var(--g), var(--g)), linear-gradient(var(--k), var(--k)), linear-gradient(var(--k), var(--k)),
-    linear-gradient(var(--g), var(--g)), linear-gradient(var(--k), var(--k)), linear-gradient(var(--k), var(--k));
-  background-position:
-    left 0 top 0, left var(--s) top 0, left 0 top var(--s),
-    right 0 top 0, right var(--s) top 0, right 0 top var(--s),
-    left 0 bottom 0, left var(--s) bottom 0, left 0 bottom var(--s),
-    right 0 bottom 0, right var(--s) bottom 0, right 0 bottom var(--s);
-  background-size:
-    calc(var(--ctl) * var(--s)) calc(var(--ctl) * var(--s)),
-    calc(var(--ctl) * var(--w)) calc(var(--ctl) * (var(--s) + var(--w))),
-    calc(var(--ctl) * (var(--s) + var(--w))) calc(var(--ctl) * var(--w)),
-    calc(var(--ctr) * var(--s)) calc(var(--ctr) * var(--s)),
-    calc(var(--ctr) * var(--w)) calc(var(--ctr) * (var(--s) + var(--w))),
-    calc(var(--ctr) * (var(--s) + var(--w))) calc(var(--ctr) * var(--w)),
-    calc(var(--cbl) * var(--s)) calc(var(--cbl) * var(--s)),
-    calc(var(--cbl) * var(--w)) calc(var(--cbl) * (var(--s) + var(--w))),
-    calc(var(--cbl) * (var(--s) + var(--w))) calc(var(--cbl) * var(--w)),
-    calc(var(--cbr) * var(--s)) calc(var(--cbr) * var(--s)),
-    calc(var(--cbr) * var(--w)) calc(var(--cbr) * (var(--s) + var(--w))),
-    calc(var(--cbr) * (var(--s) + var(--w))) calc(var(--cbr) * var(--w));
-}
 
-/* região com gato: o vidro acende por dentro e o fio fica pleno */
-[data-theme="night"] #board .cell.lit { --fill-a: .5; --edge-a: 1; --inner-a: .4; }
-@media (hover: hover) {
-  [data-theme="night"] #board:not(.locked) .cell:not(.has-cat):hover { filter: none; --fill-a: .42; }
-  [data-theme="night"] #board:not(.locked) .cell.lit:not(.has-cat):hover { --fill-a: .58; }
-}
 /* casa com ✕ errado (gato recusado): anel vermelho fixo */
 [data-theme="night"] #board .cell[data-mark="3"] .patch {
-  box-shadow: inset 0 0 0 max(2px, var(--w)) rgba(255, 92, 122, .9), inset 0 0 calc(var(--cell) * .4) rgba(255, 92, 122, .25);
+  box-shadow: inset 0 0 0 max(2px, calc(var(--cell) * .05)) rgba(255, 92, 122, .9);
 }
-/* a casa do gato vira a lâmpada da região: vidro pleno na cor, com miolo mais claro */
-[data-theme="night"] #board .cell.has-cat::after {
-  opacity: 1;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .45) 0%, rgba(255, 255, 255, 0) 62%),
-    rgb(var(--c-rgb));
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55);
-  animation: litIn .18s ease-out;
-}
+[data-theme="night"] #board .cell.has-cat::after { background: radial-gradient(circle at 50% 58%, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 70%); }
 [data-theme="night"] #board .cell.shake { animation: none; }
 [data-theme="night"] #board .cell.shake::after {
   opacity: 0;
@@ -312,28 +176,15 @@
 }
 
 /* ---------- Símbolos ---------- */
-/* gato: silhueta escura sobre a lâmpada; os olhos e o nariz são "furos" na cor da região */
-[data-theme="night"] #board .cell { --cat-eye: rgb(var(--c-rgb, 255 255 255)); --cat-blush: rgb(var(--c-rgb, 255 255 255) / .55); --cat-inner: rgb(var(--c-rgb, 255 255 255) / .6); }
-[data-theme="night"] .sym.cat .sym-cat {
-  width: 66%; height: 66%; margin-top: 2%; color: var(--ink); filter: none;
-  animation: catIn .34s var(--ease-spring) both;
-}
-[data-theme="night"] .sym.cat .cat-body,
-[data-theme="night"] .sym.cat .cat-eyes,
-[data-theme="night"] .sym.cat .cat-ears { animation: none; }
-[data-theme="night"] .cell.pop-cat { animation: none; }
-[data-theme="night"] .cell.pop-cat .sym::before { display: none; }
-[data-theme="night"] #board.won .cell.has-cat { animation: none; }
-[data-theme="night"] #board.won .sym.cat .sym-cat { animation: catWin .6s var(--ease-out) calc(var(--i, 0) * 34ms + 120ms) both; }
+/* gato: silhueta escura sobre o feltro, com olhos cor de mel */
+[data-theme="night"] #board .cell { --cat-eye: #ffd27a; --cat-blush: transparent; --cat-inner: rgba(255, 255, 255, .2); --cat-lip: rgba(255, 255, 255, .25); }
+[data-theme="night"] .sym.cat .sym-cat { color: var(--ink); }
 
-/* ✕: dois fios claros, secos, com micro-flash */
-[data-theme="night"] .sym.x .sym-x { width: 34%; height: 34%; opacity: .62; animation: xFlash .12s ease-out; }
-[data-theme="night"] .sym-x path { stroke: var(--x-ink); stroke-width: 2.4; }
+/* ✕: dois traços escuros, secos, com micro-flash */
+[data-theme="night"] .sym.x .sym-x { opacity: .7; }
 [data-theme="night"] .sym-x path.thread { display: none; }
-[data-theme="night"] .sym.x .x1, [data-theme="night"] .sym.x .x2 { animation: none; }
-[data-theme="night"] .sym.wrong .sym-x { opacity: 1; animation: none; filter: drop-shadow(0 0 3px rgba(255, 92, 122, .7)); }
-[data-theme="night"] .sym.wrong path { stroke: var(--danger); stroke-width: 3; }
-[data-theme="night"] .cell.pop-x { animation: none; }
+[data-theme="night"] .sym.wrong .sym-x { opacity: 1; filter: drop-shadow(0 0 3px rgba(255, 92, 122, .7)); }
+[data-theme="night"] .sym.wrong path { stroke: var(--danger); }
 
 /* Dica: casas que explicam (dourado) e casas a marcar (branco) */
 [data-theme="night"] .cell.hint-glow::before,
@@ -347,7 +198,7 @@
 [data-theme="night"] #sboard .sym-cat { color: var(--ink); }
 
 [data-theme="night"] .point-pop {
-  font-family: var(--font-num); color: #ffe6d6;
+  color: #ffe6d6;
   text-shadow: 0 0 14px rgba(255, 179, 138, .9), 0 0 2px rgba(0, 0, 0, .9), 0 1px 0 rgba(0, 0, 0, .7);
 }
 
@@ -398,7 +249,6 @@
 /* ---------- Páginas (Níveis, Guia, Documentação) ---------- */
 [data-theme="night"] .page-bar .back-btn { background: var(--surface-2); }
 [data-theme="night"] .lv-btn { border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--surface-1); box-shadow: var(--shadow-soft); }
-[data-theme="night"] .lv-num { font-family: var(--font-num); font-weight: 500; }
 [data-theme="night"] .lv-btn.done { background: var(--surface-1); }
 [data-theme="night"] .lv-btn.current { background: var(--accent-soft); border-color: rgba(255, 179, 138, .6); }
 [data-theme="night"] .lv-btn.locked { background: transparent; border-style: dashed; }
@@ -428,18 +278,6 @@
 [data-theme="night"] .s-status.ok { color: var(--success); }
 
 /* ---------- Keyframes do tema ---------- */
-@keyframes xFlash {
-  0% { opacity: 0; transform: scale(.7); }
-  50% { opacity: 1; transform: scale(1.08); }
-  100% { opacity: .62; transform: scale(1); }
-}
-@keyframes catIn {
-  0% { opacity: 0; transform: scale(.6); }
-  60% { opacity: 1; transform: scale(1.08); }
-  100% { opacity: 1; transform: scale(1); }
-}
-@keyframes catWin { 0%, 100% { transform: scale(1); } 45% { transform: scale(1.16); } }
-@keyframes litIn { from { opacity: 0; } }
 @keyframes errFlash { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes microShake {
   0%, 100% { transform: translateX(0); }
@@ -447,17 +285,10 @@
   50% { transform: translateX(3px); }
   75% { transform: translateX(-2px); }
 }
-@keyframes aberration {
-  0%, 100% { filter: none; }
-  35% { filter: drop-shadow(2px 0 0 rgba(255, 60, 110, .55)) drop-shadow(-2px 0 0 rgba(70, 200, 255, .55)); }
-}
-@keyframes ledOff {
-  0% { background: var(--danger); box-shadow: 0 0 12px var(--danger); }
-  15% { background: rgba(255, 255, 255, .1); box-shadow: none; }
-  30% { background: var(--danger); box-shadow: 0 0 12px var(--danger); }
-  45% { background: rgba(255, 255, 255, .1); box-shadow: none; }
-  60% { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
-  75% { background: rgba(255, 255, 255, .1); box-shadow: none; }
+@keyframes eyesShut {
+  0% { opacity: 1; transform: none; fill: var(--danger); }
+  50% { opacity: 1; transform: scaleY(.2); fill: var(--danger); }
+  100% { opacity: .22; transform: scaleY(.3); }
 }
 @keyframes fxPulse { 0% { opacity: 0; } 30% { opacity: .34; } 100% { opacity: 0; } }
 @keyframes fxBreath { 0% { opacity: 0; } 45% { opacity: .26; } 100% { opacity: 0; } }
@@ -466,10 +297,7 @@
 /* ---------- Menos movimento: sem deslocamento/escala; o feedback de luz continua ---------- */
 @media (prefers-reduced-motion: reduce) {
   [data-theme="night"] #board.shake { animation: none; }
-  [data-theme="night"] .sym.cat .sym-cat,
-  [data-theme="night"] #board.won .sym.cat .sym-cat,
-  [data-theme="night"] .sym.x .sym-x { animation: none; }
   [data-theme="night"] #game::after { transition: opacity .9s linear; transform: none; }
   [data-theme="night"] #game.spot-open::after { transform: none; }
-  [data-theme="night"] .paw.drop { animation: none; }
+  [data-theme="night"] .paw.drop .paw-eyes { animation: none; }
 }

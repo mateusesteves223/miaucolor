@@ -50,9 +50,11 @@
   --success: #7fb77e;
 
   /* tabuleiro */
-  --board-frame: #efd5bf;            /* viés da colcha: linho pêssego */
+  --board-frame: #e6d6c2;            /* mesa de feltro cru (aparece nas valas entre regiões) */
   --board-seam: #b99d82;             /* vinco fundo entre os retalhos */
   --stitch: rgba(140, 98, 64, .5);   /* pesponto */
+  --tray: #fffaf3;                   /* bandeja que junta HUD, tabuleiro e ajudas */
+  --shadow-tray: 0 30px 60px -28px rgba(120, 80, 40, .42), 0 2px 0 rgba(255, 255, 255, .8) inset;
   --x-ink: rgba(59, 47, 42, .6);
   --x-wrong: #b23e3e;
   --cat-ink: #3b2f2a;
@@ -163,57 +165,69 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 }
 
 /* =====================================================================
- * JOGO — layout por proporção
- * Paisagem: [HUD] [tabuleiro] [power-ups]   ·   Retrato: HUD / tabuleiro / dock
+ * JOGO — "Mesa do gato": HUD, tabuleiro e ajudas numa bandeja só
+ * Paisagem: [HUD] [tabuleiro] [ajudas], as colunas com a mesma altura do tabuleiro
+ * Retrato: HUD / varal de cores / tabuleiro / dock, tudo colado ao tabuleiro
  * O tabuleiro é min(altura útil, largura útil): nunca há scroll.
  * ===================================================================== */
 #game.active {
-  --pad: clamp(10px, 4.2cqh, 32px);              /* tabuleiro: 720→660 · 540→495 · 450→412 */
-  --gap: clamp(10px, 2.2cqw, 30px);
-  --rail: clamp(84px, 10cqw, 124px);
-  --board: min(100cqh - 2 * var(--pad), 100cqw - 2 * var(--rail) - 2 * var(--gap) - 2 * var(--pad));
+  --pad: clamp(8px, 3cqh, 28px);
+  --tpad: clamp(8px, 1.6cqh, 12px);              /* respiro interno da bandeja */
+  --tgap: clamp(8px, 1.2cqw, 14px);
+  --rail: clamp(92px, 11cqw, 148px);
+  --board: min(100cqh - 2 * var(--pad) - 2 * var(--tpad),
+               100cqw - 2 * var(--pad) - 2 * var(--tpad) - 2 * var(--rail) - 2 * var(--tgap));
   position: relative;
   display: grid;
-  grid-template-columns: minmax(var(--rail), 1fr) var(--board) minmax(var(--rail), 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  column-gap: var(--gap);
+  place-items: center;
   height: 100%;
   padding: var(--pad);
   overflow: hidden;
 }
-.side { position: relative; display: flex; flex-direction: column; justify-content: center; min-width: 0; min-height: 0; }
-.side-l { grid-column: 1; align-items: flex-end; container-type: inline-size; }
-.side-r { grid-column: 3; align-items: flex-start; }
-.side-l .brand { position: absolute; top: 2px; left: 0; }
-.side-r .menu-btn { position: absolute; top: 0; right: 0; }
+.tray {
+  display: grid;
+  grid-template-columns: var(--rail) var(--board) var(--rail);
+  grid-template-rows: var(--board);
+  column-gap: var(--tgap);
+  padding: var(--tpad);
+  border-radius: calc(var(--tpad) + var(--board) * .045);
+  background: var(--tray);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-tray);
+}
+.side {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  min-width: 0; min-height: 0; padding: clamp(8px, 2.6cqh, 20px) 0;
+}
+.side-l { container-type: inline-size; }
+.side-r .menu-btn { flex: 0 0 auto; }
+.side-r .powerups { margin: auto 0; }
+.side-r::after { content: ""; flex: 0 0 44px; }  /* contrapeso do ⋯: as ajudas ficam no meio da coluna */
 @container (max-width: 138px) { .side-l .brand > span { display: none; } }
+.side-l .brand { font-size: 15px; }
+.side-l .brand-mark { width: 24px; height: 24px; }
 
-.stage { grid-column: 2; display: grid; place-items: center; min-width: 0; min-height: 0; }
+.stage { display: grid; place-items: center; min-width: 0; min-height: 0; }
 
-/* ---------- HUD: pílula vertical de linho ---------- */
+/* ---------- HUD: o nível em destaque, tempo, vidas e pontos logo abaixo ---------- */
 .hud {
   display: flex; flex-direction: column; align-items: center;
-  gap: clamp(8px, 2.4cqh, 18px);
-  width: var(--rail);
-  padding: clamp(16px, 4cqh, 28px) 8px;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, #fffcf7, var(--surface-1));
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-soft);
+  gap: clamp(6px, 2cqh, 14px);
+  width: 100%;
+  margin-top: clamp(8px, 3.4cqh, 26px);
 }
 .hud-item { display: flex; flex-direction: column; align-items: center; min-width: 0; }
-.level-info-label {
-  font-size: 11.5px; font-weight: 700; line-height: 1.1; letter-spacing: .06em;
-  text-transform: lowercase; color: var(--text-2);
-}
+.level-info-label { font-size: 13px; font-weight: 600; line-height: 1.1; color: var(--text-2); }
 .level-info .level-info-value {
-  font-size: clamp(30px, 7.2cqh, 54px); font-weight: 700; line-height: 1; letter-spacing: -.03em;
+  font-size: clamp(34px, 9cqh, 68px); font-weight: 700; line-height: 1; letter-spacing: -.04em;
   font-variant-numeric: tabular-nums; color: var(--accent-deep);
 }
-.timer { flex-direction: row; gap: 4px; font-size: 14.5px; font-weight: 700; color: var(--text-2); font-variant-numeric: tabular-nums; }
-.timer .ic { width: 16px; height: 16px; }
+.timer { flex-direction: row; gap: 5px; font-size: 16px; font-weight: 600; color: var(--text-1); font-variant-numeric: tabular-nums; }
+.timer .ic { width: 16px; height: 16px; color: var(--text-2); }
+.score-info { flex-direction: row; align-items: baseline; gap: 4px; }
+.score-info .level-info-label { font-size: 14px; font-weight: 500; order: 2; text-transform: lowercase; }
 .score-line { display: inline-flex; align-items: center; gap: 3px; }
-.score-line .ic { width: 14px; height: 14px; color: var(--honey); }
+.score-line .ic { display: none; }
 .score-info .level-info-value {
   display: inline-block; font-size: 17px; font-weight: 700; line-height: 1.15;
   font-variant-numeric: tabular-nums; transform-origin: center;
@@ -222,11 +236,12 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 @keyframes scoreBump { 40% { transform: scale(1.18); } }
 
 /* Vidas: três patinhas; perdida = contorno tracejado (pesponto) e a patinha cheia cai */
-.lives { flex-direction: row; gap: 3px; }
-.paw { --paw: clamp(17px, 4.2cqh, 23px); position: relative; width: var(--paw); height: var(--paw); color: var(--accent); }
+.lives { flex-direction: row; gap: 4px; }
+.paw { --paw: clamp(17px, 4cqh, 23px); position: relative; width: var(--paw); height: var(--paw); color: var(--accent); }
 .paw-svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .paw-fill { fill: currentColor; transform-box: view-box; transform-origin: 50% 60%; }
 .paw-ring { fill: none; stroke: var(--text-3); stroke-width: 1.4; stroke-dasharray: 1.6 1.4; opacity: 0; }
+.paw-eyes { display: none; fill: currentColor; }
 .paw.lost .paw-fill { opacity: 0; }
 .paw.lost .paw-ring { opacity: 1; }
 .paw.drop .paw-fill { animation: pawDrop .9s cubic-bezier(.45, 0, .8, .4) both; }
@@ -236,10 +251,28 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   100% { opacity: 0; transform: translateY(150%) rotate(38deg); fill: var(--accent); }
 }
 
+/* Varal de cores: uma bolinha por região; ganha o gato quando a região é resolvida.
+ * É legenda e progresso ao mesmo tempo (substitui o contador de gatos). */
+.rack { margin-top: auto; width: 100%; text-align: center; }
 .status {
-  width: var(--rail); margin-top: 12px; min-height: 1.4em;
-  font-size: 13px; font-weight: 600; line-height: 1.3; text-align: center; color: var(--text-2);
+  margin: 0 0 8px; min-height: 1.3em;
+  font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--text-2);
 }
+.rack-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 0 4px; }
+.rack-dot {
+  --d: clamp(16px, 3.6cqh, 26px);
+  display: grid; place-items: center; width: var(--d); height: var(--d); border-radius: 50%;
+  background: var(--fab, var(--surface-3)); opacity: .5;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .12), inset 0 1px 0 rgba(255, 255, 255, .35);
+  transition: opacity .3s;
+}
+.rack-dot.done { opacity: 1; }
+.rack-cat {
+  width: 74%; height: 74%; margin-top: 8%; overflow: visible; fill: currentColor; color: var(--cat-ink);
+  opacity: 0; transform: translateY(25%) scale(.6); transition: opacity .25s, transform .4s var(--ease-spring);
+}
+.rack-dot.done .rack-cat { opacity: 1; transform: none; }
+.rack-dot[data-f="5"], .rack-dot[data-f="8"], .rack-dot[data-f="11"] { --cat-ink: #fff2df; --cat-eye: #3b2f2a; }
 
 /* ---------- Power-ups: botões redondos com selo pêssego ---------- */
 .powerups { position: relative; }
@@ -289,14 +322,15 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } }
 
 /* =====================================================================
- * TABULEIRO — colcha de retalhos
- * Cada região é um retalho de tecido com cor e estampa próprias. Dentro da região as casas
- * são gomos acolchoados emendados (sem vão); na divisa entre regiões o retalho recua,
- * abre um vinco fundo e ganha um pesponto tracejado. A moldura é o viés da colcha.
+ * TABULEIRO — feltro sobre a mesa
+ * Cada região é uma peça de feltro liso. Dentro da região as casas se emendam (sem vão); na divisa
+ * a peça recua e abre uma vala que mostra a mesa. Cantos externos da região são arredondados e os
+ * internos (côncavos) recebem um .fil: um preenchimento curvo concêntrico com o canto vizinho, para a
+ * vala ter a mesma largura em toda a volta. A costura é um único contorno SVG por região (drawSeams).
  * ===================================================================== */
 #board, #sboard {
   --size: 7;
-  --frame: calc(var(--board) * .034);
+  --frame: calc(var(--board) * .022 + 2px);
   --gap: calc(var(--board) * .0085 + 1px);
   position: relative;
   display: grid;
@@ -307,44 +341,39 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   margin: 0 auto;
   gap: var(--gap);
   padding: var(--frame);
-  border-radius: calc(var(--board) * .05);
-  /* vinco (forro escuro) só sob as casas; viés pêssego-linho em volta, com sarja fina e brilho de cima */
-  background:
-    linear-gradient(var(--board-seam), var(--board-seam)) content-box,
-    radial-gradient(130% 90% at 30% 0%, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 60%),
-    repeating-linear-gradient(135deg, rgba(150, 90, 50, .07) 0 1.5px, transparent 1.5px 5px),
-    var(--board-frame);
-  box-shadow: var(--shadow-board), inset 0 1px 0 rgba(255, 255, 255, .7), inset 0 -3px 0 rgba(150, 100, 65, .16);
+  border-radius: calc(var(--board) * .045);
+  background: var(--board-frame);
+  box-shadow: inset 0 2px 6px rgba(80, 50, 20, .18), inset 0 0 0 1px rgba(122, 86, 58, .08);
   container-type: inline-size;
   touch-action: none; user-select: none; -webkit-user-select: none;
 }
 #board { gap: 0; }
-/* pesponto tracejado no viés */
-#board::before, #sboard::before {
-  content: ""; position: absolute; pointer-events: none;
-  inset: calc(var(--frame) * .38);
-  border: 1.5px dashed var(--stitch);
-  border-radius: calc(var(--board) * .05 - var(--frame) * .38);
+/* fibra do feltro, por cima das peças e sem capturar toques */
+#board::after {
+  content: ""; position: absolute; inset: var(--frame); z-index: 1; pointer-events: none;
+  border-radius: calc(var(--board) * .03);
+  opacity: .2; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .25 0 0 0 0 .15 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 #board.locked .cell { cursor: default; }
 #board.lost { filter: saturate(.5); transition: filter .8s ease; }
 #board.won { animation: winSat 1.4s ease-out; }
 @keyframes winSat { 35% { filter: saturate(1.3) brightness(1.05); } }
 
-/* A casa é só o alvo de toque (sempre a casa inteira); quem desenha é o .patch */
+/* A casa é só o alvo de toque (sempre a casa inteira); quem desenha é o .patch (+ .fil nos cantos côncavos) */
 .cell {
   --cell: calc((var(--board) - 2 * var(--frame)) / var(--size));
-  --s: clamp(1.5px, calc(var(--cell) * .065), 5px);           /* recuo na divisa: vinco = 2 × --s */
-  --k: clamp(2.5px, calc(var(--cell) * .08), 7px);            /* distância do pesponto à borda */
+  --s: calc(var(--cell) * .045);                              /* meia-vala na divisa (= SEAM.s no script) */
+  --rr: calc(var(--cell) * .24);                              /* raio do canto externo (= SEAM.rr) */
+  --f: calc(var(--rr) + 2 * var(--s));                        /* raio do canto côncavo: concêntrico com o vizinho */
   --t: 0; --r: 0; --b: 0; --l: 0;
-  --pat: rgba(110, 60, 30, .085);                             /* tinta da estampa */
-  --stitch-c: rgba(95, 55, 30, .42);
-  /* cantos arredondados só onde duas divisas se encontram (canto externo do retalho) */
-  --rtl: calc(var(--t) * var(--l) * 30%);
-  --rtr: calc(var(--t) * var(--r) * 30%);
-  --rbr: calc(var(--b) * var(--r) * 30%);
-  --rbl: calc(var(--b) * var(--l) * 30%);
-  --inset: calc(var(--t) * var(--s)) calc(var(--r) * var(--s)) calc(var(--b) * var(--s)) calc(var(--l) * var(--s));
+  --rtl: calc(var(--t) * var(--l) * var(--rr));
+  --rtr: calc(var(--t) * var(--r) * var(--rr));
+  --rbr: calc(var(--b) * var(--r) * var(--rr));
+  --rbl: calc(var(--b) * var(--l) * var(--rr));
+  /* na divisa recua --s; dentro da região avança meio pixel sobre a vizinha, para não abrir fresta subpixel */
+  --inset: calc(var(--t) * var(--s) - (1 - var(--t)) * .5px) calc(var(--r) * var(--s) - (1 - var(--r)) * .5px)
+           calc(var(--b) * var(--s) - (1 - var(--b)) * .5px) calc(var(--l) * var(--s) - (1 - var(--l)) * .5px);
   position: relative;
   display: grid; place-items: center;
   min-width: 0; min-height: 0;
@@ -356,65 +385,43 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 .patch {
   position: absolute; inset: var(--inset); pointer-events: none;
   border-radius: var(--rtl) var(--rtr) var(--rbr) var(--rbl);
-  background-color: var(--fab, var(--surface-2));
-  /* gomo acolchoado (brilho no meio, vinco suave nas emendas internas) + estampa do tecido */
-  background-image:
-    radial-gradient(75% 70% at 50% 42%, rgba(255, 255, 255, .26), rgba(255, 255, 255, 0) 70%),
-    radial-gradient(farthest-corner at 50% 50%, rgba(70, 35, 15, 0) 62%, rgba(70, 35, 15, .13) 100%),
-    var(--fabric, none);
-  background-size: 100% 100%, 100% 100%, var(--fabric-size, auto);
-  /* a estampa fica ancorada no canto da casa, então continua de um gomo para o outro */
-  background-position: 0 0, 0 0, calc(var(--l) * var(--s) * -1) calc(var(--t) * var(--s) * -1);
-  /* relevo só nas divisas: luz em cima/esquerda, sombra embaixo/direita */
-  box-shadow:
-    inset 0 calc(var(--t) * 2px) 0 rgba(255, 255, 255, .42),
-    inset calc(var(--l) * 2px) 0 0 rgba(255, 255, 255, .22),
-    inset 0 calc(var(--b) * -3px) 0 rgba(70, 35, 15, .2),
-    inset calc(var(--r) * -2px) 0 0 rgba(70, 35, 15, .12);
+  background: var(--fab, var(--surface-2));
+  /* relevo só nas divisas: brilho em cima, sombra embaixo (dentro da região a peça é lisa) */
+  box-shadow: inset 0 calc(var(--t) * 1.5px) 0 rgba(255, 255, 255, .35), inset 0 calc(var(--b) * -2px) 0 rgba(0, 0, 0, .07);
 }
-/* pesponto: tracejado paralelo às divisas, só nos lados que são divisa */
-.patch::before {
-  content: ""; position: absolute;
-  inset: calc(var(--t) * var(--k)) calc(var(--r) * var(--k)) calc(var(--b) * var(--k)) calc(var(--l) * var(--k));
-  border-style: dashed; border-color: var(--stitch-c);
-  border-width: calc(var(--t) * 1.4px) calc(var(--r) * 1.4px) calc(var(--b) * 1.4px) calc(var(--l) * 1.4px);
-  border-radius: calc(var(--t) * var(--l) * 24%) calc(var(--t) * var(--r) * 24%) calc(var(--b) * var(--r) * 24%) calc(var(--b) * var(--l) * 24%);
+/* Canto côncavo: quadrado de lado --f com um furo circular de raio --f centrado no canto da peça vizinha.
+ * Fica fora da casa (desloca --s + --rr) e cobre a quina da vala, que antes ficava em degrau. */
+.fil {
+  --o: calc(-1 * (var(--s) + var(--rr)));
+  position: absolute; display: none; width: var(--f); height: var(--f); pointer-events: none;
 }
+.fil-tl { left: var(--o); top: var(--o); background: radial-gradient(circle at 0 0, transparent var(--f), var(--fab) calc(var(--f) + .6px)); }
+.fil-tr { right: var(--o); top: var(--o); background: radial-gradient(circle at 100% 0, transparent var(--f), var(--fab) calc(var(--f) + .6px)); }
+.fil-br { right: var(--o); bottom: var(--o); background: radial-gradient(circle at 100% 100%, transparent var(--f), var(--fab) calc(var(--f) + .6px)); }
+.fil-bl { left: var(--o); bottom: var(--o); background: radial-gradient(circle at 0 100%, transparent var(--f), var(--fab) calc(var(--f) + .6px)); }
+.cell.ctl .fil-tl, .cell.ctr .fil-tr, .cell.cbr .fil-br, .cell.cbl .fil-bl { display: block; }
+.cell.lit :is(.patch, .fil) { filter: brightness(1.05) saturate(1.08); }
 
-/* canto côncavo: um "L" de pesponto liga as costuras dos dois vizinhos (um canto por casa basta na prática) */
-.cell:is(.ctl, .ctr, .cbr, .cbl) .patch::after {
-  content: ""; position: absolute; width: var(--k); height: var(--k);
-  border: 0 dashed var(--stitch-c);
+/* Costura: contorno tracejado de cada região (unidade do SVG = 1 casa) */
+.seams {
+  position: absolute; left: var(--frame); top: var(--frame);
+  width: calc(100% - 2 * var(--frame)); height: calc(100% - 2 * var(--frame));
+  overflow: visible; pointer-events: none;
 }
-.cell.ctl .patch::after { top: 0; left: 0; border-right-width: 1.4px; border-bottom-width: 1.4px; }
-.cell.ctr:not(.ctl) .patch::after { top: 0; right: 0; border-left-width: 1.4px; border-bottom-width: 1.4px; }
-.cell.cbr:not(.ctl, .ctr) .patch::after { bottom: 0; right: 0; border-left-width: 1.4px; border-top-width: 1.4px; }
-.cell.cbl:not(.ctl, .ctr, .cbr) .patch::after { bottom: 0; left: 0; border-right-width: 1.4px; border-top-width: 1.4px; }
-
-/* Estampas (uma por tecido; baixo contraste para não brigar com o ✕ e o gato) */
-.cell[data-f] { --u: calc(var(--cell) / 5); }
-.cell[data-f="0"] { --fabric: linear-gradient(90deg, var(--pat) 50%, transparent 0), linear-gradient(var(--pat) 50%, transparent 0); --fabric-size: var(--u) var(--u); }   /* xadrez vichy */
-.cell[data-f="1"] { --fabric: radial-gradient(circle, rgba(255, 255, 255, .3) 17%, transparent 20%); --fabric-size: var(--u) var(--u); }                              /* poá */
-.cell[data-f="2"] { --fabric: linear-gradient(45deg, var(--pat) 25%, transparent 25% 50%, var(--pat) 50% 75%, transparent 75%); --fabric-size: var(--u) var(--u); }  /* listra diagonal */
-.cell[data-f="3"] { --fabric: linear-gradient(90deg, var(--pat) 1px, transparent 1px), linear-gradient(var(--pat) 1px, transparent 1px); --fabric-size: calc(var(--u) / 2) calc(var(--u) / 2); }   /* linho */
-.cell[data-f="4"] { --fabric: linear-gradient(90deg, var(--pat) 0 16%, transparent 16%); --fabric-size: var(--u) var(--u); }                                         /* risca de giz */
-.cell[data-f="5"] { --fabric: linear-gradient(45deg, var(--pat) 25%, transparent 25% 50%, var(--pat) 50% 75%, transparent 75%); --fabric-size: calc(var(--u) / 2.5) calc(var(--u) / 2.5); }   /* sarja (jeans) */
-.cell[data-f="6"] { --fabric: linear-gradient(var(--pat) 0 30%, transparent 30%); --fabric-size: var(--u) var(--u); }                                                 /* listra horizontal */
-.cell[data-f="7"] { --fabric: radial-gradient(circle, rgba(255, 255, 255, .42) 22%, transparent 26%); --fabric-size: calc(var(--u) / 1.6) calc(var(--u) / 1.6); }  /* poá miúdo */
-.cell[data-f="8"] { --fabric: linear-gradient(90deg, var(--pat) 0 45%, transparent 45%); --fabric-size: calc(var(--u) / 2) var(--u); }                               /* veludo cotelê */
-.cell[data-f="9"] { --fabric: linear-gradient(45deg, var(--pat) 25%, transparent 25% 75%, var(--pat) 75%), linear-gradient(-45deg, var(--pat) 25%, transparent 25% 75%, var(--pat) 75%); --fabric-size: var(--u) var(--u); }   /* losangos */
-.cell[data-f="11"] { --fabric: radial-gradient(circle, var(--pat) 17%, transparent 20%); --fabric-size: var(--u) var(--u); }
-/* Tecidos escuros: estampa clara e gato/✕ "bordados" em creme */
+.seams path {
+  fill: none; stroke: rgba(95, 55, 30, .42);
+  stroke-width: .024; stroke-dasharray: .075 .055; stroke-linecap: round;
+}
+/* Peças escuras: costura, gato e ✕ em creme */
+.seams path:is([data-f="5"], [data-f="8"], [data-f="11"]) { stroke: rgba(255, 244, 228, .6); }
 .cell[data-f="5"], .cell[data-f="8"], .cell[data-f="11"] {
-  --pat: rgba(255, 246, 234, .12);
-  --stitch-c: rgba(255, 244, 228, .55);
   --cat-ink: #fff2df; --cat-eye: #3b2f2a; --cat-blush: #f2a58f;
   --x-ink: rgba(255, 244, 228, .9); --x-thread: rgba(255, 255, 255, .5); --x-wrong: #ffb4a6;
   --cat-lip: rgba(40, 20, 10, .35);
 }
 
 #sboard .cell { border-radius: 22%; background-color: var(--surface-2); }
-/* camada de realce (gato fixo / erro) com o mesmo contorno do retalho; não anima box-shadow */
+/* camada de realce (gato fixo / erro) com o mesmo contorno da peça; não anima box-shadow */
 .cell::after {
   content: ""; position: absolute; inset: var(--inset); pointer-events: none; opacity: 0;
   border-radius: var(--rtl) var(--rtr) var(--rbr) var(--rbl);
@@ -522,46 +529,52 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 @keyframes fadeOnly { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 
 /* =====================================================================
- * RETRATO (celular): HUD de 44px, tabuleiro, dock de power-ups
+ * RETRATO (celular): HUD de 44px, varal de cores, tabuleiro e dock, tudo na mesma bandeja
  * ===================================================================== */
 @media (max-aspect-ratio: 23/20) {
   #game.active {
-    --pad: clamp(8px, 2.6cqw, 22px);
+    --pad: clamp(6px, 2.4cqw, 20px);
+    --tpad: clamp(8px, 2.6cqw, 14px);
     --hud-h: 44px;
-    --status-h: 20px;
+    --rack-h: 22px;
     --dock-h: 80px;
-    --row-gap: 8px;
+    --row-gap: 10px;
     --rail: 0px;
-    --board: min(100cqw - 2 * var(--pad), 100cqh - 2 * var(--pad) - var(--hud-h) - var(--status-h) - var(--dock-h) - 3 * var(--row-gap));
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: var(--hud-h) var(--status-h) minmax(0, 1fr) var(--dock-h);
-    grid-template-areas: "hud" "status" "stage" "dock";
+    --board: min(100cqw - 2 * var(--pad) - 2 * var(--tpad),
+                 100cqh - 2 * var(--pad) - 2 * var(--tpad) - var(--hud-h) - var(--rack-h) - var(--dock-h) - 3 * var(--row-gap));
+  }
+  .tray {
+    grid-template-columns: var(--board);
+    grid-template-rows: var(--hud-h) var(--rack-h) var(--board) var(--dock-h);
+    grid-template-areas: "hud" "rack" "stage" "dock";
     row-gap: var(--row-gap);
     column-gap: 0;
   }
   .side { display: contents; }
+  .side-r::after { display: none; }
   .side-l .brand { display: none; }
-  .stage { grid-column: auto; grid-area: stage; }
+  .stage { grid-area: stage; }
 
   .hud {
-    grid-area: hud; flex-direction: row; justify-content: space-between; gap: 8px;
-    width: auto; max-width: 560px; height: var(--hud-h); margin-right: 52px; padding: 0 16px;
+    grid-area: hud; flex-direction: row; align-items: center; justify-content: flex-start;
+    gap: clamp(10px, 4cqw, 18px); margin: 0; padding: 0 56px 0 8px;
   }
   .hud-item { flex-direction: row; align-items: center; gap: 5px; }
-  .level-info { align-items: baseline; }
-  .level-info .level-info-value { font-size: 21px; }
-  .score-info .level-info-label { display: none; }
-  .score-info .level-info-value { font-size: 15px; }
-  .paw { --paw: 18px; }
+  .level-info .level-info-label, .score-info .level-info-label { display: none; }
+  .level-info .level-info-value { font-size: 30px; }
+  .score-info .level-info-value { font-size: 16px; }
+  .paw { --paw: 19px; }
   .menu-btn { grid-area: hud; justify-self: end; align-self: center; }
-  .side-r .menu-btn { position: static; }
 
-  .status {
-    grid-area: status; width: auto; margin: 0; min-height: 0;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .rack { grid-area: rack; margin: 0; display: flex; align-items: center; justify-content: center; }
+  .rack .status {                                   /* o texto continua para leitores de tela */
+    position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
   }
-  .powerups { grid-area: dock; display: flex; justify-content: center; align-items: center; }
-  .powerup-bar { flex-direction: row; justify-content: center; gap: clamp(16px, 7cqw, 40px); width: auto; }
+  .rack-dots { flex-wrap: nowrap; gap: 6px; }
+  .rack-dot { --d: 20px; }
+
+  .powerups { grid-area: dock; display: flex; justify-content: center; align-items: center; margin: 0; }
+  .powerup-bar { flex-direction: row; justify-content: space-around; gap: 0; width: var(--board); }
   .pu-btn { width: 84px; }
   .pu-disc { width: 54px; }
 
@@ -569,13 +582,13 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 }
 /* retrato baixo: dock só com ícones */
 @media (max-aspect-ratio: 23/20) and (max-height: 600px) {
-  #game.active { --dock-h: 60px; --status-h: 18px; }
+  #game.active { --dock-h: 60px; }
   .pu-label { display: none; }
 }
 /* paisagem baixa (ex.: celular deitado, 640×360): power-ups sem rótulo */
 @media (min-aspect-ratio: 23/20) and (max-height: 420px) {
   .pu-label { display: none; }
-  .status { font-size: 12px; margin-top: 8px; }
+  .status { font-size: 12px; }
 }
 
 /* =====================================================================

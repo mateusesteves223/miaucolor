@@ -97,6 +97,8 @@ let currentLevel = null;
 const gameEl = document.getElementById("game");
 const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
+const rackEl = document.getElementById("rack");
+let rackDots = [];                 // uma bolinha por região, na ordem dos ids
 const livesEl = document.getElementById("lives");
 const modalEl = document.getElementById("modal");
 const timerEl = document.getElementById("timer-text");
@@ -329,7 +331,7 @@ function renderLives(animate = false) {
       const heart = document.createElement("span");
       heart.className = "paw";
       const svg = svgEl("paw-svg");
-      svg.append(svgUse("i-paw", "paw-ring"), svgUse("i-paw", "paw-fill"));
+      svg.append(svgUse("i-paw", "paw-ring"), svgUse("i-paw", "paw-fill"), svgUse("i-eyes", "paw-eyes"));
       heart.appendChild(svg);
       heart.addEventListener("animationend", () => heart.classList.remove("drop"));
       heartNodes.push(heart);
@@ -387,8 +389,8 @@ function playWave(list, r0, c0) {
   for (const el of els) el.classList.add("wave");
 }
 
-/* A linha de status mostra o contador de gatos ou uma mensagem fixa (vitória, derrota...) guardada por chave,
- * para ser retraduzida ao trocar de idioma. */
+/* A linha de status mostra quantas cores ainda faltam ou uma mensagem fixa (vitória, derrota...) guardada
+ * por chave, para ser retraduzida ao trocar de idioma. */
 let statusKey = null;
 function renderStatus() {
   let text;
@@ -396,7 +398,8 @@ function renderStatus() {
   else {
     let placed = 0;
     for (const row of marks) for (const mark of row) if (mark === 2) placed++;
-    text = t("status.cats", { n: placed, total: N });
+    const left = N - placed;
+    text = left === 1 ? t("status.leftOne") : t("status.left", { n: left });
   }
   if (statusEl.textContent !== text) statusEl.textContent = text;
 }
@@ -425,16 +428,28 @@ function buildBoard() {
         symbol.setAttribute("aria-hidden", "true");
         symbol.hidden = true;
         symbol.append(crossSvg(), catSvg("sym-cat"));
-        cell.append(node("span", "patch"), symbol);     // .patch = o retalho de tecido (cor, estampa, costura)
+        // .patch = o feltro da casa; .fil = preenchimento curvo dos cantos côncavos da região (só aparecem com .ctl etc.)
+        cell.append(node("span", "patch"), node("span", "fil fil-tl"), node("span", "fil fil-tr"),
+          node("span", "fil fil-br"), node("span", "fil fil-bl"), symbol);
         cells[r][c] = cell;
         cellSymbols[r][c] = symbol;
         fragment.appendChild(cell);
       }
     }
-    boardEl.replaceChildren(fragment);
+    boardEl.replaceChildren(fragment, seamSvg);
+  }
+  if (rackDots.length !== N) {
+    rackDots = [];
+    for (let i = 0; i < N; i++) {
+      const dot = node("span", "rack-dot");
+      dot.appendChild(catSvg("rack-cat"));
+      rackDots.push(dot);
+    }
+    rackEl.replaceChildren(...rackDots);
   }
 
   paintRegions();
+  drawSeams();
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
       const cell = cells[r][c];
@@ -468,6 +483,10 @@ function paintRegions() {
     st.setProperty("--fab", PALETTE[idx]);
     st.setProperty("--c-rgb", rgb);
     cells[r][c].dataset.f = idx;
+    if (rackDots[regions[r][c]]) {
+      rackDots[regions[r][c]].style.setProperty("--fab", PALETTE[idx]);
+      rackDots[regions[r][c]].dataset.f = idx;
+    }
     const [x, y, z] = rgb.split(" ").map(Number);
     R += x; G += y; B += z;
   }
@@ -481,6 +500,91 @@ function syncRegionGlow() {
   const lit = new Set();
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (marks[r][c] === 2) lit.add(regions[r][c]);
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) cells[r][c].classList.toggle("lit", lit.has(regions[r][c]));
+  rackDots.forEach((dot, id) => dot.classList.toggle("done", lit.has(id)));
+}
+
+/* ---------- Costura: um contorno tracejado contínuo por região, em SVG por cima do feltro ----------
+ * Unidade = 1 casa. O contorno de cada região é o polígono das suas bordas, recuado para dentro e com
+ * cantos arredondados: convexos acompanham o raio do feltro, côncavos acompanham a curva do .fil.
+ * As medidas casam com o CSS do .cell (--s, --rr). */
+const SEAM = { s: .045, rr: .24, k: .1 };
+const seamSvg = svgEl("seams", "0 0 7 7");
+seamSvg.setAttribute("preserveAspectRatio", "none");
+const fmt = v => +v.toFixed(4);
+
+/* Bordas da região como laços fechados de vértices (sentido horário: o interior fica à direita) */
+function regionLoops(id) {
+  const out = new Map();                       // "x,y" -> arestas que saem dali
+  const add = (x1, y1, x2, y2) => {
+    const k = x1 + "," + y1;
+    if (!out.has(k)) out.set(k, []);
+    out.get(k).push({ x1, y1, x2, y2, dx: x2 - x1, dy: y2 - y1, used: false });
+  };
+  const other = (i, j) => i < 0 || j < 0 || i >= N || j >= N || regions[i][j] !== id;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (regions[r][c] !== id) continue;
+    if (other(r - 1, c)) add(c, r, c + 1, r);
+    if (other(r, c + 1)) add(c + 1, r, c + 1, r + 1);
+    if (other(r + 1, c)) add(c + 1, r + 1, c, r + 1);
+    if (other(r, c - 1)) add(c, r + 1, c, r);
+  }
+  const loops = [];
+  for (const list of out.values()) for (const first of list) {
+    if (first.used) continue;
+    const loop = [];
+    let e = first;
+    while (e && !e.used) {
+      e.used = true;
+      loop.push(e);
+      // num vértice com duas saídas (regiões que se tocam só na diagonal), dobra à direita primeiro
+      const next = (out.get(e.x2 + "," + e.y2) || []).filter(n => !n.used);
+      const turn = n => e.dx * n.dy - e.dy * n.dx;
+      e = next.find(n => turn(n) > 0) || next.find(n => turn(n) === 0) || next[0];
+    }
+    // só os vértices onde a direção muda
+    const corners = [];
+    for (let i = 0; i < loop.length; i++) {
+      const a = loop[i], b = loop[(i + 1) % loop.length];
+      if (a.dx !== b.dx || a.dy !== b.dy) corners.push({ x: a.x2, y: a.y2, a: [a.dx, a.dy], b: [b.dx, b.dy] });
+    }
+    if (corners.length) loops.push(corners);
+  }
+  return loops;
+}
+
+function seamPath(loops) {
+  const d = SEAM.s + SEAM.k;                              // da divisa até a costura
+  const convex = SEAM.rr - SEAM.k, concave = SEAM.rr + 2 * SEAM.s + SEAM.k;
+  let path = "";
+  for (const corners of loops) {
+    const pts = corners.map(({ x, y, a, b }) => {
+      const right = v => [-v[1], v[0]];
+      const ra = right(a), rb = right(b);
+      const vx = x + d * (ra[0] + rb[0]), vy = y + d * (ra[1] + rb[1]);
+      const cw = a[0] * b[1] - a[1] * b[0] > 0;              // curva à direita = canto convexo
+      const rad = cw ? convex : concave;
+      return { p1: [vx - a[0] * rad, vy - a[1] * rad], p2: [vx + b[0] * rad, vy + b[1] * rad], rad, cw };
+    });
+    const last = pts[pts.length - 1];
+    path += `M${fmt(last.p2[0])} ${fmt(last.p2[1])}`;
+    for (const p of pts)
+      path += `L${fmt(p.p1[0])} ${fmt(p.p1[1])}A${fmt(p.rad)} ${fmt(p.rad)} 0 0 ${p.cw ? 1 : 0} ${fmt(p.p2[0])} ${fmt(p.p2[1])}`;
+    path += "Z";
+  }
+  return path;
+}
+
+function drawSeams() {
+  seamSvg.setAttribute("viewBox", `0 0 ${N} ${N}`);
+  const paths = [];
+  for (let id = 0; id < N; id++) {
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", seamPath(regionLoops(id)));
+    path.dataset.f = id % PALETTE.length;
+    paths.push(path);
+  }
+  seamSvg.replaceChildren(...paths);
+  if (seamSvg.parentNode !== boardEl) boardEl.appendChild(seamSvg);
 }
 
 /* Clique e arraste: o primeiro quadrado define se o gesto pinta ✕ ou apaga ✕ */

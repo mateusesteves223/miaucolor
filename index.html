@@ -49,6 +49,11 @@
         <ellipse cx="14.7" cy="6.4" rx="2.2" ry="2.7" transform="rotate(6 14.7 6.4)"/>
         <ellipse cx="19.2" cy="10.6" rx="2.1" ry="2.5" transform="rotate(18 19.2 10.6)"/>
       </symbol>
+      <!-- Olhos de gato (vidas no tema Noite) -->
+      <symbol id="i-eyes" viewBox="0 0 24 24">
+        <path d="M1.8 12.4c2.3-3.7 4.9-5.2 7.5-5.2 1.1 0 1.7 1.2 1.2 2.2l-2 4.9c-.4.9-1.6 1.1-2.3.5z"/>
+        <path d="M22.2 12.4c-2.3-3.7-4.9-5.2-7.5-5.2-1.1 0-1.7 1.2-1.2 2.2l2 4.9c.4.9 1.6 1.1 2.3.5z"/>
+      </symbol>
       <!-- Ícones de traço (24px, stroke = currentColor) -->
       <symbol id="i-bulb" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.2 17.6h5.6M10.2 21h3.6"/><path d="M12 3.2a6.1 6.1 0 0 0-3.7 11c.7.6 1 1.3 1 2.2v1.2h5.4v-1.2c0-.9.3-1.6 1-2.2A6.1 6.1 0 0 0 12 3.2z"/><path d="M12 6.8a2.8 2.8 0 0 0-2.6 1.9" opacity=".7"/></g></symbol>
       <symbol id="i-catface" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.4 10.4 5.2 4.6c0-.7.8-1.1 1.4-.6l3.1 2.6M18.6 10.4l.2-5.8c0-.7-.8-1.1-1.4-.6l-3.1 2.6"/><path d="M12 6.2c4.6 0 7.6 2.9 7.6 6.6 0 4-3.3 6.9-7.6 6.9s-7.6-2.9-7.6-6.9c0-3.7 3-6.6 7.6-6.6z"/></g><g fill="currentColor"><circle cx="9.3" cy="12.6" r="1.15"/><circle cx="14.7" cy="12.6" r="1.15"/><path d="M11 15.2h2l-1 1z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></g></symbol>
@@ -89,6 +94,7 @@
          Paisagem: trilho esquerdo (HUD) | tabuleiro | trilho direito (menu + power-ups).
          Retrato: HUD no topo, tabuleiro, dock com power-ups embaixo. -->
     <section id="game" class="panel active">
+      <div class="tray">
       <div class="side side-l">
         <div class="brand"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 64 64"><use href="#cat-ears"/><use href="#cat-body"/><use href="#cat-eyes"/></svg><span data-i18n="app.name">MeowColor</span></div>
         <div class="hud">
@@ -105,7 +111,10 @@
             <span class="score-line"><svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg><span id="score-value" class="level-info-value">0</span></span>
           </div>
         </div>
-        <div id="status" class="status"></div>
+        <div class="rack">
+          <div id="status" class="status"></div>
+          <div id="rack" class="rack-dots" aria-hidden="true"></div>
+        </div>
       </div>
 
       <div class="stage"><div id="board" aria-label="Tabuleiro" data-i18n-attr="aria-label:ctrl.board"></div></div>
@@ -122,6 +131,7 @@
           </div>
         </div>
         <div id="hint-msg" class="hint-msg" role="status" aria-live="polite" hidden></div>
+      </div>
       </div>
 
       <div id="modal" class="modal" role="dialog" aria-modal="true" aria-label="Mensagem do jogo" data-i18n-attr="aria-label:modal.aria"></div>

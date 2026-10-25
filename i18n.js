@@ -69,6 +69,8 @@ const I18n = (() => {
       "modal.aria": "Mensagem do jogo",
 
       "status.cats": "Gatos: {n}/{total}",
+      "status.left": "Faltam {n} cores",
+      "status.leftOne": "Falta 1 cor",
       "status.won": "Todos os gatos estão em paz!",
       "status.over": "Fim de jogo",
       "status.generating": "Gerando nível…",
@@ -249,6 +251,8 @@ const I18n = (() => {
       "modal.aria": "Game message",
 
       "status.cats": "Cats: {n}/{total}",
+      "status.left": "{n} colors left",
+      "status.leftOne": "1 color left",
       "status.won": "All the cats are at peace!",
       "status.over": "Game over",
       "status.generating": "Generating level…",
@@ -429,6 +433,8 @@ const I18n = (() => {
       "modal.aria": "Mensaje del juego",
 
       "status.cats": "Gatos: {n}/{total}",
+      "status.left": "Faltan {n} colores",
+      "status.leftOne": "Falta 1 color",
       "status.won": "¡Todos los gatos están en paz!",
       "status.over": "Fin del juego",
       "status.generating": "Generando nivel…",
