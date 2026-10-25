@@ -2,7 +2,8 @@
 
 /* Progresso do jogador em localStorage (versionado para não quebrar saves futuros).
  * { v, stars: {id: 1..3}, best: {id: segundos}, unlocked: id, totalScore, inProgress: {id, marks, lives, elapsed, score},
- *   items: {hint, revealCat, safeCross}, installed, language, tutorial } */
+ *   items: {hint, revealCat, safeCross}, installed, language, tutorial,
+ *   daily: { last: "AAAA-MM-DD" do último desafio feito, streak, bestStreak, done: {data: estrelas} } } */
 const Progress = (() => {
   // Chave fixa (independente da versão do formato): a versão fica em data.v.
   // Mantida após o rebranding para MeowColor: renomear apagaria os saves existentes.
@@ -20,6 +21,7 @@ const Progress = (() => {
         4: d => ({ ...d, installed: d.installed === true, v: 5 }),                                                    // v4 -> v5: flag de PWA instalado
     5: d => ({ ...d, language: LANGS.includes(d.language) ? d.language : null, v: 6 }),                             // v5 -> v6: idioma escolhido manualmente (null = automático)
     6: d => ({ ...d, tutorial: d.tutorial === true, v: 7 }),                                                       // v6 -> v7: tutorial concluído ou pulado
+    7: d => ({ ...d, daily: defaultDaily(), v: 8 }),                                                              // v7 -> v8: desafio diário e sequência
       };
   const CURRENT_VERSION = Math.max(...Object.keys(migrations).map(Number)) + 1;
 
@@ -28,7 +30,11 @@ const Progress = (() => {
   const ITEM_MAX = 99;
   function defaultItems() { return { hint: ITEM_START, revealCat: ITEM_START, safeCross: ITEM_START }; }
 
-  const defaults = () => ({ v: CURRENT_VERSION, stars: {}, best: {}, unlocked: 1, totalScore: 0,   inProgress: null, items: defaultItems(), installed: false, language: null, tutorial: false });
+  const DAILY_KEEP = 60;                     // dias de histórico guardados em daily.done
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  function defaultDaily() { return { last: null, streak: 0, bestStreak: 0, done: {} }; }
+
+  const defaults = () => ({ v: CURRENT_VERSION, stars: {}, best: {}, unlocked: 1, totalScore: 0,   inProgress: null, items: defaultItems(), installed: false, language: null, tutorial: false, daily: defaultDaily() });
 
   function migrate(raw) {
     let d = { ...raw };
@@ -64,6 +70,7 @@ const Progress = (() => {
       }
     }
     out.inProgress = sanitizeProgress(d.inProgress);
+    out.daily = sanitizeDaily(d.daily);
     return out;
   }
 
@@ -82,6 +89,22 @@ const Progress = (() => {
     if (typeof p.score === "number" && isFinite(p.score) && p.score >= 0) out.score = Math.floor(p.score);
     return out;
   }
+
+  function sanitizeDaily(x) {
+    const out = defaultDaily();
+    if (!isObj(x)) return out;
+    if (DATE_RE.test(x.last)) out.last = x.last;
+    for (const k of ["streak", "bestStreak"]) if (Number.isInteger(x[k]) && x[k] >= 0) out[k] = x[k];
+    if (isObj(x.done)) {
+      for (const [day, st] of Object.entries(x.done)) if (DATE_RE.test(day) && Number.isInteger(st) && st >= 1 && st <= 3) out.done[day] = st;
+    }
+    return out;
+  }
+
+  /* Datas locais "AAAA-MM-DD" (o dia vira à meia-noite do jogador) */
+  const dateKey = (d = new Date()) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const dayBefore = key => { const [y, m, d] = key.split("-").map(Number); return dateKey(new Date(y, m - 1, d - 1)); };
 
   // Fallback em memória (JSON da última gravação): usado quando localStorage lança (modo anônimo, bloqueio, cota).
   let memoryStore = null;
@@ -166,6 +189,28 @@ const Progress = (() => {
 
     saveProgress(p) { data.inProgress = p; save(); },
     getProgress: id => (data.inProgress && data.inProgress.id === id ? data.inProgress : null),
-    clearProgress() { if (data.inProgress) { data.inProgress = null; save(); } },
+    clearProgress(id) { if (data.inProgress && data.inProgress.id === id) { data.inProgress = null; save(); } },
+
+    /* Desafio diário. A sequência só conta dias seguidos: perder um dia zera (vale ontem ou hoje). */
+    dateKey,
+    dailyStars: (key = dateKey()) => data.daily.done[key] || 0,
+    get dailyStreak() {
+      const { last, streak } = data.daily, today = dateKey();
+      return last === today || last === dayBefore(today) ? streak : 0;
+    },
+    get dailyBestStreak() { return data.daily.bestStreak; },
+    completeDaily(key, stars, score = 0) {
+      const dl = data.daily;
+      if (Number.isFinite(score) && score > 0) data.totalScore += Math.floor(score);
+      if (!dl.done[key]) {                    // primeira vitória do dia: avança a sequência
+        dl.streak = dl.last === dayBefore(key) ? dl.streak + 1 : 1;
+        dl.last = key;
+        dl.bestStreak = Math.max(dl.bestStreak, dl.streak);
+      }
+      dl.done[key] = Math.max(dl.done[key] || 0, stars);
+      const days = Object.keys(dl.done).sort();
+      for (const day of days.slice(0, Math.max(0, days.length - DAILY_KEEP))) delete dl.done[day];
+      save();
+    },
   };
 })();

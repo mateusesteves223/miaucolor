@@ -192,6 +192,46 @@
       assert(JSON.parse(localStorage.getItem("miaucolor:v1")).stars[2] === 3, "não gravou");
     });
 
+    /* ---------- Desafio diário ---------- */
+    test("generateDaily: determinístico por data, tamanho pelo dia da semana, único e com tier ≥ 2", () => {
+      const a = E.generateDaily("2026-10-26"), b = E.generateDaily("2026-10-26");   // segunda-feira
+      eq(a, b, "mesma data deve gerar o mesmo nível");
+      eq([a.n, E.dailySize("2026-10-25"), E.dailySize("2026-10-31")], [6, 9, 9], "tamanhos (seg, dom, sáb)");
+      const reg = decodeRegions(a.n, a.regions);
+      eq(E.countSolutions(a.n, reg, 3), 1, "solução única");
+      assert(validPlacement(a.n, reg, a.solution), "gabarito inválido");
+      assert(a.tier >= 2, "desafio trivial (só casa única)");
+      assert(E.generateDaily("2026-10-27").regions !== E.generateDaily("2026-11-03").regions, "dias diferentes, mesmo mapa");
+    });
+    test("Progress: sequência do diário conta dias seguidos, zera ao pular e guarda o recorde", () => {
+      const key = d => Progress.dateKey(d);
+      const now = new Date();
+      const day = k => key(new Date(now.getFullYear(), now.getMonth(), now.getDate() - k));
+      eq([Progress.dailyStreak, Progress.dailyStars(day(0))], [0, 0], "estado inicial");
+      Progress.completeDaily(day(5), 3);
+      Progress.completeDaily(day(4), 2);
+      eq([Progress.dailyBestStreak, Progress.dailyStreak], [2, 0], "2 dias seguidos, mas já faz tempo");
+      Progress.completeDaily(day(1), 1);
+      eq([Progress.dailyStreak], [1], "pulou dias: recomeça (ontem ainda vale)");
+      Progress.completeDaily(day(0), 2);
+      Progress.completeDaily(day(0), 3);
+      Progress.completeDaily(day(0), 1);
+      eq([Progress.dailyStreak, Progress.dailyStars(day(0)), Progress.dailyBestStreak], [2, 3, 2], "repetir o dia não soma; estrelas só sobem");
+    });
+
+    /* ---------- Curva da campanha ---------- */
+    test("Packs: início suave (1–15 sem tier ≥ 3), contradição só a partir do 7×7, tier não cai dentro do tamanho", async () => {
+      const lvs = [];
+      for (let id = 1; id <= 100; id++) lvs.push(await MiauLevels.get(id));
+      assert(lvs.slice(0, 15).every(l => l.tier <= 2), "tier ≥ 3 nos 15 primeiros níveis");
+      assert(lvs.filter(l => l.tier === 4).every(l => l.n >= 7), "contradição antes do 7×7");
+      for (let i = 1; i < 100; i++) {
+        const a = lvs[i - 1], b = lvs[i];
+        if (a.n === b.n) assert(b.tier >= a.tier, `nível ${b.id}: tier cai dentro do ${b.n}×${b.n}`);
+        else assert(b.tier >= 2 || b.n <= 6, `nível ${b.id}: tamanho novo voltou ao tier 1`);
+      }
+    });
+
     test("Progress: totalScore acumula e formatScore abrevia", () => {
       const before = Progress.totalScore;
       Progress.complete(3, 3, 10, Infinity, 450);

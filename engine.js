@@ -526,9 +526,32 @@ function createEngine() {
     }
   }
 
+  /* ---------- Desafio diário ----------
+   * `key` = data local "AAAA-MM-DD": o mesmo mapa para todo mundo no mesmo dia. O tamanho segue o dia da
+   * semana (segunda leve, fim de semana grande) e o mapa precisa de pelo menos o tier 2 (nada de só "casa única"). */
+  const DAILY_SIZES = [9, 6, 7, 7, 8, 8, 9];          // domingo..sábado
+  const dailySize = key => {
+    const [y, m, d] = key.split("-").map(Number);
+    return DAILY_SIZES[new Date(y, m - 1, d).getDay()];
+  };
+
+  function generateDaily(key) {
+    const n = dailySize(key);
+    for (let attempt = 0; ; attempt++) {
+      const rand = rngFor("miaucolor:daily:" + key + ":" + attempt);
+      const { cols, reg } = generateUnique(n, rand);
+      const g = gradeLevel(n, reg, cols);
+      if (g && g.tier >= 2) {
+        return { key, n, regions: encodeRegions(reg), solution: cols,
+          tier: g.tier, score: g.score, diff: difficultyLabel(g.score) };
+      }
+    }
+  }
+
   return { matrix, DIRS, mulberry32, hashSeed, rngFor, randInt, shuffle, placeCats, growRegions,
     countSolutions, searchSolutions, regionStaysConnected, repairToUnique, generateUnique, gradeLevel,
-    findHint, pickRevealCat, pickSafeCrosses, INF_SIZE, encodeRegions, difficultyLabel, generateInfinite };
+    findHint, pickRevealCat, pickSafeCrosses, INF_SIZE, encodeRegions, difficultyLabel, generateInfinite,
+    dailySize, generateDaily };
 }
 
 /* Cria um Web Worker com o motor embutido; `handlerSrc` define `onmessage` usando `E`.

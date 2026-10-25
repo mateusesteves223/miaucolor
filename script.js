@@ -92,6 +92,7 @@ let cells = [];
 let cellSymbols = [];
 let heartNodes = [];
 let campaignId = null;          // id do nível da campanha (null = treino livre)
+let dailyKey = null;            // data ("AAAA-MM-DD") do desafio diário em jogo (null = fora do diário)
 let currentLevel = null;
 
 const gameEl = document.getElementById("game");
@@ -171,8 +172,10 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function renderLevelInfo() {
-  levelValueEl.textContent = campaignId ? String(campaignId) : "—";
+  levelValueEl.textContent = campaignId ? String(campaignId) : dailyKey ? t("daily.hud") : "—";
+  levelInfoEl.classList.toggle("daily", !campaignId && !!dailyKey);
 }
+langHooks.push(renderLevelInfo);
 
 /* ---------- Pontuação: pop-out na célula + contador animado na HUD ---------- */
 const POINTS_BASE = 100;
@@ -588,17 +591,23 @@ function drawSeams() {
   if (seamSvg.parentNode !== boardEl) boardEl.appendChild(seamSvg);
 }
 
-/* Clique e arraste: o primeiro quadrado define se o gesto pinta ✕ ou apaga ✕ */
+/* Clique e arraste: o primeiro quadrado define se o gesto pinta ✕ ou apaga ✕.
+ * A casa sai da geometria do tabuleiro (não de elementFromPoint): a moldura conta como a casa da beirada,
+ * o que ajuda nas casas pequenas do 10×10 no celular. Fora do tabuleiro, nenhuma casa. */
 function cellAt(x, y) {
-  const el = document.elementFromPoint(x, y);
-  const cell = el && el.closest ? el.closest(".cell") : null;
-  return cell && boardEl.contains(cell) ? cell : null;
+  const rect = boardEl.getBoundingClientRect();
+  if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom || cells.length !== N) return null;
+  const frame = parseFloat(getComputedStyle(boardEl).paddingLeft) || 0;
+  const size = (rect.width - 2 * frame) / N;
+  const clamp = v => Math.min(N - 1, Math.max(0, Math.floor(v / size)));
+  return cells[clamp(y - rect.top - frame)][clamp(x - rect.left - frame)];
 }
 
 function dragApply(cell) {
   const r = +cell.dataset.r, c = +cell.dataset.c;
   const m = marks[r][c];
   if (m >= 2 || m === game.drag.mode) return;
+  game.drag.move.push([r, c, m, game.drag.mode]);
   marks[r][c] = game.drag.mode;
   renderCell(r, c);
   checkWaves(r, c);
@@ -621,7 +630,7 @@ boardEl.addEventListener("pointerdown", e => {
   const m = marks[+cell.dataset.r][+cell.dataset.c];
   if (m >= 2) return;
   game.dragStart = cell;
-  game.drag = { mode: m === 1 ? 0 : 1 };
+  game.drag = { mode: m === 1 ? 0 : 1, move: [] };
 });
 
 boardEl.addEventListener("pointermove", e => {
@@ -636,22 +645,35 @@ boardEl.addEventListener("pointermove", e => {
   dragApply(cell);
 });
 
-/* Toque simples alterna ✕ na hora; segundo toque na mesma célula confirma o gato */
+/* Toque simples alterna ✕ na hora; segundo toque na mesma célula confirma o gato.
+ * No celular o 2º toque às vezes cai na casa vizinha (casas de ~35px no 10×10): se ele vier perto do 1º
+ * (DOUBLE_TAP_SLOP da largura de uma casa), vale como duplo toque na casa do 1º toque. */
+const DOUBLE_TAP_SLOP = .5;
 boardEl.addEventListener("pointerup", e => {
-  const cell = game.dragStart;                  // célula do pointerdown (null se inválido)
+  let cell = game.dragStart;                    // célula do pointerdown (null se inválido)
   if (!cell || game.dragged || !isPlaying()) return;
-  const r = +cell.dataset.r, c = +cell.dataset.c;
-  if (marks[r][c] >= 2) return;
   const now = performance.now();
-  if (game.lastTap.cell === cell && now - game.lastTap.t <= DOUBLE_TAP_MS) {
-    marks[r][c] = game.lastTap.prev;            // desfaz o ✕ do primeiro toque
+  const last = game.lastTap;
+  const slop = cells[0][0].getBoundingClientRect().width * DOUBLE_TAP_SLOP;
+  if (last.cell && now - last.t <= DOUBLE_TAP_MS &&
+      (last.cell === cell || Math.hypot(e.clientX - last.x, e.clientY - last.y) <= slop)) {
+    cell = last.cell;
+    const r = +cell.dataset.r, c = +cell.dataset.c;
+    marks[r][c] = last.prev;                    // desfaz o ✕ do primeiro toque
     renderCell(r, c);
-    game.lastTap = { cell: null, t: 0, prev: 0 };
+    checkWaves(r, c);
+    if (undoStack[undoStack.length - 1] === last.move) { undoStack.pop(); renderUndo(); }
+    game.lastTap = { cell: null, t: 0, prev: 0, move: null };
     tryCat(r, c);
     return;
   }
-  game.lastTap = { cell, t: now, prev: marks[r][c] };
-  marks[r][c] = marks[r][c] === 1 ? 0 : 1;
+  const r = +cell.dataset.r, c = +cell.dataset.c;
+  if (marks[r][c] >= 2) return;
+  const next = marks[r][c] === 1 ? 0 : 1;
+  const move = { cells: [[r, c, marks[r][c], next]] };
+  pushUndo(move);
+  game.lastTap = { cell, t: now, prev: marks[r][c], move, x: e.clientX, y: e.clientY };
+  marks[r][c] = next;
   renderCell(r, c);
   checkWaves(r, c);
   Sound.click();
@@ -660,12 +682,69 @@ boardEl.addEventListener("pointerup", e => {
 });
 
 const endDrag = () => {
-  if (game.dragged) persist();
+  if (game.dragged) {
+    if (game.drag && game.drag.move.length) pushUndo({ cells: game.drag.move });   // o arraste inteiro é uma jogada
+    persist();
+  }
   game.drag = null;
   game.dragStart = null;
 };
 window.addEventListener("pointerup", endDrag);
 window.addEventListener("pointercancel", endDrag);
+
+/* ---------- Desfazer: só os ✕ do jogador e o "Limpar" ----------
+ * Gatos e ✕ de erro são definitivos (custaram vida ou deram pontos). Cada jogada guarda as casas que mudou
+ * ([r, c, antes, depois]) e só volta as que ainda estão como ela deixou: um ✕ que virou gato, ou que um
+ * power-up remarcou, fica. O "Limpar" guarda o tabuleiro inteiro e sai da pilha quando um gato novo entra. */
+const UNDO_MAX = 200;
+let undoStack = [];
+const undoBtn = document.getElementById("undo-btn");
+function renderUndo() { undoBtn.disabled = !undoStack.length; }
+function pushUndo(move) {
+  undoStack.push(move);
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+  renderUndo();
+}
+function resetUndo() { undoStack = []; renderUndo(); }
+function dropClearUndo() {
+  if (!undoStack.some(m => m.clear)) return;
+  undoStack = undoStack.filter(m => !m.clear);
+  renderUndo();
+}
+
+function undo() {
+  if (!isPlaying() || !undoStack.length) return;
+  const move = undoStack.pop();
+  renderUndo();
+  game.lastTap = { cell: null, t: 0, prev: 0, move: null };
+  let last = null;
+  if (move.clear) {
+    marks = move.clear.marks;
+    waveDone.clear();
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) renderCell(r, c);
+    setScore(move.clear.score);
+    game.combo = move.clear.combo;
+    updateStatus();
+  } else {
+    for (const [r, c, prev, next] of move.cells) {
+      if (marks[r][c] !== next) continue;
+      marks[r][c] = prev;
+      renderCell(r, c);
+      checkWaves(r, c);
+      last = [r, c];
+    }
+  }
+  Sound.click();
+  persist();
+  if (Tutorial.active) { if (last) Tutorial.tap(...last); else Tutorial.poke(); }
+}
+undoBtn.addEventListener("click", undo);
+document.addEventListener("keydown", e => {
+  if (e.key.toLowerCase() !== "z" || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+  if (!gameTabActive() || (e.target.closest && e.target.closest("input, select, textarea"))) return;
+  e.preventDefault();
+  undo();
+});
 
 /* Modo dev: ✕ na linha, coluna e vizinhança (inclusive diagonais) do gato */
 function autoCross(r, c) {
@@ -691,6 +770,7 @@ function autoCrossRegion(r, c) {
 
 /* Põe o gato `(r, c)` (já validado) e confere a vitória. `award`: false nos gatos revelados por power-up. */
 function commitCat(r, c, award) {
+  dropClearUndo();                 // voltar ao tabuleiro de antes do "Limpar" apagaria este gato
   marks[r][c] = 2;
   if (game.devMode && autoXEl.checked) autoCross(r, c);
   if (game.devMode && autoColorEl.checked) autoCrossRegion(r, c);
@@ -711,6 +791,7 @@ function tryCat(r, c) {
     commitCat(r, c, true);
     return;
   }
+  dropClearUndo();
   marks[r][c] = 3;                 // erro: ✕ vinho fixo
   game.combo = 0;
   renderCell(r, c);
@@ -768,7 +849,7 @@ function lockBoard(nextState) {
   boardEl.classList.add("locked");
   clearHints();
   renderTimer();
-  Progress.clearProgress();
+  Progress.clearProgress(campaignId);   // treino e diário não apagam a partida salva da campanha
 }
 
 /* `build()` devolve { emoji, title, text, label, action, extra? } (extra = [rótulo, ação] de um botão secundário).
@@ -854,6 +935,7 @@ function win() {
   celebrate();
   setTimeout(() => Sound.win(), 350);               // depois do "miau" do último gato
   setStatusKey("status.won");
+  if (dailyKey && !game.cheated) { winDaily(); return; }
   if (!campaignId || game.cheated) {
     setTimeout(() => showModal(() => ({
       icon: "win", title: t("modal.free.title"), text: t("modal.free.text"),
@@ -894,7 +976,7 @@ function celebrate() {
 
 function gameOver() {
   if (!isPlaying()) return;
-  if (!campaignId) game.lost = true;      // trava "mesmo nível" só no treino livre
+  if (!campaignId && !dailyKey) game.lost = true;      // trava "mesmo nível" só no treino livre
   lockBoard(GameState.GAME_OVER);
   boardEl.classList.add("lost");
   setTimeout(() => Sound.lose(), 250);
@@ -902,7 +984,7 @@ function gameOver() {
   setTimeout(() => showModal(() => ({
     icon: "over", title: t("modal.over.title"), text: t("modal.over.text"),
     label: t("modal.over.retry"), action: () => afterBreak(retryLevel),
-    extra: campaignId ? [t("modal.levels"), showLevels] : null,
+    extra: campaignId || dailyKey ? [t("modal.levels"), showLevels] : null,
   })), 700);
 }
 
@@ -912,6 +994,7 @@ function resetBoard() {
   game.cheated = game.devMode;
   game.adHold = false;
   clearHints();
+  resetUndo();
   modalEl.classList.remove("open");
   buildBoard();
   renderLives();
@@ -976,6 +1059,7 @@ async function newGame() {
   }
   const n = parseInt(sizeEl.value, 10);
   campaignId = null;                // sair da campanha: a partida salva continua guardada
+  dailyKey = null;
   currentLevel = null;
   if (n >= ASYNC_FROM) {
     game.generating = true;
@@ -1017,6 +1101,7 @@ async function playLevel(id, resume = true) {
     return false;
   }
   campaignId = id;
+  dailyKey = null;
   currentLevel = lv;
   N = lv.n;
   solution = lv.solution;
@@ -1044,9 +1129,123 @@ async function playLevel(id, resume = true) {
   return true;
 }
 
+/* ---------- Desafio diário: um mapa por dia (seed da data, engine.generateDaily), sequência em Progress ----------
+ * Não conta para a campanha nem salva a partida no meio (o slot é da campanha); perder permite tentar de novo. */
+const dailyCache = new Map();      // data -> nível já gerado nesta sessão
+
+function generateDailyAsync(key) {
+  if (dailyCache.has(key)) return Promise.resolve(dailyCache.get(key));
+  cancelActiveGenWorker();
+  return new Promise(resolve => {
+    const done = lv => { dailyCache.set(key, lv); resolve(lv); };
+    const fallback = () => done(E.generateDaily(key));       // sem Worker: thread principal
+    try {
+      const worker = spawnEngineWorker("onmessage = e => postMessage(E.generateDaily(e.data));");
+      activeGenWorker = worker;
+      const release = () => { worker.terminate(); if (activeGenWorker === worker) activeGenWorker = null; };
+      worker.onmessage = e => { release(); done(e.data); };
+      worker.onerror = () => { release(); fallback(); };
+      worker.postMessage(key);
+    } catch {
+      fallback();
+    }
+  });
+}
+
+async function playDaily() {
+  if (game.generating) return;
+  Tutorial.exit();
+  persistNow();                                    // a partida da campanha em andamento fica salva
+  modalEl.classList.remove("open");
+  document.querySelector('.tab[data-target="game"]').click();
+  const key = Progress.dateKey();
+  if (!dailyCache.has(key)) {
+    game.generating = true;
+    setGameState(GameState.IDLE);
+    boardEl.classList.add("locked");
+    setStatusKey("status.generating");
+  }
+  const lv = await generateDailyAsync(key);
+  game.generating = false;
+  campaignId = null;
+  dailyKey = key;
+  currentLevel = null;
+  game.lost = false;
+  N = lv.n;
+  solution = lv.solution.slice();
+  regions = matrix(N, 0).map((row, r) => row.map((_, c) => lv.regions.charCodeAt(r * N + c) - 65));
+  document.getElementById("size").value = N;
+  resetBoard();
+}
+
+function winDaily() {
+  const key = dailyKey;
+  const secs = Math.round(timerElapsed() / 1000);
+  const stars = starsFor(MAX_LIVES - game.lives);
+  const score = game.score;
+  Progress.completeDaily(key, stars, score);
+  setTimeout(() => {
+    showModal(() => ({
+      icon: "win",
+      stars,
+      title: t("daily.win.title"),
+      text: [
+        t("modal.win.points", { n: Progress.formatScore(score) }),
+        t("modal.win.time", { t: formatTime(secs) }),
+        { cls: "streak-line", text: streakText(Progress.dailyStreak) },
+      ],
+      label: t("daily.win.campaign"),
+      action: () => afterBreak(() => playLevel(Progress.current()).then(ok => { if (!ok && !game.generating) newGame(); })),
+      extra: [t("modal.levels"), showLevels],
+    }));
+  }, 500);
+}
+
+const streakText = n => (n === 1 ? t("daily.streakOne") : t("daily.streak", { n }));
+
+/* Cartão do desafio no topo do mapa de níveis: data, tamanho, sequência e estrelas de hoje */
+const dailyCardEl = document.getElementById("daily-card");
+function renderDailyCard() {
+  const key = Progress.dateKey();
+  const stars = Progress.dailyStars(key);
+  const streak = Progress.dailyStreak;
+  const n = E.dailySize(key);
+  const [y, m, d] = key.split("-").map(Number);
+  const date = new Date(y, m - 1, d).toLocaleDateString(I18n.htmlLang, { weekday: "long", day: "numeric", month: "long" });
+
+  const art = node("div", "daily-art");
+  art.appendChild(svgEl("daily-ic")).appendChild(svgUse("i-calendar"));
+  art.appendChild(node("span", "daily-day", String(d)));
+  const body = node("div", "daily-body");
+  body.append(node("h3", "daily-title", t("daily.title")), node("p", "daily-meta", `${date} · ${n}×${n}`));
+  const streakEl = node("p", "daily-streak" + (streak ? " on" : ""));
+  streakEl.appendChild(svgEl("daily-flame")).appendChild(svgUse("i-flame"));
+  streakEl.append(streak ? streakText(streak) : t("daily.streakNone"));
+  body.appendChild(streakEl);
+
+  const side = node("div", "daily-side");
+  if (stars) {
+    const row = node("span", "daily-stars", starText(stars));
+    row.setAttribute("aria-label", t("level.stars", { n: stars }));
+    const now = new Date();
+    const mins = Math.max(1, Math.ceil((new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now) / 60000));
+    side.append(row, node("span", "daily-next", t("daily.next", { h: Math.floor(mins / 60), m: mins % 60 })));
+  }
+  const btn = node("button", "pill-btn daily-play" + (stars ? "" : " primary"), t(stars ? "daily.replay" : "daily.play"));
+  btn.type = "button";
+  btn.addEventListener("click", playDaily);
+  side.appendChild(btn);
+
+  dailyCardEl.classList.toggle("done", !!stars);
+  dailyCardEl.replaceChildren(art, body, side);
+}
+langHooks.push(renderDailyCard);
+document.getElementById("daily-btn").addEventListener("click", playDaily);
+
 function clearBoard() {
   if (!isPlaying()) return;
   if (Tutorial.active) { Tutorial.restart(); return; }   // recomeça a lição (com os gatos que ela já traz)
+  if (marks.some(row => row.some(m => m))) pushUndo({ clear: { marks, score: game.score, combo: game.combo } });
   marks = matrix(N, 0);          // gatos já fixados também voltam ao vazio, vidas são mantidas
   waveDone.clear();
   clearHints();
@@ -1126,7 +1325,7 @@ const HINT_TEXT_MS = 9000;
 
 const hudMsgEl = document.getElementById("hint-msg");
 const itemUi = {};
-document.querySelectorAll(".pu-btn").forEach(btn => {
+document.querySelectorAll(".pu-btn[data-item]").forEach(btn => {
   itemUi[btn.dataset.item] = { btn, badge: btn.querySelector(".pu-badge") };
   btn.addEventListener("click", () => usePowerUp(btn.dataset.item));
 });
@@ -1585,6 +1784,7 @@ const Tutorial = (() => {
     lesson = i;
     const L = LESSONS[i];
     campaignId = null;
+    dailyKey = null;
     currentLevel = null;
     game.lost = false;
     N = L.n;
@@ -1874,6 +2074,7 @@ function levelGroup(title, hint) {
 
 async function renderLevelMap() {
   const all = await MiauLevels.loadAll();
+  renderDailyCard();
   levelsTotalEl.textContent = t("levels.total", { stars: Progress.totalStars(), score: Progress.formatScore(Progress.totalScore) });
   levelMapEl.replaceChildren();
   let section = null;

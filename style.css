@@ -222,6 +222,9 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   font-size: clamp(34px, 9cqh, 68px); font-weight: 700; line-height: 1; letter-spacing: -.04em;
   font-variant-numeric: tabular-nums; color: var(--accent-deep);
 }
+/* Desafio diário: o "valor" é uma palavra, não um número */
+.level-info.daily .level-info-label { display: none; }
+.level-info.daily .level-info-value { font-size: clamp(22px, 5cqh, 30px); letter-spacing: 0; }
 .timer { flex-direction: row; gap: 5px; font-size: 16px; font-weight: 600; color: var(--text-1); font-variant-numeric: tabular-nums; }
 .timer .ic { width: 16px; height: 16px; color: var(--text-2); }
 .score-info { flex-direction: row; align-items: baseline; gap: 4px; }
@@ -307,8 +310,12 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   border-color: transparent transparent transparent currentColor;
 }
 @media (hover: hover) {
-  .pu-btn:hover .pu-disc { transform: translateY(-2px); }
+  .pu-btn:not(:disabled):hover .pu-disc { transform: translateY(-2px); }
 }
+/* Desfazer: ferramenta, não power-up (sem selo, disco liso); apagado com a pilha vazia */
+.pu-undo .pu-disc { background: var(--surface-2); box-shadow: none; }
+.pu-undo:disabled { cursor: default; opacity: .4; }
+.pu-undo:disabled .pu-disc { transform: none; }
 
 /* Mensagem da dica: cartão quente; toque para fechar */
 .hint-msg {
@@ -582,6 +589,7 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
   .hud-item { flex-direction: row; align-items: center; gap: 5px; }
   .level-info .level-info-label, .score-info .level-info-label { display: none; }
   .level-info .level-info-value { font-size: 30px; }
+  .level-info.daily .level-info-value { font-size: 18px; }
   .score-info .level-info-value { font-size: 16px; }
   .paw { --paw: 19px; }
   .menu-btn { grid-area: hud; justify-self: end; align-self: center; }
@@ -595,10 +603,17 @@ body:not(.dev-ui) [data-dev] { display: none !important; }
 
   .powerups { grid-area: dock; display: flex; justify-content: center; align-items: center; margin: 0; }
   .powerup-bar { flex-direction: row; justify-content: space-around; gap: 0; width: var(--board); }
-  .pu-btn { width: 84px; }
+  .pu-btn { width: auto; flex: 0 1 84px; min-width: 0; }
   .pu-disc { width: 54px; }
 
   .hint-msg { top: var(--pad); bottom: auto; left: var(--pad); right: var(--pad); max-height: 40%; z-index: 4; }
+}
+/* celular em pé (≤ 540px de largura): a largura é o que limita o tabuleiro, então a bandeja some (sem margem,
+ * borda nem sombra) e a moldura afina. No 10×10 de 393px (Moto G55) a casa vai de ~33px para ~37px. */
+@media (max-aspect-ratio: 23/20) and (max-width: 540px) {
+  #game.active { --pad: 0px; --tpad: 4px; }
+  .tray { border: 0; border-radius: 0; background: none; box-shadow: none; }
+  #board { --frame: calc(var(--board) * .012 + 2px); }
 }
 /* retrato baixo: dock só com ícones */
 @media (max-aspect-ratio: 23/20) and (max-height: 600px) {
@@ -656,7 +671,7 @@ body.portrait .menu-drop::before {                 /* alça da folha */
 .menu-head .brand { font-size: 19px; }
 .menu-head .icon-btn { width: 40px; height: 40px; background: var(--surface-2); box-shadow: none; }
 
-.tabs { grid-area: tabs; display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.tabs { grid-area: tabs; display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; }
 .tab {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   min-height: 62px; padding: 8px 6px; border: 0; border-radius: var(--radius-m);
@@ -683,6 +698,7 @@ body.portrait .menu-drop::before {                 /* alça da folha */
 }
 .controls .pill-btn { gap: 5px; padding: 0 8px; font-size: 14px; white-space: nowrap; }
 .controls .pill-btn .ic { width: 16px; height: 16px; }
+.controls .pill-btn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .set-row {
@@ -858,6 +874,41 @@ body[data-panel="game"] .page-bar { display: none; }
 .lv-btn.locked { background: var(--surface-2); box-shadow: none; cursor: not-allowed; opacity: .75; }
 .lv-btn:not(:disabled):active { transform: scale(.96); }
 @media (hover: hover) { .lv-btn:not(:disabled):hover { transform: translateY(-2px); border-color: rgba(242, 153, 107, .6); } }
+
+/* ---------- Desafio diário: cartão no topo do mapa ---------- */
+.daily-card {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px;
+  margin: 14px 0 4px; padding: 14px 16px; border: 2px solid var(--accent); border-radius: var(--radius-l);
+  background: var(--accent-soft); box-shadow: var(--shadow-soft);
+}
+.daily-card.done { border-color: var(--line); background: var(--surface-1); }
+.daily-art { position: relative; display: grid; place-items: center; width: 54px; height: 54px; color: var(--accent-deep); }
+.daily-ic { width: 54px; height: 54px; }
+.daily-day { position: absolute; top: 21px; left: 0; right: 0; text-align: center; font-size: 17px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.daily-title { margin: 0; font-size: 18px; color: var(--text-1); }
+.daily-meta { margin: 2px 0 0; font-size: 13px; color: var(--text-2); }
+.daily-meta::first-letter { text-transform: uppercase; }
+.daily-streak { display: flex; align-items: center; gap: 5px; margin: 6px 0 0; font-size: 13px; font-weight: 700; color: var(--text-2); }
+.daily-flame { flex: 0 0 auto; width: 16px; height: 16px; color: var(--text-3); }
+.daily-streak.on { color: var(--accent-deep); }
+.daily-streak.on .daily-flame { color: var(--accent); }
+.daily-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.daily-stars { font-size: 16px; letter-spacing: .1em; color: var(--honey); line-height: 1; }
+.daily-next { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.daily-play { white-space: nowrap; }
+.daily-play.primary { background: var(--accent); color: var(--accent-ink); }
+@media (max-width: 480px) {
+  .daily-card { grid-template-columns: auto minmax(0, 1fr); }
+  .daily-side { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 12px; }
+  .daily-side .daily-play { flex: 1 0 100%; }
+}
+.streak-line { font-weight: 700; color: var(--accent-deep); }
+.controls #daily-btn { grid-column: 1 / -1; grid-row: 1; }    /* linha própria em cima; tamanho/novo/limpar ficam juntos embaixo */
+/* celular estreito: sem ícones nos botões da partida e ajustes em uma coluna, para nada cortar */
+@media (max-width: 360px) {
+  .controls .pill-btn:not(#daily-btn) .ic { display: none; }
+  .settings { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* ---------- Texto (Guia e Documentação): folha de papel ---------- */
 .doc {
